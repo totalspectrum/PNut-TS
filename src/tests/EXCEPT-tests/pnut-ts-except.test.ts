@@ -130,8 +130,13 @@ describe('PNut_ts detects .spin2 exceptions w/debug() correctly', () => {
         throw error;
       }
 
+      // Write stderr output immediately after compilation (for exception tests)
+      if (stderrOutput.length > 0 && goldenErroutFSpec && fileExists(goldenErroutFSpec)) {
+        fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
+      }
+
       // my wait list...
-      const possibleGoldFilesList: string[] = [goldenFSpec, goldenObjFSpec, goldenBinFSpec];
+      const possibleGoldFilesList: string[] = [goldenFSpec, goldenObjFSpec, goldenBinFSpec, goldenErroutFSpec];
       const outFilesList: string[] = [];
       for (let index = 0; index < possibleGoldFilesList.length; index++) {
         const goldFSpec = possibleGoldFilesList[index];
@@ -323,8 +328,13 @@ describe('PNut_ts detects .spin2 exceptions w/o debug() correctly', () => {
         throw error;
       }
 
+      // Write stderr output immediately after compilation (for exception tests)
+      if (stderrOutput.length > 0 && goldenErroutFSpec && fileExists(goldenErroutFSpec)) {
+        fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
+      }
+
       // my wait list...
-      const possibleGoldFilesList: string[] = [goldenFSpec, goldenObjFSpec, goldenBinFSpec];
+      const possibleGoldFilesList: string[] = [goldenFSpec, goldenObjFSpec, goldenBinFSpec, goldenErroutFSpec];
       const outFilesList: string[] = [];
       for (let index = 0; index < possibleGoldFilesList.length; index++) {
         const goldFSpec = possibleGoldFilesList[index];

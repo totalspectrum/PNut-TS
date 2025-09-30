@@ -116,12 +116,60 @@ export function compareExceptionFiles(reportFSpec: string, goldenFSpec: string):
     // Read the golden file and split into lines
     const goldenContentLines = fs.readFileSync(goldenFSpec, 'utf8').split(/\s*\r\n|\s*\r/);
 
+    // Remove empty lines at the end
+    while (reportContentLines.length > 0 && reportContentLines[reportContentLines.length - 1].trim() === '') {
+      reportContentLines.pop();
+    }
+    while (goldenContentLines.length > 0 && goldenContentLines[goldenContentLines.length - 1].trim() === '') {
+      goldenContentLines.pop();
+    }
+
+    // Function to normalize error lines for comparison
+    const normalizeErrorLine = (line: string): string => {
+      // Remove patterns like (m123) or (m1234) at the end of error messages
+      let normalized = line.replace(/\s*\(m\d+\)\s*$/, '');
+
+      // Normalize paths - extract just the filename and line number portion
+      // Match patterns like /any/path/filename.spin2:line:error:message
+      // or C:\any\path\filename.spin2:line:error:message
+      const errorPattern = /^.*[\/\\]([^\/\\]+\.spin2:\d+:error:.*)$/;
+      const match = normalized.match(errorPattern);
+      if (match) {
+        normalized = match[1]; // Just keep filename.spin2:line:error:message
+      }
+      // Trim any trailing whitespace
+      normalized = normalized.trim();
+
+      return normalized;
+    };
+
+    // Only log details when there's a problem
+    const debugComparison = false; // Set to true for debugging
+
     // Compare the filtered content of both files
-    // NOPE, not good enough:  filesMatchStatus = reportFiltered.join('\n') === goldenFiltered.join('\n');
     filesMatchStatus = reportContentLines.length == goldenContentLines.length;
     if (filesMatchStatus == true) {
-      // line count is SAME, now do more detaile match
-      filesMatchStatus = reportContentLines === goldenContentLines;
+      // line count is SAME, now do more detailed match
+      // Compare each line individually, normalizing paths and stripping location markers
+      for (let i = 0; i < reportContentLines.length; i++) {
+        const reportLineNormalized = normalizeErrorLine(reportContentLines[i]);
+        const goldenLineNormalized = normalizeErrorLine(goldenContentLines[i]);
+
+        if (reportLineNormalized !== goldenLineNormalized) {
+          console.log(`compareExceptionFiles: Mismatch at line ${i}:`);
+          console.log(`  Report: [${reportContentLines[i]}]`);
+          console.log(`  Golden: [${goldenContentLines[i]}]`);
+          console.log(`  Report normalized: [${reportLineNormalized}]`);
+          console.log(`  Golden normalized: [${goldenLineNormalized}]`);
+          filesMatchStatus = false;
+          break;
+        }
+      }
+      if (filesMatchStatus && debugComparison) {
+        console.log(`compareExceptionFiles: All ${reportContentLines.length} lines match`);
+      }
+    } else {
+      console.log(`compareExceptionFiles: Line count mismatch: report=${reportContentLines.length}, golden=${goldenContentLines.length}`);
     }
   }
   return filesMatchStatus;

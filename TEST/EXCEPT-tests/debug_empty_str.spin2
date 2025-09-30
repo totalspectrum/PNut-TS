@@ -1,0 +1,21 @@
+'' From the Spin2 Manual: code for a simple debug Terminal application.
+'' Terminal with basic text display
+
+CON _clkfreq = 10_000_000
+
+PUB go() | i
+    debug(`TERM MyTerm SIZE 9 1 TEXTSIZE 40)
+    repeat
+        repeat i from 50 to 60
+            debug(`MyTerm 1 'Temp = `(i)')
+            waitms(500)
+
+
+    debug("")
+
+PUB go2() | i
+    debug(`TERM MyTerm SIZE 9 1 TEXTSIZE 40)
+    repeat
+        repeat i from 50 to 60
+            debug(`MyTerm 1 'Temp = `(i)')
+            waitms(500)
