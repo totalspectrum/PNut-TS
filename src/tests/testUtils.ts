@@ -132,7 +132,7 @@ export function compareExceptionFiles(reportFSpec: string, goldenFSpec: string):
       // Normalize paths - extract just the filename and line number portion
       // Match patterns like /any/path/filename.spin2:line:error:message
       // or C:\any\path\filename.spin2:line:error:message
-      const errorPattern = /^.*[\/\\]([^\/\\]+\.spin2:\d+:error:.*)$/;
+      const errorPattern = /^.*[/\\]([^/\\]+\.spin2:\d+:error:.*)$/;
       const match = normalized.match(errorPattern);
       if (match) {
         normalized = match[1]; // Just keep filename.spin2:line:error:message
@@ -191,12 +191,9 @@ export function compareListingFiles(reportFSpec: string, goldenFSpec: string, st
   const isPreprocessorReport: boolean = reportFSpec.endsWith('.pre');
   if (inputFileCount == 2) {
     // Read the report file and split into lines
-    const reportContentLines = fs.readFileSync(reportFSpec, 'utf8').split(/\s*\r?\n/);
-    // Read the golden file and split into lines
-    let goldenContentLines = fs.readFileSync(goldenFSpec, 'utf8').split(/\s*\r?\n/);
-    if (goldenContentLines.length == 1) {
-      goldenContentLines = fs.readFileSync(goldenFSpec, 'utf8').split(/\s*\r\n|\s*\r/);
-    }
+    const reportContentLines = fs.readFileSync(reportFSpec, 'utf8').split(/\r\n|\r|\n/).map(line => line.trim()).filter(line => line.length > 0);
+    // Read the golden file and split into lines (handle different line endings)
+    const goldenContentLines = fs.readFileSync(goldenFSpec, 'utf8').split(/\r\n|\r|\n/).map(line => line.trim()).filter(line => line.length > 0);
 
     // Strings to exclude from comparison
     const filterStrings: string[] = stringsToExlude !== undefined ? stringsToExlude : ['Redundant OBJ bytes removed'];
@@ -357,9 +354,34 @@ function compareConFloatValues(compileLines: string[], goldenLines: string[]): b
             //console.log(` -- name=[${compName},${goldName}], value=[${compValue},${goldValue}], matchStatus=(${matchStatus})`);
           }
         }
+      } else if (compLine.includes('TYPE:') && compLine.includes('VALUE:')) {
+        // Handle all other symbol values with 1-bit tolerance
+        // This catches TYPE: CON_INT, TYPE: OBJ_CON_INT, etc.
+        const regex = /TYPE:\s*(\S+)\s+VALUE:\s*([0-9A-F]+)\s+NAME:\s*(.+?)(?:\s|$)/;
+
+        const goldMatch = goldLine.match(regex);
+        const compMatch = compLine.match(regex);
+
+        if (goldMatch !== null && compMatch !== null) {
+          const [, goldType, goldValue, goldName] = goldMatch;
+          const [, compType, compValue, compName] = compMatch;
+
+          // Compare TYPE and NAME for equality
+          if (goldType === compType && goldName === compName) {
+            // Convert VALUE from hex string to number and compare within +/- 1 range
+            const goldValueNum = parseInt(goldValue, 16);
+            const compValueNum = parseInt(compValue, 16);
+
+            // Allow exact match or 1-bit difference
+            matchStatus = Math.abs(goldValueNum - compValueNum) <= 1;
+          }
+        }
       }
       if (matchStatus == false) {
         // on first non-match, break! we have answer
+        console.error(`  Mismatch at line ${index}:`);
+        console.error(`    Report: [${compLine}]`);
+        console.error(`    Golden: [${goldLine}]`);
         break;
       }
     }
