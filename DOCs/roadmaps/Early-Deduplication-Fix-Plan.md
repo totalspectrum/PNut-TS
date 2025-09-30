@@ -132,9 +132,32 @@ for (let childIdx = 0; childIdx < objectFiles; childIdx++) {
 }
 ```
 
-### Phase 2: Memory Usage Tracking
+### Phase 2: Memory Usage Tracking and Validation
 
-#### Step 2.1: Add Memory Statistics
+#### Step 2.1: Validate Distiller Savings Calculation
+```typescript
+// Validate the existing distiller savings calculation
+// In spinResolver.ts line 4905:
+// this.distilledBytes += startingOffset - this.objImage.offset;
+
+// Add validation logging to ensure distiller is calculating correctly:
+private validateDistillerSavings(startingOffset: number): void {
+  const currentOffset = this.objImage.offset;
+  const savedThisPass = startingOffset - currentOffset;
+
+  this.logMessageOutline(`++ DISTILLER VALIDATION:`);
+  this.logMessageOutline(`   Starting offset: ${startingOffset} bytes`);
+  this.logMessageOutline(`   Final offset: ${currentOffset} bytes`);
+  this.logMessageOutline(`   Saved this pass: ${savedThisPass} bytes`);
+  this.logMessageOutline(`   Total distilled: ${this.distilledBytes} bytes`);
+
+  if (savedThisPass < 0) {
+    this.logMessageOutline(`   WARNING: Negative savings detected!`);
+  }
+}
+```
+
+#### Step 2.2: Add Memory Statistics for Early Deduplication
 ```typescript
 // Add to Compiler class
 private memoryStats = {
@@ -154,7 +177,7 @@ if (duplicateInfo.exists) {
 }
 ```
 
-#### Step 2.2: Add Logging and Diagnostics
+#### Step 2.3: Add Logging and Diagnostics
 ```typescript
 // Enhanced logging for duplicate detection
 private logDuplicationStats(): void {
@@ -164,6 +187,36 @@ private logDuplicationStats(): void {
     this.logMessageOutline(`   Duplicates found: ${this.memoryStats.duplicatesDetected}`);
     this.logMessageOutline(`   Memory saved: ${this.memoryStats.memoryBytesSaved} bytes`);
     this.logMessageOutline(`   Dedup ratio: ${(this.memoryStats.duplicatesDetected / this.memoryStats.totalObjectsCompiled * 100).toFixed(1)}%`);
+  }
+}
+```
+
+#### Step 2.4: Compare Early Deduplication vs Distiller Savings
+```typescript
+// In list file generation (spin2Parser.ts)
+// Show both early deduplication and distiller savings
+private reportMemorySavings(stream: fs.WriteStream): void {
+  const distillerSaved = this.spinResolver.removedBytes;
+  const earlyDedupSaved = this.compiler.getEarlyDeduplicationSavings();
+  const totalSaved = distillerSaved + earlyDedupSaved;
+
+  if (totalSaved > 0) {
+    stream.write(`\n\nMemory Optimization Results:\n`);
+
+    if (earlyDedupSaved > 0) {
+      const earlyString = this.rightAlignedDecimalValue(earlyDedupSaved, 11);
+      stream.write(`  Early deduplication saved: ${earlyString} bytes\n`);
+    }
+
+    if (distillerSaved > 0) {
+      const distillerString = this.rightAlignedDecimalValue(distillerSaved, 11);
+      stream.write(`  Distiller optimization saved: ${distillerString} bytes\n`);
+    }
+
+    if (earlyDedupSaved > 0 && distillerSaved > 0) {
+      const totalString = this.rightAlignedDecimalValue(totalSaved, 11);
+      stream.write(`  Total redundant bytes removed: ${totalString} bytes\n`);
+    }
   }
 }
 ```
@@ -218,28 +271,15 @@ private quickHash(data: Uint8Array): number {
 }
 ```
 
-### Phase 4: Integration and Testing
+### Phase 4: Testing and Verification
 
-#### Step 4.1: Gradual Rollout Strategy
-```typescript
-// Add feature flag for early deduplication
-export interface CompileOptions {
-  // ... existing options
-  enableEarlyDeduplication: boolean; // New flag
-}
-
-// Modified compilation logic with feature flag
-const duplicateInfo = this.context.compileOptions.enableEarlyDeduplication
-  ? this.childImages.findDuplicateChild(childImage)
-  : { exists: false, fileIndex: -1 };
-```
-
-#### Step 4.2: Test Cases
+#### Test Cases
 1. **Basic Deduplication**: Objects with identical binary content
 2. **Index Mapping**: Verify logical-to-physical index translation
 3. **Memory Limits**: Large object trees with many duplicates
 4. **Edge Cases**: Single child, all duplicates, no duplicates
-5. **Performance**: Compare with/without early deduplication
+5. **Performance**: Measure memory reduction and compilation time
+6. **Regression Tests**: Full test suite must pass without any failures
 
 ### Phase 5: Performance Optimization
 
@@ -361,7 +401,8 @@ public findDuplicateChildOptimized(childImage: Uint8Array): { exists: boolean; f
 - Update object access logic
 - Basic validation
 
-### Phase 2: Memory Tracking (4-6 hours)
+### Phase 2: Memory Tracking and Validation (6-8 hours)
+- Validate distiller savings calculation
 - Add memory statistics
 - Implement logging and diagnostics
 - Performance monitoring
@@ -371,37 +412,37 @@ public findDuplicateChildOptimized(childImage: Uint8Array): { exists: boolean; f
 - Binary comparison optimization
 - Error handling and recovery
 
-### Phase 4: Testing & Integration (8-12 hours)
-- Unit tests for deduplication logic
-- Integration tests with various object trees
+### Phase 4: Testing & Verification (6-8 hours)
+- Run full regression test suite
 - Performance benchmarking
-- Feature flag implementation
+- Memory usage measurement
+- Verify binary output remains identical
 
 ### Phase 5: Optimization (4-6 hours)
 - Hash-based duplicate detection
 - Lazy binary comparison
 - Memory usage optimization
 
-**Total Estimated Effort**: 30-44 hours
+**Total Estimated Effort**: 30-40 hours
 
 ## Success Criteria
 
 ### Functional Requirements
 - [ ] Early deduplication pass runs without crashes
-- [ ] Binary output remains identical to current implementation (when disabled)
+- [ ] Binary output remains byte-for-byte identical to current implementation
 - [ ] Significant memory usage reduction with complex object trees
-- [ ] All regression tests pass
+- [ ] All regression tests pass without any failures
 
 ### Performance Requirements
-- [ ] No performance degradation when feature disabled
-- [ ] <5% compilation time increase when feature enabled
+- [ ] <5% compilation time increase with deduplication active
 - [ ] 20-50% memory usage reduction for duplicate-heavy projects
+- [ ] No binary output changes (exact byte-for-byte match)
 
 ### Quality Requirements
-- [ ] Comprehensive test coverage for edge cases
+- [ ] All regression tests must pass
 - [ ] Clear logging and diagnostic information
 - [ ] Graceful handling of memory pressure
-- [ ] Feature flag for safe rollout
+- [ ] No changes committed until fully working
 
 ## Benefits After Implementation
 
@@ -419,12 +460,13 @@ public findDuplicateChildOptimized(childImage: Uint8Array): { exists: boolean; f
 
 ### Technical Risks
 - **Binary Compatibility**: Extensive testing against existing test suite
-- **Performance Regression**: Feature flag allows immediate rollback
+- **Performance Regression**: Git version control allows rollback if needed
 - **Memory Corruption**: Comprehensive validation and bounds checking
 
 ### Implementation Risks
 - **Complexity**: Phased approach with incremental validation
-- **Testing Coverage**: Dedicated test cases for all edge cases
-- **Integration Issues**: Thorough testing with existing compilation pipeline
+- **Testing Coverage**: Full regression test suite validates all edge cases
+- **Integration Issues**: No commits until all tests pass
+- **Version Control**: Git provides rollback capability if needed
 
 This fix plan provides a robust, well-tested solution to enable early object deduplication while maintaining system stability and performance.

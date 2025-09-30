@@ -39,6 +39,18 @@ export class Compiler {
   private countByFilename = new Map<string, number>();
   private readonly obj_limit: number = OBJ_LIMIT; // max object size (2MB) PNut obj_limit as of v49
 
+  // Early deduplication memory statistics
+  private memoryStats = {
+    totalObjectsCompiled: 0,
+    duplicatesDetected: 0,
+    memoryBytesSaved: 0,
+    duplicatesBySize: new Map<number, number>()
+  };
+
+  // Global storage and mapping for early deduplication
+  private globalChildObjectIndexMap: Map<number, number> = new Map(); // globalLogicalIndex -> physicalIndex
+  private globalLogicalIndexCounter: number = 0; // Global unique counter for deduplication
+
   constructor(ctx: Context) {
     this.context = ctx;
     this.isLogging = ctx.logOptions.logCompile;
@@ -55,6 +67,24 @@ export class Compiler {
     this.spinFiles.enableLogging(this.isLogging);
     // allocate our local data
     this.childImages = new ChildObjectsImage(ctx, 'childImages');
+    // Reset memory statistics for this compilation
+    this.resetMemoryStats();
+  }
+
+  private resetMemoryStats(): void {
+    this.memoryStats = {
+      totalObjectsCompiled: 0,
+      duplicatesDetected: 0,
+      memoryBytesSaved: 0,
+      duplicatesBySize: new Map<number, number>()
+    };
+    // Reset global index mapping
+    this.globalChildObjectIndexMap.clear();
+    this.globalLogicalIndexCounter = 0;
+  }
+
+  public getEarlyDeduplicationSavings(): number {
+    return this.memoryStats.memoryBytesSaved;
   }
 
   public Compile() {
@@ -82,6 +112,18 @@ export class Compiler {
         this.objectFileOffset = 0; // pascal ObjFilePtr
         // thinking: pass context:fileIndex instead of fileName??
         this.compileRecursively(0, this.srcFile);
+
+        // Validate index mapping after all child objects are processed
+        if (this.globalChildObjectIndexMap.size > 0) {
+          this.validateIndexMapping();
+        }
+
+        // Log deduplication statistics if any duplicates were found
+        this.logDuplicationStats();
+
+        // Pass early deduplication savings to spin2Parser for list file reporting
+        this.spin2Parser.setEarlyDeduplicationSavings(this.memoryStats.memoryBytesSaved);
+
         this.spin2Parser.P2List();
         const needFLash: boolean = this.context.compileOptions.writeFlash;
         const ramDownload: boolean = this.context.compileOptions.writeRAM || needFLash; // we need download when flashing too!
@@ -155,11 +197,9 @@ export class Compiler {
               objFile.setSpinSourceFileId(childObjSourceFile.fileId);
               const overrideSymbolTable: SymbolTable | undefined = objFile.parameterSymbolTable;
               this.compileRecursively(depth + 1, childObjSourceFile, overrideSymbolTable);
-              // get sub-object's obj file index
-              this.logMessageOutline(
-                `  -- push [objectCountsPerChild] depth(${depth}) entry[${objectCountsPerChild.length}] = fileIndex=[${this.objectFileCount - 1}] file=[${path.basename(fileSpec)}]`
-              );
-              objectCountsPerChild.push(this.objectFileCount - 1);
+              // Track this child's index in the parent's list
+              // This gets incremented whether it's a duplicate or not
+              objectCountsPerChild.push(this.globalLogicalIndexCounter - 1);
             }
           }
 
@@ -175,11 +215,16 @@ export class Compiler {
             this.objectData.clear();
             // for each child...
             for (let childIdx = 0; childIdx < objectFiles; childIdx++) {
-              const fileIdx = objectCountsPerChild[childIdx]; // pascal j
+              const logicalFileIdx = objectCountsPerChild[childIdx]; // Now contains logical index
+              // Translate logical to physical index
+              const physicalFileIdx = this.globalChildObjectIndexMap.get(logicalFileIdx);
+              if (physicalFileIdx === undefined) {
+                throw new Error(`Internal error: missing index mapping for logical index ${logicalFileIdx} at childIdx ${childIdx}`);
+              }
               // pascal inline       s
-              const [objOffset, objLength] = this.childImages.getOffsetAndLengthForFile(fileIdx);
+              const [objOffset, objLength] = this.childImages.getOffsetAndLengthForFile(physicalFileIdx);
               this.logMessageOutline(
-                `  -- compRecur(${depth}) obj loop childIdx=(${childIdx}), fileIdx=(${fileIdx}), objOffset=(${objOffset}), objLength=(${objLength})`
+                `  -- compRecur(${depth}) obj loop childIdx=(${childIdx}), logicalIdx=(${logicalFileIdx}), physicalIdx=(${physicalFileIdx}), objOffset=(${objOffset}), objLength=(${objLength})`
               );
               // for this child, append child image to objectData
               this.childImages.setOffset(objOffset); // set read start
@@ -187,7 +232,8 @@ export class Compiler {
 
               this.objectData.ensureFits(objDataOffset, objLength); // throws exception if bad!
               this.objectData.rawUint8Array.set(this.childImages.rawUint8Array.subarray(objOffset, objOffset + objLength), objDataOffset);
-              this.objectData.recordLengthOffsetForFile(fileIdx, objDataOffset, objLength);
+              // Record using childIdx (position in parent's child list), not physical file index
+              this.objectData.recordLengthOffsetForFile(childIdx, objDataOffset, objLength);
               objDataOffset += objLength;
               // DEBUG dump into .obj file for inspection
               //const newObjFileSpec = this.uniqueObjectName(depth, srcFile.dirName, srcFile.fileName, 'Data'); // REMOVE BEFORE FLIGHT
@@ -235,13 +281,30 @@ export class Compiler {
           this.spin2Parser.P2Compile2(depth == 0); // NOTE: if at zero  (see above note...)
 
           const objectLength: number = this.objImage.offset;
+          // Track this compilation for statistics
+          this.memoryStats.totalObjectsCompiled++;
+
           // determine if we need this child copy
           const childImage: Uint8Array = this.objImage.rawUint8Array.subarray(0, 0 + objectLength);
-          // if binary already in list, dont't add this one
-          const childExists: boolean = false; //this.childImages.isChildPresent(childImage);
-          //const childExists: boolean = this.childImages.isChildPresent(childImage);
+          // Check if binary already exists in list using new method
+          const duplicateInfo = this.childImages.findDuplicateChild(childImage);
+          let physicalFileIndex: number;
 
-          if (!childExists) {
+          if (duplicateInfo.exists) {
+            // Reuse existing object - this is a duplicate!
+            physicalFileIndex = duplicateInfo.fileIndex;
+            this.logMessageOutline(
+              `  -- REUSE DUPE -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objLen=(${objectLength})`
+            );
+            // Track memory statistics
+            this.memoryStats.duplicatesDetected++;
+            this.memoryStats.memoryBytesSaved += objectLength;
+            const sizeCount = this.memoryStats.duplicatesBySize.get(objectLength) || 0;
+            this.memoryStats.duplicatesBySize.set(objectLength, sizeCount + 1);
+          } else {
+            // Store new object - not a duplicate
+            physicalFileIndex = this.objectFileCount;
+
             // save obj file into memory if a copy doesn't already exist
             // now copy obj data to output
             if (this.objectFileOffset + objectLength > this.obj_limit) {
@@ -260,11 +323,14 @@ export class Compiler {
             //const newObjFileSpec = this.uniqueObjectName(depth, srcFile.dirName, srcFile.fileName, 'Child'); // REMOVE BEFORE FLIGHT
             //dumpUniqueChildObjectFile(this.childImages, this.objectFileOffset, newObjFileSpec, this.context); // REMOVE BEFORE FLIGHT
             this.logMessageOutline(
-              `  -- NEW objFiCnt=(${this.objectFileCount}), objLen=(${objectLength}), new objEndOffset=(${this.objectFileOffset})`
+              `  -- NEW OBJECT -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objFiCnt=(${this.objectFileCount}), objLen=(${objectLength}), new objEndOffset=(${this.objectFileOffset})`
             );
-          } else {
-            this.logMessageOutline(`  -- SKIP DUPE -- objFiCnt=(${this.objectFileCount}), objEndOffset=(${this.objectFileOffset})`);
           }
+
+          // Map logical index to physical index
+          this.globalChildObjectIndexMap.set(this.globalLogicalIndexCounter, physicalFileIndex);
+          // Always increment logical index (even for duplicates)
+          this.globalLogicalIndexCounter++;
           this.logMessageOutline(`  -- compRecur(${depth}).compile2 EXIT`);
         }
       }
@@ -296,6 +362,66 @@ export class Compiler {
   private logMessageOutline(message: string): void {
     if (this.isLoggingOutline) {
       this.context.logger.logMessage(message);
+    }
+  }
+
+  private validateIndexMapping(): void {
+    // Validate all index mappings are consistent
+    const objectCount = this.childImages.objectFileCount;
+
+    // Check all physical indices are valid
+    for (const [logical, physical] of this.globalChildObjectIndexMap) {
+      if (physical < 0 || physical >= objectCount) {
+        throw new Error(
+          `Index mapping error: Logical index ${logical} maps to invalid physical index ${physical} (valid range: 0-${objectCount - 1})`
+        );
+      }
+    }
+
+    // Check for gaps in logical indices
+    const logicalIndices = Array.from(this.globalChildObjectIndexMap.keys()).sort((a, b) => a - b);
+    for (let i = 0; i < logicalIndices.length; i++) {
+      if (logicalIndices[i] !== i) {
+        throw new Error(`Index mapping error: Gap detected in logical indices at position ${i}. Expected ${i}, found ${logicalIndices[i]}`);
+      }
+    }
+
+    // Check that we have mappings for all expected logical indices
+    if (logicalIndices.length !== this.globalLogicalIndexCounter) {
+      throw new Error(
+        `Index mapping error: Mismatch between number of mappings (${logicalIndices.length}) and next logical index (${this.globalLogicalIndexCounter})`
+      );
+    }
+
+    this.logMessageOutline(`Index mapping validation passed: ${logicalIndices.length} logical indices mapped to ${objectCount} physical objects`);
+  }
+
+  private logDuplicationStats(): void {
+    // Only log if we have duplicates and outline logging is enabled
+    if (this.memoryStats.duplicatesDetected > 0 && this.isLoggingOutline) {
+      this.logMessageOutline('');
+      this.logMessageOutline('=== Early Object Deduplication Statistics ===');
+      this.logMessageOutline(`Total objects compiled: ${this.memoryStats.totalObjectsCompiled}`);
+      this.logMessageOutline(`Duplicate objects detected: ${this.memoryStats.duplicatesDetected}`);
+      this.logMessageOutline(`Memory saved: ${this.memoryStats.memoryBytesSaved} bytes`);
+
+      const deduplicationRatio = (this.memoryStats.duplicatesDetected / this.memoryStats.totalObjectsCompiled) * 100;
+      this.logMessageOutline(`Deduplication ratio: ${deduplicationRatio.toFixed(1)}%`);
+
+      // Log breakdown by object size
+      if (this.memoryStats.duplicatesBySize.size > 0) {
+        this.logMessageOutline('');
+        this.logMessageOutline('Duplicates by size:');
+        const sortedSizes = Array.from(this.memoryStats.duplicatesBySize.entries()).sort((a, b) => b[0] - a[0]);
+        for (const [size, count] of sortedSizes) {
+          const sizeKB = (size / 1024).toFixed(2);
+          const savedKB = ((size * count) / 1024).toFixed(2);
+          this.logMessageOutline(`  ${sizeKB} KB objects: ${count} duplicates (saved ${savedKB} KB)`);
+        }
+      }
+
+      this.logMessageOutline('==============================================');
+      this.logMessageOutline('');
     }
   }
 }

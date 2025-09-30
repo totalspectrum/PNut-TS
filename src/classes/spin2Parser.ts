@@ -34,6 +34,7 @@ export class Spin2Parser {
   private objImage: ObjectImage;
   private readonly HubLimit: number = 0x80000;
   private readonly obj_limit = OBJ_LIMIT;
+  private earlyDeduplicationSavings: number = 0;
 
   constructor(ctx: Context) {
     this.context = ctx;
@@ -96,6 +97,10 @@ export class Spin2Parser {
         this.logMessage(`* P2Elementize() - Dump Element List - EXIT`);
       }
     }
+  }
+
+  public setEarlyDeduplicationSavings(savings: number): void {
+    this.earlyDeduplicationSavings = savings;
   }
 
   public P2Compile1(overrideSymbol: SymbolTable | undefined) {
@@ -327,16 +332,34 @@ export class Spin2Parser {
       */
 
       const objectLength = isPasmMode ? this.objImage.length : this.objImage.readLong(4);
-      const removedBytes: number = this.spinResolver.removedBytes;
+      const distillerSavings: number = this.spinResolver.removedBytes;
       const objString: string = this.rightAlignedDecimalValue(objectLength, 11);
       const varBytes: number = this.spinResolver.varBytes;
       const varString: string = this.rightAlignedDecimalValue(varBytes, 11);
       if (isPasmMode) {
         stream.write(`\n\nHub bytes: ${objString}\n\n`);
       } else {
-        if (removedBytes > 0) {
-          const removedString: string = this.rightAlignedDecimalValue(removedBytes, 11);
-          stream.write(`\n\nRedundant OBJ bytes removed: ${removedString}\n`);
+        // Report both early deduplication and distiller savings
+        const totalSavings = this.earlyDeduplicationSavings + distillerSavings;
+        if (totalSavings > 0) {
+          stream.write(`\n`);
+          if (this.earlyDeduplicationSavings > 0 && distillerSavings > 0) {
+            // Both optimizations saved bytes - show individual and total
+            const earlyString: string = this.rightAlignedDecimalValue(this.earlyDeduplicationSavings, 11);
+            const distillerString: string = this.rightAlignedDecimalValue(distillerSavings, 11);
+            const totalString: string = this.rightAlignedDecimalValue(totalSavings, 11);
+            stream.write(`\nEarly deduplication bytes saved:    ${earlyString}\n`);
+            stream.write(`Distiller optimization bytes saved: ${distillerString}\n`);
+            stream.write(`Total redundant OBJ bytes removed:  ${totalString}\n`);
+          } else if (this.earlyDeduplicationSavings > 0) {
+            // Only early deduplication saved bytes
+            const earlyString: string = this.rightAlignedDecimalValue(this.earlyDeduplicationSavings, 11);
+            stream.write(`\nRedundant OBJ bytes removed: ${earlyString}\n`);
+          } else {
+            // Only distiller saved bytes
+            const distillerString: string = this.rightAlignedDecimalValue(distillerSavings, 11);
+            stream.write(`\nRedundant OBJ bytes removed: ${distillerString}\n`);
+          }
         } else {
           stream.write(`\n`);
         }

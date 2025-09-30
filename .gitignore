@@ -261,3 +261,4 @@ scripts-pkg/cs_fixUploadNames.sh
 # Claude Code documentation and Todo MCP data
 CLAUDE.md
 .todo-mcp/
+/tasks/archives

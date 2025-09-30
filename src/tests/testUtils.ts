@@ -191,12 +191,28 @@ export function compareListingFiles(reportFSpec: string, goldenFSpec: string, st
   const isPreprocessorReport: boolean = reportFSpec.endsWith('.pre');
   if (inputFileCount == 2) {
     // Read the report file and split into lines
-    const reportContentLines = fs.readFileSync(reportFSpec, 'utf8').split(/\r\n|\r|\n/).map(line => line.trim()).filter(line => line.length > 0);
+    const reportContentLines = fs
+      .readFileSync(reportFSpec, 'utf8')
+      .split(/\r\n|\r|\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
     // Read the golden file and split into lines (handle different line endings)
-    const goldenContentLines = fs.readFileSync(goldenFSpec, 'utf8').split(/\r\n|\r|\n/).map(line => line.trim()).filter(line => line.length > 0);
+    const goldenContentLines = fs
+      .readFileSync(goldenFSpec, 'utf8')
+      .split(/\r\n|\r|\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
 
-    // Strings to exclude from comparison
-    const filterStrings: string[] = stringsToExlude !== undefined ? stringsToExlude : ['Redundant OBJ bytes removed'];
+    // Strings to exclude from comparison - includes old and new formats
+    const filterStrings: string[] =
+      stringsToExlude !== undefined
+        ? stringsToExlude
+        : [
+            'Redundant OBJ bytes removed',
+            'Early deduplication bytes saved',
+            'Distiller optimization bytes saved',
+            'Total redundant OBJ bytes removed'
+          ];
 
     // Filter out lines based on exclusion criteria
     const reportFiltered = reportContentLines.filter((line) => !filterStrings.some((excludeString) => line.startsWith(excludeString)));

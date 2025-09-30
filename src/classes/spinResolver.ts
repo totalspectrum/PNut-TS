@@ -4902,8 +4902,40 @@ export class SpinResolver {
       //this.objImage.setLogging(false); // REMOVE BEFORE FLIGHT
 
       // NOTE: PNut v43 has this as an assign, we are moving to sum from assign
-      this.distilledBytes += startingOffset - this.objImage.offset;
+      const savedBytesThisPass = startingOffset - this.objImage.offset;
+      this.distilledBytes += savedBytesThisPass;
+      this.validateDistillerSavings(startingOffset, this.objImage.offset, savedBytesThisPass);
       this.logMessageOutline(`++ distill_obj_blocks() - EXIT`);
+    }
+  }
+
+  private validateDistillerSavings(startingOffset: number, finalOffset: number, savedBytesThisPass: number): void {
+    // Validate distiller savings calculation
+    this.logMessageOutline(`Distiller Savings Validation:`);
+    this.logMessageOutline(`  Starting offset: ${startingOffset}`);
+    this.logMessageOutline(`  Final offset: ${finalOffset}`);
+    this.logMessageOutline(`  Saved bytes this pass: ${savedBytesThisPass}`);
+    this.logMessageOutline(`  Cumulative total saved: ${this.distilledBytes}`);
+
+    // Check for negative savings which would indicate a calculation error
+    if (savedBytesThisPass < 0) {
+      throw new Error(
+        `Distiller calculation error: Negative savings detected (${savedBytesThisPass} bytes). ` +
+          `Starting offset: ${startingOffset}, Final offset: ${finalOffset}`
+      );
+    }
+
+    // Check if final offset exceeds starting offset (no savings or growth)
+    if (finalOffset > startingOffset) {
+      throw new Error(
+        `Distiller calculation error: Final offset (${finalOffset}) exceeds starting offset (${startingOffset}). ` +
+          `This indicates object growth rather than reduction.`
+      );
+    }
+
+    // Validate cumulative total is reasonable
+    if (this.distilledBytes < 0) {
+      throw new Error(`Distiller calculation error: Cumulative distilled bytes is negative (${this.distilledBytes})`);
     }
   }
 

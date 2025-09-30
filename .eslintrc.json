@@ -15,7 +15,7 @@
   "rules": {
     "no-console": 1, // Means warning
     "prettier/prettier": 2, // Means error
-    "max-len": [1, { "code": 150 }] // warning
+    "max-len": 0 // Disabled - line length is not enforced
   },
   "plugins": ["@typescript-eslint", "prettier"]
 }

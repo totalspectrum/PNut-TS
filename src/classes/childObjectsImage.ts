@@ -28,6 +28,7 @@ export class ChildObjectsImage {
   private readonly obj_limit: number = OBJ_LIMIT; // max object size (2MB) PNut obj_limit as of v49
   private readonly ALLOC_SIZE_IN_BYTES: number = this.obj_limit / 16;
   private _chldObjImageByteAr = new Uint8Array(this.ALLOC_SIZE_IN_BYTES); // initial memory size
+  private contentHashCache: Map<string, boolean> = new Map(); // Maps hash to exists flag
 
   constructor(ctx: Context, idString: string) {
     this.context = ctx;
@@ -81,6 +82,54 @@ export class ChildObjectsImage {
 
   public clear() {
     this._fileDetails = []; // empty tracking table
+    this.contentHashCache.clear(); // Clear hash cache
+  }
+
+  private getContentHash(childImage: Uint8Array): string {
+    // Generate a quick signature using first 32 bytes, last 32 bytes, and length
+    const length = childImage.length;
+    const firstBytes = Math.min(32, length);
+    const lastBytes = Math.min(32, length);
+
+    let hash = `${length}:`;
+
+    // Add first N bytes to hash
+    for (let i = 0; i < firstBytes; i++) {
+      hash += childImage[i].toString(16).padStart(2, '0');
+    }
+
+    hash += ':';
+
+    // Add last N bytes to hash (if different from first)
+    if (length > 32) {
+      for (let i = length - lastBytes; i < length; i++) {
+        hash += childImage[i].toString(16).padStart(2, '0');
+      }
+    }
+
+    return hash;
+  }
+
+  private compareChildImages(image1: Uint8Array, image2: Uint8Array): boolean {
+    // Fast path: different lengths
+    if (image1.length !== image2.length) {
+      return false;
+    }
+
+    const length = image1.length;
+
+    // For large objects (> 1KB), use hash comparison first
+    if (length > 1024) {
+      const hash1 = this.getContentHash(image1);
+      const hash2 = this.getContentHash(image2);
+      if (hash1 !== hash2) {
+        return false; // Hashes differ, definitely not the same
+      }
+      // Hashes match, fall through to full comparison
+    }
+
+    // Full byte-by-byte comparison
+    return image1.every((byte, idx) => byte === image2[idx]);
   }
 
   get objectFileCount(): number {
@@ -112,6 +161,37 @@ export class ChildObjectsImage {
       this.logMessageOutline(`  -- cOBJ[${this._id}]: none of [${this.objectFileCount}] children MATCHed=(false)`);
     }
     return childMatchStatus;
+  }
+
+  public findDuplicateChild(childImage: Uint8Array): { exists: boolean; fileIndex: number } {
+    // Generate hash for quick initial comparison
+    const childHash = this.getContentHash(childImage);
+
+    // Check cache first (for performance on repeated checks)
+    if (this.contentHashCache.has(childHash)) {
+      // Hash exists, need to do full comparison to find exact match
+      for (let fileIdx = 0; fileIdx < this.objectFileCount; fileIdx++) {
+        const [objOffset, objLength] = this.getOffsetAndLengthForFile(fileIdx);
+        if (childImage.length === objLength) {
+          const possibleChildImage = this.rawUint8Array.subarray(objOffset, objOffset + objLength);
+          // Check hash first before expensive byte comparison
+          const existingHash = this.getContentHash(possibleChildImage);
+          if (existingHash === childHash) {
+            // Use optimized comparison for large objects
+            const sameChild: boolean = this.compareChildImages(possibleChildImage, childImage);
+            if (sameChild) {
+              this.logMessageOutline(`  -- cOBJ[${this._id}]: findDuplicateChild() - child [${fileIdx} of ${this.objectFileCount}] MATCHED`);
+              return { exists: true, fileIndex: fileIdx };
+            }
+          }
+        }
+      }
+    }
+
+    // Not in cache or no exact match found
+    this.contentHashCache.set(childHash, true);
+    this.logMessageOutline(`  -- cOBJ[${this._id}]: findDuplicateChild() - none of [${this.objectFileCount}] children matched`);
+    return { exists: false, fileIndex: -1 };
   }
 
   public checksum(offset: number, length: number): number {
