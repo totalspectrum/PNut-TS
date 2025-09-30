@@ -128,6 +128,11 @@ describe('PNut_ts preprocesses files correctly', () => {
         throw error;
       }
 
+      // Write stderr output immediately after compilation (to prevent timeout)
+      if (stderrOutput.length > 0) {
+        fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
+      }
+
       // my wait list...
       const outFilesList: string[] = [preprocessFSpec];
       if (basename !== 'include') {

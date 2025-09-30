@@ -179,6 +179,11 @@ describe('PNut_ts detects .spin2 exceptions w/debug() & without correctly', () =
               throw error;
             }
 
+            // Write stderr output immediately after compilation (to prevent timeout)
+            if (stderrOutput.length > 0) {
+              fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
+            }
+
             // my wait list...
             const possibleGoldFilesList: string[] = [goldenLstFSpec, goldenObjFSpec, goldenBinFSpec];
             const outFilesList: string[] = [];
