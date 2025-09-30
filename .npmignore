@@ -17,6 +17,7 @@ jest*.json
 tsconfig.json
 babel.config.js
 jest.config.ts
+CLAUDE.md
 old.*
 smm.*
 *.vsix
@@ -37,8 +38,12 @@ nexe-config/
 REF/
 RESULTS/
 scripts/
-src/
+
 TEST/
+tasks/
+tools/
+.todo-mcp/
+.claude/
 scripts-excep-nbring/
 # get contents from here
 !out
