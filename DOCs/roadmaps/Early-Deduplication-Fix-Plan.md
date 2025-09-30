@@ -243,6 +243,73 @@ const duplicateInfo = this.context.compileOptions.enableEarlyDeduplication
 
 ### Phase 5: Performance Optimization
 
+#### Hash Generation Strategy Analysis
+
+**Question**: Should we pre-generate all object hashes vs. generate on-demand?
+
+**Answer**: **On-demand hash generation with caching is optimal** for this use case.
+
+**Comparison**:
+
+| Approach | Pros | Cons | Performance |
+|----------|------|------|-------------|
+| **Upfront Hash Generation** | Single computation per object, parallelizable, predictable memory | Wasted computation for non-duplicates, higher memory footprint, two-pass algorithm | O(n) hashing + O(n²) comparisons |
+| **On-Demand + Caching** ✅ | Lazy evaluation, lower memory, single-pass, early termination | Cache management complexity | O(n) hashing + O(k) comparisons where k = actual duplicates |
+
+**Decision Rationale**:
+1. **Compilation Order**: Objects processed in dependency order, duplicates likely encountered close together
+2. **Cache Efficiency**: Each hash computed once, reused for all subsequent comparisons
+3. **Memory Efficiency**: Hash cache grows incrementally, doesn't require all objects in memory
+4. **Integration**: Fits naturally into existing compilation flow
+
+**Expected Performance**: Current O(n²) → Optimized O(n + k), with 20-50% memory reduction and <5% compilation time increase.
+
+#### Incremental vs Batch Deduplication Analysis
+
+**Question**: Should deduplication be incremental (per-object during compilation) vs batch (separate pass)?
+
+**Answer**: **The current implementation IS already incremental and optimal!**
+
+**Compiler Structure Analysis**:
+```
+compileRecursively(depth, srcFile)
+  ├── For each child object:
+  │   ├── P2Compile2() → generates childImage
+  │   ├── isChildPresent(childImage) ← DEDUPLICATION POINT (line 241)
+  │   ├── If new: store in childImages (lines 252-258)
+  │   └── recordLengthOffsetForFile()
+  └── Continue recursively
+```
+
+**Performance Comparison**:
+
+| Aspect | **Current (Incremental)** ✅ | **Batch (Separate Pass)** |
+|--------|-------------------------------|---------------------------|
+| **Memory Usage** | O(k) - only store unique objects | O(n) - store all, dedupe later |
+| **Computation** | O(n·k) - compare new vs k stored | O(n²) - compare all pairs |
+| **Cache Efficiency** | Excellent - recent objects in cache | Poor - cold cache for comparisons |
+| **Implementation** | Already exists, just needs enabling | Requires new separate pass |
+| **Memory Pressure** | Immediate relief | Delayed relief |
+
+**Key Insights**:
+1. **Already Incremental**: Deduplication happens per-object during compilation (line 241)
+2. **Before Storage**: Check happens before storing object (lines 241-244)
+3. **Immediate Benefits**: Memory freed as soon as duplicate detected
+4. **Optimal Flow**: No need for separate pass architecture
+
+**Real-world Example**:
+```
+Project with 100 objects, 50% duplicates:
+├── Batch: Store 100 objects → dedupe → 100×100/2 = 5,000 comparisons
+└── Incremental: Store 50 unique → check each → 50×25 = 1,250 comparisons
+└── + Hash Cache: 50 hash computations + minimal byte comparisons
+```
+
+**Conclusion**: Current incremental approach is architecturally optimal. Solution is to:
+1. Enable disabled `isChildPresent()` call (line 241)
+2. Fix index mapping bugs described in roadmap
+3. Add hash caching optimization
+
 #### Step 5.1: Efficient Duplicate Detection
 ```typescript
 // Add content hash cache to avoid repeated comparisons

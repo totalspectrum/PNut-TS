@@ -57,6 +57,7 @@ export class SpinElementizer {
   private debugStringState: eDebugStringState = eDebugStringState.NOT_IN_DEBUG;
   private debugParenNestCount: number = 0; // count of nested parens in `{dbgCmd}(...) directives
   private debugInQuotedString: boolean = false; // avoid stuff while in strings
+  private isElementizing: boolean = false; // track if elementizer is currently running
 
   constructor(ctx: Context) {
     this.context = ctx;
@@ -110,9 +111,14 @@ export class SpinElementizer {
     return this.currentTextLine !== undefined ? this.currentTextLine.sourceLineNumber : -1;
   }
 
+  get isCurrentlyElementizing(): boolean {
+    return this.isElementizing;
+  }
+
   public getFileElements(): SpinElement[] {
     //let numberCalls: number = 30;
     this.logMessage(`* Elementizer.getFileElements() file=[${this.srcFile.fileName}]`);
+    this.isElementizing = true; // Mark that elementization has started
     const element_list: SpinElement[] = [];
     // store the value(s) in list
     let atEndOfFile: boolean = false;
@@ -132,6 +138,7 @@ export class SpinElementizer {
       elements = this.get_element_entries();
       this.logMessage(`- get IN-LOOP elements(${elements.length})=[${elements}]`);
     } while (!atEndOfFile);
+    this.isElementizing = false; // Mark that elementization has completed successfully
     return element_list;
   }
 

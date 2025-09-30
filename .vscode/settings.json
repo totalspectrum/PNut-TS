@@ -11,5 +11,6 @@
     "github.copilot.enableInlineCompletions": false,
     "editor.suggest.showInlineCompletions": false
   },
-  "cSpell.words": ["PASM"]
+  "cSpell.words": ["PASM"],
+  "spin2.optionsBinaryFname": "IO.bin"
 }

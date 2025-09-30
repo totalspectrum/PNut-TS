@@ -50,8 +50,17 @@ export class Spin2Parser {
 
   get sourceLineNumber(): number {
     // used during exception reporting
-    return this.spinResolver.sourceLineNumber;
-    //return this.elementizer.sourceLineNumber;
+    let lineNumber: number;
+
+    // If the elementizer is currently running, use its line number
+    // Otherwise use the resolver's line number
+    if (this.elementizer.isCurrentlyElementizing) {
+      lineNumber = this.elementizer.sourceLineNumber;
+    } else {
+      lineNumber = this.spinResolver.sourceLineNumber;
+    }
+
+    return lineNumber;
   }
 
   get failingFileID(): number {

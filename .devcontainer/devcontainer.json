@@ -9,6 +9,10 @@
     "-v",
     "${env:HOME}${env:USERPROFILE}/.ssh:/tmp/.ssh" // This is added so you can push from inside the container
   ],
+  "mounts": [
+    "source=/Users/stephen/.claude,target=/root/.claude,type=bind",
+    "source=/Users/stephen/container-tools,target=/opt/container-tools,type=bind"
+  ],
   "extensions": [
     "github.vscode-pull-request-github",
     "eamodio.gitlens",
