@@ -19,7 +19,7 @@ Work to appear in upcoming releases:
 - Add User Reqeuested enhancements
 - Keep up with PNut changes soon after they are released.
 
-## [1.50.1.6] 2025-09-30
+## [1.51.6] 2025-09-30
 
 ### Fixed
 - **BUGFIX**: Fixed incorrect line number reporting for syntax errors detected during initial parsing phase (elementizer). Errors such as empty debug strings, unterminated strings, and malformed tokens were incorrectly reported as occurring on line 1 instead of their actual line number.
