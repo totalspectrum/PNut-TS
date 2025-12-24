@@ -2,11 +2,23 @@
 
 Scripts for creating signed and notarized DMG installers for macOS distribution.
 
+## Executable Naming Convention
+
+Starting with v1.4.0:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `pnut-ts` | Primary | Main executable (hyphenated, matches project name) |
+| `pnut_ts` | Alias | Backward compatibility symlink |
+
+The `pnut_ts` symlink points to `pnut-ts`. Both names work identically.
+
 ## Prerequisites
 
 1. **Apple Developer Account** with Developer ID Application certificate
 2. **Keychain Profile** named `pnut-ts-notary` for notarization credentials
-3. **Package directories** with format: `pnut-ts-macos-{arch}-{version}/pnut_ts/pnut_ts`
+3. **Package directories** with format: `pnut-ts-macos-{arch}-{version}/pnut_ts/pnut-ts`
+   - Legacy format also supported: `pnut-ts-macos-{arch}-{version}/pnut_ts/pnut_ts`
 
 ## Workflow
 
@@ -60,7 +72,8 @@ Expected input structure:
 scripts-pkg-macos/
 ├── pnut-ts-macos-x64-XXXXXX/
 │   └── pnut_ts/
-│       ├── pnut_ts          # Standalone binary
+│       ├── pnut-ts          # Primary executable (hyphenated)
+│       ├── pnut_ts          # Compatibility symlink -> pnut-ts
 │       ├── LICENSE.txt
 │       ├── README.md
 │       └── ... (doc files)

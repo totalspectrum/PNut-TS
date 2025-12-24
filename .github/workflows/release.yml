@@ -78,6 +78,12 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
 
+          # Executable naming convention:
+          #   Primary executable: pnut-ts (hyphenated, matches project name)
+          #   Compatibility alias: pnut_ts (underscored, for backward compatibility)
+          #   - On Unix: symlink pnut_ts -> pnut-ts
+          #   - On Windows: copy pnut-ts.exe to pnut_ts.exe (symlinks require admin)
+
           # Create package directories for each platform
           for platform in win-x64 win-arm64 linux-x64 linux-arm64 macos-x64 macos-arm64; do
             mkdir -p "packages/pnut-ts-${platform}-${VERSION}/pnut_ts"
@@ -87,14 +93,20 @@ jobs:
             cp LICENSE.txt "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || cp LICENSE "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/LICENSE.txt" 2>/dev/null || echo "No LICENSE file found"
             cp CHANGELOG.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || true
 
-            # Copy binary with correct name
+            # Copy binary with correct name and create compatibility alias
             if [[ "$platform" == win-* ]]; then
-              cp "pkgs/pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts.exe"
+              # Windows: copy as pnut-ts.exe (primary) and pnut_ts.exe (compat copy)
+              cp "pkgs/pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe"
+              cp "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts.exe"
             else
-              cp "pkgs/pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
-              chmod +x "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
+              # Unix: copy as pnut-ts (primary) and symlink pnut_ts -> pnut-ts (compat)
+              cp "pkgs/pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
+              chmod +x "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
+              ln -sf pnut-ts "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
             fi
           done
+
+          echo "Package contents created with pnut-ts (primary) and pnut_ts (compat alias)"
 
       - name: Create Windows/Linux ZIP packages
         run: |
@@ -236,10 +248,11 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
 
           for arch in x64 arm64; do
-            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut_ts"
+            # Sign the primary executable (pnut-ts)
+            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut-ts"
 
             if [ -f "$BINARY" ]; then
-              echo "Signing ${arch} binary..."
+              echo "Signing ${arch} binary (pnut-ts)..."
 
               codesign --force --sign "Developer ID Application: ${APPLE_DEVELOPER_NAME} (${APPLE_TEAM_ID})" \
                 --options runtime \
@@ -250,6 +263,12 @@ jobs:
               echo "Verifying signature..."
               codesign --verify --verbose=2 "$BINARY"
               echo "${arch} binary signed successfully"
+
+              # Recreate symlink (signing may have affected it)
+              SYMLINK="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut_ts"
+              rm -f "$SYMLINK"
+              ln -sf pnut-ts "$SYMLINK"
+              echo "Recreated compatibility symlink: pnut_ts -> pnut-ts"
             else
               echo "WARNING: Binary not found: $BINARY"
             fi
@@ -762,12 +781,15 @@ EOF
             1. Download the appropriate DMG file
             2. Open the DMG
             3. Drag `pnut_ts` folder to Applications
-            4. Run from terminal: `/Applications/pnut_ts/pnut_ts --help`
+            4. Run from terminal: `/Applications/pnut_ts/pnut-ts --help`
 
             **Windows/Linux (ZIP):**
             1. Download the appropriate ZIP file
             2. Extract to desired location
-            3. Add to PATH or run directly: `./pnut_ts/pnut_ts --help`
+            3. Add to PATH or run directly: `./pnut_ts/pnut-ts --help`
+
+            > **Note:** Both `pnut-ts` (primary) and `pnut_ts` (compatibility alias) are included.
+            > Use either name - they are equivalent.
 
             ---
 

@@ -2,6 +2,20 @@
 
 Many things are supported from this directory. One of the more important is the Packaging of PNut TS for each release.
 
+## Executable Naming Convention
+
+Starting with v2.0 of the packaging scripts:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `pnut-ts` | Primary | Main executable (hyphenated, matches project name) |
+| `pnut_ts` | Alias | Backward compatibility symlink/copy |
+
+- **macOS/Linux**: `pnut_ts` is a symlink pointing to `pnut-ts`
+- **Windows**: `pnut_ts.exe` is a copy of `pnut-ts.exe` (symlinks require admin privileges)
+
+Both names work identically. Use `pnut-ts` for new scripts and documentation.
+
 ## Packaging PNut_TS
 
 The cs_* scripts in this folder are run in sequence to package a new release of PNut_TS.
