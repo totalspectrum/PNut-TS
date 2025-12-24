@@ -275,3 +275,6 @@ scripts-pkg-macos/dmg-staging-*/
 scripts-pkg-macos/SIGN-*.command
 scripts-pkg-macos/NOTARIZE-*.command
 scripts-pkg-macos/CREATE-*.command
+TEST/LANG-VER-tests/Spin2_v50_step.elemOLD
+TEST/SHORT/tablesTESTs/p2com.LST
+REF/p2com.LST

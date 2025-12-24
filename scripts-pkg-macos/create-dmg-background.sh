@@ -3,7 +3,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.4.0"
 
 echo "PNut-TS DMG Background Creation v${SCRIPT_VERSION}"
 echo "=============================================="
@@ -28,27 +28,16 @@ if [ -f "dmg-background.png" ]; then
     fi
 fi
 
-# Find and prepare company logo
-LOGO_SVG=""
+# Find company logo PNG
 LOGO_PNG=""
 SCRIPT_PARENT="$(dirname "$SCRIPT_DIR")"
 
-# Look for company logo SVG
-if [ -f "$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m.svg" ]; then
-    LOGO_SVG="$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m.svg"
-    echo "Found company logo: $LOGO_SVG"
-
-    # Convert SVG to PNG using ImageMagick (if available)
-    if command -v convert &> /dev/null; then
-        LOGO_PNG="$SCRIPT_DIR/logo_temp.png"
-        echo "Converting SVG to PNG..."
-        # Render at high quality then resize - logo is vertical so use height constraint
-        convert -background none -density 150 "$LOGO_SVG" -resize x40 PNG32:"$LOGO_PNG" 2>/dev/null && \
-            echo "Logo converted successfully" || \
-            echo "Warning: Logo conversion failed, will use text fallback"
-    else
-        echo "ImageMagick not found, will use text fallback"
-    fi
+# Look for company logo PNG (preferred) or SVG
+if [ -f "$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m-200x269.png" ]; then
+    LOGO_PNG="$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m-200x269.png"
+    echo "Found company logo: $LOGO_PNG"
+elif [ -f "$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m.svg" ]; then
+    echo "Found SVG logo but PNG preferred - using text fallback"
 else
     echo "Company logo not found, will use text"
 fi
@@ -80,32 +69,9 @@ else:
 # Image dimensions
 width, height = 500, 300
 
-# Create image
+# Create image with white background
 img = Image.new('RGB', (width, height), color='white')
 draw = ImageDraw.Draw(img)
-
-# Create gradient background (dark blue at top, light at bottom for icon labels)
-# Top: #1e3a5f (dark blue), Bottom: light gray for readable black labels
-for y in range(height):
-    if y < 100:
-        # Dark header area
-        r = int(30 + (40 - 30) * y / 100)
-        g = int(58 + (70 - 58) * y / 100)
-        b = int(95 + (110 - 95) * y / 100)
-    elif y < 120:
-        # Transition zone
-        t = (y - 100) / 20
-        r = int(40 + (200 - 40) * t)
-        g = int(70 + (210 - 70) * t)
-        b = int(110 + (220 - 110) * t)
-    else:
-        # Light icon area (readable black labels)
-        # Slight gradient from light gray to slightly lighter
-        t = (y - 120) / (height - 120)
-        r = int(200 + (230 - 200) * t)
-        g = int(210 + (235 - 210) * t)
-        b = int(220 + (240 - 220) * t)
-    draw.rectangle([(0, y), (width, y+1)], fill=(r, g, b))
 
 # Try to use system fonts
 try:
@@ -120,19 +86,18 @@ except:
     font_company = font_title
     font_instruction = font_title
 
-# Title (orange)
+# Title (maroon to match logo)
 title = "PNut-TS"
-title_color = (255, 107, 53)  # #ff6b35
+title_color = (128, 0, 0)  # maroon
 bbox = draw.textbbox((0, 0), title, font=font_title)
 x = (width - (bbox[2] - bbox[0])) // 2
 draw.text((x, 25), title, fill=title_color, font=font_title)
 
-# Subtitle
+# Subtitle (dark gray on white background)
 subtitle = "Propeller 2 Spin2/PASM2 Compiler"
-subtitle_color = (255, 255, 255, 230)
 bbox = draw.textbbox((0, 0), subtitle, font=font_subtitle)
 x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 58), subtitle, fill=(255, 255, 255), font=font_subtitle)
+draw.text((x, 58), subtitle, fill=(80, 80, 80), font=font_subtitle)
 
 # Company logo or text
 if has_logo:
@@ -142,40 +107,32 @@ if has_logo:
         # Convert to RGBA if needed for transparency
         if logo.mode != 'RGBA':
             logo = logo.convert('RGBA')
-        # For a vertical logo, position it to the right of the subtitle
-        # Scale to fit header height nicely
+        # Scale logo to fit nicely - max 50px height for header area
         logo_w, logo_h = logo.size
-        target_h = 35  # Height constraint for header area
+        target_h = 45
         scale = target_h / logo_h
         new_w = int(logo_w * scale)
         new_h = int(logo_h * scale)
         logo = logo.resize((new_w, new_h), Image.LANCZOS)
-        # Position to right side of header
-        x = width - new_w - 15  # 15px from right edge
-        y = 50
+        # Position to right side, vertically centered in header area
+        x = width - new_w - 20  # 20px from right edge
+        y = 25  # Align with title area
         # Paste with transparency
         img.paste(logo, (x, y), logo)
         print(f"Logo composited at ({x}, {y}), size {logo.size}")
     except Exception as e:
         print(f"Warning: Could not load logo: {e}")
-        # Fall back to text
-        company = "Iron Sheep Productions, LLC"
-        bbox = draw.textbbox((0, 0), company, font=font_company)
-        x = (width - (bbox[2] - bbox[0])) // 2
-        draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
 else:
-    company = "Iron Sheep Productions, LLC"
-    bbox = draw.textbbox((0, 0), company, font=font_company)
-    x = (width - (bbox[2] - bbox[0])) // 2
-    draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
+    # No logo - that's fine, just title and subtitle
+    pass
 
-# Draw arrow (dark gray on light background)
+# Draw arrow (maroon to match title/logo)
 arrow_y = 150
 arrow_left = 200
 arrow_right = 290
 arrow_thickness = 4
 arrow_head_size = 12
-arrow_color = (80, 80, 80)
+arrow_color = (128, 0, 0)  # maroon
 
 # Arrow shaft
 draw.rectangle([(arrow_left, arrow_y - arrow_thickness//2),
@@ -189,11 +146,11 @@ draw.polygon([
     (arrow_right - arrow_head_size, arrow_y + arrow_head_size),  # bottom
 ], fill=arrow_color)
 
-# Instruction text (dark on light background)
+# Instruction text (dark gray on white)
 instruction = "Drag to Applications Folder to Install"
 bbox = draw.textbbox((0, 0), instruction, font=font_instruction)
 x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 255), instruction, fill=(60, 60, 60), font=font_instruction)
+draw.text((x, 255), instruction, fill=(80, 80, 80), font=font_instruction)
 
 # Save
 img.save('dmg-background.png')

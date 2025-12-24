@@ -4,7 +4,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 
 echo "🎨 PNut-TS ICNS Icon Creation v${SCRIPT_VERSION}"
 echo "============================================"
@@ -21,12 +21,13 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
     exit 1
 fi
 
-# Function to create ICNS from image (handles JPEG disguised as PNG)
+# Function to create ICNS from image (handles JPEG disguised as PNG, removes white background)
 create_icns() {
     local SOURCE_FILE=$1
     local ICNS_NAME=$2
     local ICONSET_DIR="${ICNS_NAME}.iconset"
     local TEMP_PNG="${ICNS_NAME}_temp.png"
+    local TRANSPARENT_PNG="${ICNS_NAME}_transparent.png"
 
     if [ ! -f "$SOURCE_FILE" ]; then
         echo "⚠️  Source file not found: $SOURCE_FILE"
@@ -42,6 +43,85 @@ create_icns() {
     if [ ! -f "$TEMP_PNG" ]; then
         echo "   ❌ Failed to convert to PNG"
         return 1
+    fi
+
+    # Remove white BORDER background only (flood fill from edges), preserving white inside logo
+    echo "   🎨 Removing border background, adding transparency..."
+    python3 << PYEOF
+from PIL import Image
+from collections import deque
+
+def remove_border_background(src_path, dst_path, threshold=240):
+    """Remove white background from edges only using flood fill (preserves white inside logo)."""
+    img = Image.open(src_path).convert("RGBA")
+    pixels = img.load()
+    width, height = img.size
+
+    # Track which pixels to make transparent
+    to_transparent = set()
+    visited = set()
+
+    def is_white(x, y):
+        if (x, y) in visited:
+            return False
+        r, g, b, a = pixels[x, y]
+        return r >= threshold and g >= threshold and b >= threshold
+
+    def flood_fill(start_x, start_y):
+        """Flood fill from a starting point, marking connected white pixels."""
+        queue = deque([(start_x, start_y)])
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) in visited:
+                continue
+            if x < 0 or x >= width or y < 0 or y >= height:
+                continue
+            visited.add((x, y))
+
+            r, g, b, a = pixels[x, y]
+            if r >= threshold and g >= threshold and b >= threshold:
+                to_transparent.add((x, y))
+                # Add neighbors
+                queue.append((x+1, y))
+                queue.append((x-1, y))
+                queue.append((x, y+1))
+                queue.append((x, y-1))
+
+    # Start flood fill from all edge pixels that are white
+    # Top and bottom edges
+    for x in range(width):
+        if is_white(x, 0):
+            flood_fill(x, 0)
+        if is_white(x, height-1):
+            flood_fill(x, height-1)
+
+    # Left and right edges
+    for y in range(height):
+        if is_white(0, y):
+            flood_fill(0, y)
+        if is_white(width-1, y):
+            flood_fill(width-1, y)
+
+    # Make the border pixels transparent
+    for x, y in to_transparent:
+        r, g, b, a = pixels[x, y]
+        pixels[x, y] = (r, g, b, 0)
+
+    img.save(dst_path, "PNG")
+    print(f"   ✅ Border transparency added ({len(to_transparent)} pixels)")
+
+try:
+    remove_border_background("$TEMP_PNG", "$TRANSPARENT_PNG")
+except Exception as e:
+    print(f"   ⚠️  Could not add transparency: {e}")
+    import shutil
+    shutil.copy("$TEMP_PNG", "$TRANSPARENT_PNG")
+PYEOF
+
+    # Use transparent version if created, otherwise use temp
+    if [ -f "$TRANSPARENT_PNG" ]; then
+        rm -f "$TEMP_PNG"
+        TEMP_PNG="$TRANSPARENT_PNG"
     fi
 
     # Create iconset directory
@@ -64,8 +144,8 @@ create_icns() {
     sips -z 512 512   "$TEMP_PNG" --out "${ICONSET_DIR}/icon_512x512.png" >/dev/null 2>&1
     sips -z 1024 1024 "$TEMP_PNG" --out "${ICONSET_DIR}/icon_512x512@2x.png" >/dev/null 2>&1
 
-    # Clean up temp PNG
-    rm -f "$TEMP_PNG"
+    # Clean up temp PNGs
+    rm -f "$TEMP_PNG" "$TRANSPARENT_PNG" "${ICNS_NAME}_temp.png"
 
     # Convert iconset to icns
     echo "   🔨 Building ICNS..."
