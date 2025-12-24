@@ -3,7 +3,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 
 echo "PNut-TS DMG Background Creation v${SCRIPT_VERSION}"
 echo "=============================================="
@@ -48,12 +48,27 @@ width, height = 500, 300
 img = Image.new('RGB', (width, height), color='white')
 draw = ImageDraw.Draw(img)
 
-# Create gradient background (dark blue theme)
-# Top: #1e3a5f, Bottom: #0d1f33
+# Create gradient background (dark blue at top, light at bottom for icon labels)
+# Top: #1e3a5f (dark blue), Bottom: light gray for readable black labels
 for y in range(height):
-    r = int(30 + (13 - 30) * y / height)
-    g = int(58 + (31 - 58) * y / height)
-    b = int(95 + (51 - 95) * y / height)
+    if y < 100:
+        # Dark header area
+        r = int(30 + (40 - 30) * y / 100)
+        g = int(58 + (70 - 58) * y / 100)
+        b = int(95 + (110 - 95) * y / 100)
+    elif y < 120:
+        # Transition zone
+        t = (y - 100) / 20
+        r = int(40 + (200 - 40) * t)
+        g = int(70 + (210 - 70) * t)
+        b = int(110 + (220 - 110) * t)
+    else:
+        # Light icon area (readable black labels)
+        # Slight gradient from light gray to slightly lighter
+        t = (y - 120) / (height - 120)
+        r = int(200 + (230 - 200) * t)
+        g = int(210 + (235 - 210) * t)
+        b = int(220 + (240 - 220) * t)
     draw.rectangle([(0, y), (width, y+1)], fill=(r, g, b))
 
 # Try to use system fonts
@@ -89,30 +104,31 @@ bbox = draw.textbbox((0, 0), company, font=font_company)
 x = (width - (bbox[2] - bbox[0])) // 2
 draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
 
-# Draw arrow (white, pointing right)
+# Draw arrow (dark gray on light background)
 arrow_y = 150
 arrow_left = 200
 arrow_right = 290
 arrow_thickness = 4
 arrow_head_size = 12
+arrow_color = (80, 80, 80)
 
 # Arrow shaft
 draw.rectangle([(arrow_left, arrow_y - arrow_thickness//2),
                 (arrow_right - arrow_head_size, arrow_y + arrow_thickness//2)],
-               fill='white')
+               fill=arrow_color)
 
 # Arrow head
 draw.polygon([
     (arrow_right, arrow_y),  # tip
     (arrow_right - arrow_head_size, arrow_y - arrow_head_size),  # top
     (arrow_right - arrow_head_size, arrow_y + arrow_head_size),  # bottom
-], fill='white')
+], fill=arrow_color)
 
-# Instruction text
+# Instruction text (dark on light background)
 instruction = "Drag to Applications Folder to Install"
 bbox = draw.textbbox((0, 0), instruction, font=font_instruction)
 x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 255), instruction, fill='white', font=font_instruction)
+draw.text((x, 255), instruction, fill=(60, 60, 60), font=font_instruction)
 
 # Save
 img.save('dmg-background.png')
