@@ -1,0 +1,477 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip release creation)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # Build all platform binaries
+  build:
+    name: Build Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Package version: ${VERSION}"
+
+      - name: Validate tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PKG_VERSION="${{ steps.version.outputs.VERSION }}"
+
+          echo "Tag version:     ${TAG_VERSION}"
+          echo "Package version: ${PKG_VERSION}"
+
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo ""
+            echo "ERROR: Tag (v${TAG_VERSION}) does not match package.json (${PKG_VERSION})"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Bundle with esbuild
+        run: npm run esbuild
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build standalone executables with pkg
+        run: |
+          # Use @yao-pkg/pkg for Node.js 22 support
+          npx @yao-pkg/pkg . --out-path pkgs
+
+          echo "Built packages:"
+          ls -la pkgs/
+
+      - name: Prepare package contents
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Create package directories for each platform
+          for platform in win-x64 win-arm64 linux-x64 linux-arm64 macos-x64 macos-arm64; do
+            mkdir -p "packages/pnut-ts-${platform}-${VERSION}/pnut_ts"
+
+            # Copy documentation files
+            cp README.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/"
+            cp LICENSE.txt "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || cp LICENSE "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/LICENSE.txt" 2>/dev/null || echo "No LICENSE file found"
+            cp CHANGELOG.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || true
+
+            # Copy binary with correct name
+            if [[ "$platform" == win-* ]]; then
+              cp "pkgs/pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts.exe"
+            else
+              cp "pkgs/pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
+              chmod +x "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
+            fi
+          done
+
+      - name: Create Windows/Linux ZIP packages
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          cd packages
+
+          for platform in win-x64 win-arm64 linux-x64 linux-arm64; do
+            zip -r "../pnut-ts-${platform}-${VERSION}.zip" "pnut-ts-${platform}-${VERSION}"
+            echo "Created: pnut-ts-${platform}-${VERSION}.zip"
+          done
+
+      - name: Upload Windows/Linux packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-zip
+          path: pnut-ts-*.zip
+          retention-days: 5
+
+      - name: Upload macOS x64 package directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64-pkg
+          path: packages/pnut-ts-macos-x64-*/
+          retention-days: 1
+
+      - name: Upload macOS arm64 package directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-pkg
+          path: packages/pnut-ts-macos-arm64-*/
+          retention-days: 1
+
+      - name: Upload version info
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-info
+          path: package.json
+          retention-days: 1
+
+  # Sign macOS binaries and create DMGs
+  macos-sign:
+    name: Sign & Package macOS
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download macOS x64 package
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-x64-pkg
+          path: packages/
+
+      - name: Download macOS arm64 package
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64-pkg
+          path: packages/
+
+      - name: Download version info
+        uses: actions/download-artifact@v4
+        with:
+          name: version-info
+          path: .
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: List downloaded packages
+        run: |
+          echo "Package directories:"
+          ls -la packages/
+          echo ""
+          echo "Contents:"
+          find packages -type f
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+        run: |
+          # Skip if no certificate configured
+          if [ -z "$MACOS_CERTIFICATE" ]; then
+            echo "No signing certificate configured, skipping signing"
+            echo "SIGNING_ENABLED=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "SIGNING_ENABLED=true" >> $GITHUB_ENV
+
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          echo -n "$MACOS_CERTIFICATE" | base64 --decode -o $CERTIFICATE_PATH
+
+          security create-keychain -p "$KEYCHAIN_PWD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PWD" $KEYCHAIN_PATH
+
+          security import $CERTIFICATE_PATH -P "$MACOS_CERTIFICATE_PWD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PWD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          echo "Certificate imported successfully"
+
+      - name: Create entitlements.plist
+        run: |
+          cat > entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.allow-jit</key>
+              <true/>
+              <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+              <true/>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Sign macOS binaries
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPER_NAME: ${{ secrets.APPLE_DEVELOPER_NAME }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          for arch in x64 arm64; do
+            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut_ts"
+
+            if [ -f "$BINARY" ]; then
+              echo "Signing ${arch} binary..."
+
+              codesign --force --sign "Developer ID Application: ${APPLE_DEVELOPER_NAME} (${APPLE_TEAM_ID})" \
+                --options runtime \
+                --timestamp \
+                --entitlements entitlements.plist \
+                "$BINARY"
+
+              echo "Verifying signature..."
+              codesign --verify --verbose=2 "$BINARY"
+              echo "${arch} binary signed successfully"
+            else
+              echo "WARNING: Binary not found: $BINARY"
+            fi
+          done
+
+      - name: Create DMG background
+        run: |
+          # Create SVG background
+          cat > dmg-background.svg << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <svg width="500" height="300" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#1e3a5f;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#0d1f33;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <rect width="500" height="300" fill="url(#bg)"/>
+            <text x="250" y="40" font-family="Helvetica, Arial" font-size="28" font-weight="bold" fill="#ff6b35" text-anchor="middle">PNut-TS</text>
+            <text x="250" y="62" font-family="Helvetica, Arial" font-size="14" font-weight="500" fill="white" opacity="0.9" text-anchor="middle">Propeller 2 Spin2/PASM2 Compiler</text>
+            <text x="250" y="82" font-family="Helvetica, Arial" font-size="11" fill="white" opacity="0.6" text-anchor="middle">Parallax Inc &amp; Iron Sheep Productions, LLC</text>
+            <line x1="210" y1="150" x2="270" y2="150" stroke="white" stroke-width="4" opacity="0.9"/>
+            <polygon points="290,150 270,140 270,160" fill="white" opacity="0.9"/>
+            <text x="250" y="260" font-family="Helvetica, Arial" font-size="18" font-weight="600" fill="white" text-anchor="middle">Drag to Applications Folder to Install</text>
+          </svg>
+          EOF
+
+          # Convert SVG to PNG using sips (available on macOS)
+          # First convert to PDF, then to PNG
+          /usr/bin/qlmanage -t -s 500 -o . dmg-background.svg 2>/dev/null || true
+
+          # If that didn't work, try using a simple approach
+          if [ ! -f "dmg-background.png" ]; then
+            # Create a simple gradient background using ImageMagick if available
+            if command -v convert &> /dev/null; then
+              convert -size 500x300 gradient:'#1e3a5f'-'#0d1f33' dmg-background.png
+            fi
+          fi
+
+      - name: Create DMGs
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          for arch in x64 arm64; do
+            PKG_DIR="packages/pnut-ts-macos-${arch}-${VERSION}"
+            DMG_NAME="pnut-ts-macos-${arch}-${VERSION}.dmg"
+
+            if [ -d "$PKG_DIR" ]; then
+              echo "Creating DMG for ${arch}..."
+
+              # Create staging directory
+              STAGING="dmg-staging-${arch}"
+              rm -rf "$STAGING"
+              mkdir -p "$STAGING"
+
+              # Copy pnut_ts folder
+              cp -r "$PKG_DIR/pnut_ts" "$STAGING/"
+
+              # Create Applications symlink
+              ln -s /Applications "$STAGING/Applications"
+
+              # Copy background if exists
+              if [ -f "dmg-background.png" ]; then
+                mkdir -p "$STAGING/.background"
+                cp dmg-background.png "$STAGING/.background/background.png"
+              fi
+
+              # Create DMG
+              hdiutil create \
+                -volname "PNut-TS" \
+                -srcfolder "$STAGING" \
+                -ov \
+                -format UDZO \
+                "$DMG_NAME"
+
+              echo "Created: $DMG_NAME"
+              rm -rf "$STAGING"
+            fi
+          done
+
+      - name: Sign DMGs
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPER_NAME: ${{ secrets.APPLE_DEVELOPER_NAME }}
+        run: |
+          for dmg in pnut-ts-macos-*.dmg; do
+            if [ -f "$dmg" ]; then
+              echo "Signing DMG: $dmg"
+              codesign --force --sign "Developer ID Application: ${APPLE_DEVELOPER_NAME} (${APPLE_TEAM_ID})" \
+                --options runtime \
+                --timestamp \
+                "$dmg"
+              codesign --verify --verbose=2 "$dmg"
+            fi
+          done
+
+      - name: Notarize DMGs
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for dmg in pnut-ts-macos-*.dmg; do
+            if [ -f "$dmg" ]; then
+              echo "Notarizing: $dmg"
+
+              xcrun notarytool submit "$dmg" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_ID_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                --wait
+
+              echo "Stapling notarization ticket..."
+              xcrun stapler staple "$dmg"
+
+              echo "Validating..."
+              xcrun stapler validate "$dmg"
+
+              echo "$dmg notarized and stapled successfully"
+            fi
+          done
+
+      - name: Upload macOS DMGs
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-dmg
+          path: pnut-ts-macos-*.dmg
+          retention-days: 5
+
+  # Create GitHub Release
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build, macos-sign]
+    if: ${{ !inputs.dry_run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download ZIP packages
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-zip
+          path: release/
+
+      - name: Download DMG packages
+        uses: actions/download-artifact@v4
+        with:
+          name: packages-dmg
+          path: release/
+
+      - name: Download version info
+        uses: actions/download-artifact@v4
+        with:
+          name: version-info
+          path: .
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: List release artifacts
+        run: |
+          echo "Release artifacts:"
+          ls -la release/
+
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum * > checksums.txt
+          echo ""
+          echo "Checksums:"
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: PNut-TS v${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            release/*
+          body: |
+            ## PNut-TS v${{ steps.version.outputs.VERSION }}
+
+            Propeller 2 Spin2/PASM2 Compiler - TypeScript Implementation
+
+            ---
+
+            ### Downloads
+
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | **macOS** | Apple Silicon (M1/M2/M3) | `pnut-ts-macos-arm64-${{ steps.version.outputs.VERSION }}.dmg` |
+            | **macOS** | Intel x64 | `pnut-ts-macos-x64-${{ steps.version.outputs.VERSION }}.dmg` |
+            | **Windows** | x64 | `pnut-ts-win-x64-${{ steps.version.outputs.VERSION }}.zip` |
+            | **Windows** | ARM64 | `pnut-ts-win-arm64-${{ steps.version.outputs.VERSION }}.zip` |
+            | **Linux** | x64 | `pnut-ts-linux-x64-${{ steps.version.outputs.VERSION }}.zip` |
+            | **Linux** | ARM64 | `pnut-ts-linux-arm64-${{ steps.version.outputs.VERSION }}.zip` |
+
+            ---
+
+            ### Installation
+
+            **macOS (DMG):**
+            1. Download the appropriate DMG file
+            2. Open the DMG
+            3. Drag `pnut_ts` folder to Applications
+            4. Run from terminal: `/Applications/pnut_ts/pnut_ts --help`
+
+            **Windows/Linux (ZIP):**
+            1. Download the appropriate ZIP file
+            2. Extract to desired location
+            3. Add to PATH or run directly: `./pnut_ts/pnut_ts --help`
+
+            ---
+
+            ### Checksums
+
+            See `checksums.txt` for SHA256 checksums of all files.
+
+            ---
+
+            ### What's New
+
+            See [CHANGELOG.md](https://github.com/ironsheep/PNut-TS/blob/main/CHANGELOG.md) for details.

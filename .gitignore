@@ -264,3 +264,5 @@ CLAUDE.md
 /tasks/archives
 /.claude-todo
 TEST/MAP-tests/.vscode/settings.json
+/REF-INSTALL
+/scripts-pkg-macos
