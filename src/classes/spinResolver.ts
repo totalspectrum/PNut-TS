@@ -20,7 +20,7 @@ import { BlockStack } from './blockStack';
 import { ObjFile, SpinFiles } from './spinFiles';
 import { ChildObjectsImage, iFileDetails } from './childObjectsImage';
 import { ObjectSymbols } from './objectSymbols';
-import { DistillerList, DistillerRecord } from './distillerList';
+import { ObjectDistiller } from './objectDistiller';
 import { DebugData, DebugRecord } from './debugData';
 import { eTextSub, SpinDocument } from './spinDocument';
 import { hexAddress, hexByte, hexLong, hexWord } from '../utils/formatUtils';
@@ -217,7 +217,6 @@ export class SpinResolver {
   private readonly case_fast_limit: number = 256; // max cases
   private readonly subs_limit: number = 1024; // max PUB/PRI count
   private readonly objs_limit: number = 1024; // max object count
-  private readonly distiller_limit: number = 0x10000; // max distiller limit
   private readonly method_locals_limit: number = 0x10000 + this.method_params_limit * 4 + this.method_results_limit * 4;
   private readonly obj_limit: number = OBJ_LIMIT; // max object size PNut obj_data_limit as of v49
   private readonly obj_size_limit: number = 0x100000;
@@ -225,7 +224,6 @@ export class SpinResolver {
   private context: Context;
   private isLogging: boolean;
   private isLoggingOutline: boolean;
-  private isLoggingDistill: boolean;
   //private logBlockOptimizeDepth: number = 0;
   // data from our elemtizer and navigation variables
   private spinElements: SpinElement[] = [];
@@ -300,9 +298,7 @@ export class SpinResolver {
   private replacedName: string = ''; // side effect set by getElement when replacing name with value for type undefined
   // distiller support
   private distilledBytes: number = 0; // PNut distilled_bytes end result of distill process
-  private distillPtr: number = 0; // PNut dis_ptr  FIXME: remove this after implement use of distillerList
-  private distiller: number[] = []; // PNut dis  FIXME: remove this after implement use of distillerList
-  private distillerList: DistillerList;
+  private objectDistiller: ObjectDistiller;
 
   // here for new DITTO in DAT support
   private dittoIsActive: boolean = false; // PNut ditto_flag
@@ -351,7 +347,6 @@ export class SpinResolver {
     this.debug_data = new DebugData(this.context);
     this.isLogging = ctx.logOptions.logResolver;
     this.isLoggingOutline = ctx.logOptions.logOutline;
-    this.isLoggingDistill = ctx.logOptions.logDistiller;
     // get references to the single global data
     this.objImage = ctx.compileData.objImage;
     this.objImage.refreshLogging();
@@ -371,8 +366,7 @@ export class SpinResolver {
     this.blockStack.enableLogging(this.isLogging);
     this.pubConList = new ObjectSymbols(ctx, 'PUBCONList');
     this.objectStructureSet = new ObjectStructures(ctx, 'PUBStructList');
-    this.distillerList = new DistillerList(ctx);
-    this.distillerList.enableLogging(this.isLogging);
+    this.objectDistiller = new ObjectDistiller(ctx);
     this.spinSymbolTables.enableLogging(this.isLogging);
   }
 
@@ -494,8 +488,6 @@ export class SpinResolver {
     this.pubConList.reset();
     this.asmLocal = 0;
     this.objImage.reset();
-    this.distillPtr = 0;
-    this.distiller = [];
     this.inConBlock = false;
     this.inObjBlock = false;
     this.pasmMode = this.determinePasmMode();
@@ -4877,613 +4869,15 @@ export class SpinResolver {
   //
 
   private distill_obj_blocks() {
-    // Distill obj blocks
-    // PNut distill_obj_blocks:
+    // Distill obj blocks using the new ObjectDistiller class
     if (this.pasmMode == false) {
-      // here is distill_objects:
       this.logMessageOutline(`++ distill_obj_blocks() objImgLen=${this.objImage.offset}(${hexLong(this.objImage.offset, '0x')}) - ENTRY`);
-      //this.objImage.setLogging(true); // REMOVE BEFORE FLIGHT
-      const startingOffset: number = this.objImage.offset;
-      this.distillPtr = 0;
-      this.distill_build();
-      //this.logMessage(`  -- post raw record longs=[${this.distiller}](${this.distiller.length})`);
-      this.distillDumpRecords('post_build');
-      //if (recordCount > 1) {
-      this.distill_scrub(); // damages object IDs in objImage
 
-      let recordWasEliminated: boolean;
-      do {
-        recordWasEliminated = this.distill_eliminate();
-      } while (recordWasEliminated);
+      const bytesRemoved = this.objectDistiller.distillObjects(this.objImage);
+      this.distilledBytes += bytesRemoved;
 
-      this.distill_rebuild();
-      this.distill_reconnect();
-      //}
-      //this.objImage.setLogging(false); // REMOVE BEFORE FLIGHT
-
-      // NOTE: PNut v43 has this as an assign, we are moving to sum from assign
-      const savedBytesThisPass = startingOffset - this.objImage.offset;
-      this.distilledBytes += savedBytesThisPass;
-      this.validateDistillerSavings(startingOffset, this.objImage.offset, savedBytesThisPass);
-      this.logMessageOutline(`++ distill_obj_blocks() - EXIT`);
+      this.logMessageOutline(`++ distill_obj_blocks() - EXIT (saved ${bytesRemoved} bytes)`);
     }
-  }
-
-  private validateDistillerSavings(startingOffset: number, finalOffset: number, savedBytesThisPass: number): void {
-    // Validate distiller savings calculation
-    this.logMessageOutline(`Distiller Savings Validation:`);
-    this.logMessageOutline(`  Starting offset: ${startingOffset}`);
-    this.logMessageOutline(`  Final offset: ${finalOffset}`);
-    this.logMessageOutline(`  Saved bytes this pass: ${savedBytesThisPass}`);
-    this.logMessageOutline(`  Cumulative total saved: ${this.distilledBytes}`);
-
-    // Check for negative savings which would indicate a calculation error
-    if (savedBytesThisPass < 0) {
-      throw new Error(
-        `Distiller calculation error: Negative savings detected (${savedBytesThisPass} bytes). ` +
-          `Starting offset: ${startingOffset}, Final offset: ${finalOffset}`
-      );
-    }
-
-    // Check if final offset exceeds starting offset (no savings or growth)
-    if (finalOffset > startingOffset) {
-      throw new Error(
-        `Distiller calculation error: Final offset (${finalOffset}) exceeds starting offset (${startingOffset}). ` +
-          `This indicates object growth rather than reduction.`
-      );
-    }
-
-    // Validate cumulative total is reasonable
-    if (this.distilledBytes < 0) {
-      throw new Error(`Distiller calculation error: Cumulative distilled bytes is negative (${this.distilledBytes})`);
-    }
-  }
-
-  private distillRecordCount(callerId: string): number {
-    let recordcount = 0;
-    if (this.distiller.length > 0) {
-      let recordOffset = 0;
-      do {
-        recordcount++;
-        const subObjectCount = this.distiller[recordOffset + 2];
-        recordOffset += 5 + subObjectCount;
-      } while (recordOffset < this.distillPtr);
-    }
-    //this.logMessage(`  -- [${callerId}] distill Record Ct = (${recordcount})`);
-    return recordcount;
-  }
-
-  // -------------------------------------
-  // 0: object id
-  // 1: object offset
-  // 2: sub-object count
-  // 3: method count
-  // 4: object size
-  // 5+:        sub-object id's (if any)
-  // -------------------------------------
-
-  private distillDumpRecords(callerId: string) {
-    const recordCount: number = this.distillRecordCount(callerId);
-    const savedOutlineLogState = this.isLoggingOutline;
-    this.isLoggingOutline = false; // DON'T LOG FOR NOW...
-    this.logMessageDistill('  -- ------------------------------');
-    this.logMessageDistill(`  -- [${callerId}]: rcdCt=(${recordCount}), this.distillPtr=(${this.distillPtr})`);
-    if (this.distiller.length > 0) {
-      let recordOffset: number = 0;
-      let recordNbr: number = 1;
-      do {
-        const objID = this.distiller[recordOffset + 0];
-        const objOffset = this.distiller[recordOffset + 1];
-        const subObjCount = this.distiller[recordOffset + 2];
-        const methodCount = this.distiller[recordOffset + 3];
-        const objectSize = this.distiller[recordOffset + 4];
-        const subObjIDs: string[] = [];
-        for (let index = 0; index < subObjCount; index++) {
-          const idValue: number = this.distiller[recordOffset + 5 + index];
-          const extraBit: string = (idValue & 0x80000000) != 0 ? `+` : ``;
-          const subObjId = idValue & 0x7fffffff;
-          subObjIDs.push(`${extraBit}${subObjId}`);
-        }
-        const recordIdStr: string = `#${recordNbr}[${recordOffset}](${5 + subObjCount})`;
-        const extraIDBit: string = (objID & 0x80000000) != 0 ? `+` : ``;
-        const objSizeLongs: number = (objectSize + 3) & 0xfffffffc;
-        this.logMessageDistill(
-          `  -- ${recordIdStr} id=(${extraIDBit}${objID & 0x7fffffff}), offset=(${objOffset}), subCt=(${subObjCount}), mthdCt=(${methodCount}), objSz=(${objectSize}) [${objSizeLongs} -> ${objOffset + objSizeLongs}] subObjIDs=[${subObjIDs}]`
-        );
-        recordOffset += 5 + subObjCount;
-        recordNbr++;
-      } while (recordOffset < this.distillPtr);
-    } else {
-      this.logMessageDistill('     {emtpy distiller record list}');
-    }
-    this.logMessageDistill('  -- ------------------------------');
-    this.isLoggingOutline = savedOutlineLogState; // restore outline log state
-  }
-
-  // -------------------------------------
-  // 0: object id
-  // 1: object offset
-  // 2: sub-object count
-  // 3: method count
-  // 4: object size
-  // 5+:        sub-object id's (if any)
-  // -------------------------------------
-
-  private distill_build(objectId: number = 0, objectOffset: number = 0, subObjectId: number = 1): number {
-    // Build initial object list
-    // PNut distill_build:
-    // record object Id
-    this.logMessageOutline(`* distillBuild(id=(${objectId}), ofs=(${objectOffset}), subObjId=(${subObjectId}))`);
-    // here is @@record:
-    this.distillBuildEnter(objectId);
-    this.distillBuildEnter(objectOffset);
-
-    // count sub-objects
-    // -----------------
-    let tableEntry: number;
-    let subObjectCount: number = 0;
-    let loopCt: number = 0; // INTERNAL DEBUG use
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // here is @@countobjects:
-      tableEntry = this.objImage.readLong(objectOffset + subObjectCount * 8);
-      // LOG the first 15 things found...
-      if (loopCt++ < 15) {
-        // DEBUG Logging...
-        this.logMessage(`  -- tableEntry=(${hexLong(tableEntry, '0x')}), subObjectCount=(${subObjectCount})`);
-      }
-      // if not at end of table....
-      if ((tableEntry & 0x80000000) == 0) {
-        subObjectCount++;
-      } else {
-        break; // found last, exit
-      }
-    }
-    this.distillBuildEnter(subObjectCount);
-
-    // count methods
-    // -------------
-    let methodCount: number = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // here is @@countobjects:
-      tableEntry = this.objImage.readLong(objectOffset + subObjectCount * 8 + methodCount * 4);
-      if ((tableEntry & 0x80000000) != 0) {
-        methodCount++;
-      } else {
-        break;
-      }
-    }
-    this.distillBuildEnter(methodCount);
-    this.distillBuildEnter(tableEntry); // record object size
-
-    let newSubObjectId = subObjectId; // return this value if NO subObjects
-    if (subObjectCount > 0) {
-      // (initial sub object ID is passed parameter)
-      // enter record for each sub object
-      // here is @@id:
-      for (let index = 0; index < subObjectCount; index++) {
-        this.distillBuildEnter(subObjectId + index); // record subObjIDs: this is @@enter
-      }
-
-      // here is @@sub:
-      newSubObjectId = subObjectId + subObjectCount;
-      // index is [ebx]
-      for (let index = 0; index < subObjectCount; index++) {
-        //                                              [esi]     + [ebx] * 8
-        let subObjectOffset = this.objImage.readLong(objectOffset + index * 8);
-        // recursively call distill_build to enter any sub-objects' sub-object records
-        // call ourself with new  [objectId, objectOffset, and subObjectId]
-        //       [edi]                                    [edx],        [esi] + subObjectOffset,  [edi]
-        newSubObjectId = this.distill_build(subObjectId + index, objectOffset + subObjectOffset, newSubObjectId);
-      }
-    }
-    return newSubObjectId;
-  }
-
-  /*
-  private distill_build_new(objectId: number = 0, objectOffset: number = 0, subObjectId: number = 1): number {
-    // Build initial object list
-    // PNut distill_build new?:
-    // record object Id
-    this.logMessage(`* distillBuild(objId=(${objectId}),ofs=(${objectOffset}), subObjId=(${subObjectId}))`);
-    // here is @@record:
-    // count sub-objects
-    let tableEntry: number = 0;
-    let subObjectCount: number = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // here is @@countobjects:
-      tableEntry = this.objImage.readLong(objectOffset + subObjectCount * 8);
-      if ((tableEntry & 0x80000000) == 0) {
-        subObjectCount++;
-      } else {
-        break;
-      }
-    }
-
-    // count methods
-    tableEntry = 0;
-    let methodCount: number = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // here is @@countobjects:
-      tableEntry = this.objImage.readLong(objectOffset + subObjectCount * 8 + methodCount * 4);
-      if ((tableEntry & 0x80000000) != 0) {
-        methodCount++;
-      } else {
-        break;
-      }
-    }
-
-    let subObjIDs: number[] = [];
-    if (subObjectCount != 0) {
-      // (initial sub object ID is passed parameter)
-      // enter record for each sub object
-      // here is @@id:
-      for (let index = 0; index < subObjectCount; index++) {
-        subObjIDs.push(subObjectId + index);
-      }
-    }
-    const distillerRecord = new DistillerRecord(objectId, objectOffset, subObjectCount, methodCount, tableEntry, subObjIDs);
-    this.distillerList.addrecord(distillerRecord);
-
-    let newSubObjectId = subObjectId;
-    if (subObjectCount != 0) {
-      // here is @@sub:
-      newSubObjectId = subObjectId + subObjectCount;
-      for (let index = 0; index < subObjectCount; index++) {
-        let subObjectOffset = this.objImage.readLong(objectOffset + index * 8);
-        // recursively call distill_build to enter any sub-objects' sub-object records
-        // call ourself with new  [objectId, objectOffset, and subObjectId]
-        //                                  [eax] + [edx]=index,        [esi] + subObjectOffset,  [edi]
-        newSubObjectId = this.distill_build(subObjectId + index, objectOffset + subObjectOffset, newSubObjectId);
-      }
-    }
-    return newSubObjectId;
-  }
-  //*/
-
-  private distillBuildEnter(value: number) {
-    // PNut distill_build: @@enter:
-    if (this.distillPtr >= this.distiller_limit) {
-      // [error_odo]
-      throw new Error(`Object distiller overflow (more than ${this.distiller_limit} entries)`);
-    }
-    const newLength = this.distiller.push(value);
-    this.logMessage(`  -- dbldEn() distiller[${this.distillPtr}]=(${hexLong(value, '0x')}),  arLen=(${newLength})`);
-    this.distillPtr++;
-  }
-
-  private distill_scrub() {
-    // Scrub sub-object offsets within objects to enable comparison of redundant objects
-    // PNut distill_scrub:
-    this.logMessageDistill(`* distill_scrub()`);
-    let recordOffset = 0; // this is [ebx]
-    let recordID = 0; // for LOGGING
-    // LOG: if distiller is being logged then turn on object logging for this routine
-    const savedObjLoggingState: boolean = this.objImage.isLoggingEnabled;
-    this.objImage.setLogging(this.isLoggingDistill); // REMOVE BEFORE FLIGHT
-    do {
-      recordID++;
-      const objectOffset = this.distiller[recordOffset + 1]; // [esi]
-      const subObjectCount = this.distiller[recordOffset + 2]; // [ecx]
-      this.logMessageDistill(`  -- #${recordID} subCnt-(${subObjectCount})`);
-      for (let subObjIndex = 0; subObjIndex < subObjectCount; subObjIndex++) {
-        // clear subOjbectOffsets - facilitating later compare
-        this.objImage.replaceLong(0, objectOffset + subObjIndex * 8);
-      }
-      recordOffset += 5 + subObjectCount;
-    } while (recordOffset < this.distillPtr);
-    // LOG: restore object logging as we leave
-    this.objImage.setLogging(savedObjLoggingState); // REMOVE BEFORE FLIGHT
-  }
-
-  /*
-  private distill_eliminate_old(): number {
-    // Eliminate redundant objects
-    // PNut distill_eliminate:
-    this.logMessageDistill(`* distill_eliminate_old()`);
-    let recordOffset = 0; // this is [ebx]
-    let recordID = 0;
-    let eliminationCount: number = 0;
-    // eslint-disable-next-line no-constant-condition
-    do {
-      // here is @@newobject:
-      const subObjectCount = this.distiller[recordOffset + 2];
-      recordID++;
-      // here is @@msb:
-      let areAllSubObjectsCompleted: boolean = true;
-      for (let index = 0; index < subObjectCount; index++) {
-        const subObjectId = this.distiller[recordOffset + 5 + index];
-        if ((subObjectId & 0x80000000) == 0) {
-          areAllSubObjectsCompleted = false;
-        }
-      }
-
-      this.logMessageDistill(`distill_eliminate_old() allSubsComplete=(${areAllSubObjectsCompleted})`);
-      // if this record's subObjects are marked as complete...
-      if (areAllSubObjectsCompleted) {
-        let elimRecordOffset = 0;
-        // eslint-disable-next-line no-constant-condition
-        do {
-          // check for match
-          const matchingRecordOffset = this.findMatchForRecord(elimRecordOffset);
-          if (matchingRecordOffset !== undefined) {
-            // objects match, update all related sub-object id's
-            eliminationCount++;
-            // set msb's of id's
-            const oldObjectId = this.distiller[elimRecordOffset + 0];
-            const newObjectId = this.distiller[matchingRecordOffset + 0];
-            this.distillEliminateUpdate(oldObjectId, newObjectId);
-            // remove redundant object record from list
-            // (id is no longer referenced by any record)
-            this.distillDumpRecords('preDelete');
-            const elimRcdLength = 5 + this.distiller[elimRecordOffset + 2];
-            this.logMessageDistill(
-              `  -- [${recordOffset}] DELETE len=(${elimRcdLength})  distPtr (${this.distillPtr}) -> (${this.distillPtr - elimRcdLength})`
-            );
-            this.distiller.splice(elimRecordOffset, elimRcdLength);
-            this.distillPtr -= elimRcdLength;
-            this.distillDumpRecords('postDelete');
-            // NOW break to outer loop which starts all over from top (or call ourself?)
-            eliminationCount += this.distill_eliminate_old();
-          }
-          const elimSubObjectCount = this.distiller[elimRecordOffset + 2];
-          elimRecordOffset += 5 + elimSubObjectCount;
-        } while (elimRecordOffset < this.distillPtr);
-      }
-
-      //  return to top of loop @@newobject:
-      // here is @@nextobject:
-      recordOffset += 5 + subObjectCount;
-    } while (recordOffset < this.distillPtr);
-    this.logMessageDistill(`  -- distElimOld() EXIT (return) eliminationCount=(${eliminationCount})`);
-    return eliminationCount;
-  }
-  */
-
-  private distill_eliminate(): boolean {
-    // Eliminate redundant objects
-    // PNut distill_eliminate:
-    this.logMessageDistill(`* distill_eliminate()`);
-    let recordOffset = 0; // this is [ebx]
-    let recordID = 0;
-    let didEliminateStatus: boolean = false;
-    // eslint-disable-next-line no-constant-condition
-    do {
-      // here is @@newobject:
-      const subObjectCount = this.distiller[recordOffset + 2];
-      recordID++;
-      // here is @@msb:
-      let areAllSubObjectsCompleted: boolean = true;
-      for (let index = 0; index < subObjectCount; index++) {
-        const subObjectId = this.distiller[recordOffset + 5 + index];
-        if ((subObjectId & 0x80000000) == 0) {
-          areAllSubObjectsCompleted = false;
-        }
-      }
-
-      this.logMessageDistill(`  -- allSubsComplete=(${areAllSubObjectsCompleted})`);
-      // if this record's subObjects are marked as complete...
-      if (areAllSubObjectsCompleted) {
-        let elimRecordOffset = 0;
-        // eslint-disable-next-line no-constant-condition
-        do {
-          // check for match
-          const matchingRecordOffset = this.findMatchForRecord(elimRecordOffset);
-          if (matchingRecordOffset !== undefined) {
-            // records match...
-            didEliminateStatus = true;
-            // set msb's of id's
-            const oldObjectId = this.distiller[elimRecordOffset + 0];
-            const newObjectId = this.distiller[matchingRecordOffset + 0];
-            // records match, update all related sub-object id's
-            this.distillEliminateUpdate(oldObjectId, newObjectId);
-            // remove redundant object record from list
-            // (id is no longer referenced by any record)
-            this.distillDumpRecords('preDelete');
-            const elimRcdLength = 5 + this.distiller[elimRecordOffset + 2];
-            this.logMessageDistill(
-              `  -- [${recordOffset}] DELETE len=(${elimRcdLength})  distPtr (${this.distillPtr}) -> (${this.distillPtr - elimRcdLength})`
-            );
-            this.distiller.splice(elimRecordOffset, elimRcdLength);
-            this.distillPtr -= elimRcdLength;
-            this.distillDumpRecords('postDelete');
-          }
-          const elimSubObjectCount = this.distiller[elimRecordOffset + 2];
-          elimRecordOffset += 5 + elimSubObjectCount;
-        } while (didEliminateStatus == false && elimRecordOffset < this.distillPtr);
-      }
-
-      //  return to top of loop @@newobject:
-      // here is @@nextobject:
-      recordOffset += 5 + subObjectCount;
-    } while (didEliminateStatus == false && recordOffset < this.distillPtr);
-    this.logMessageDistill(`  -- distElim EXIT (return) didEliminateStatus=(${didEliminateStatus})`);
-    return didEliminateStatus;
-  }
-
-  private findMatchForRecord(matchRecordOffset: number): number | undefined {
-    // here is @@search:
-    let matchingRecordOffset: number | undefined = undefined;
-    let searchRecordOffset = matchRecordOffset;
-    const startSubObjectCount = this.distiller[searchRecordOffset + 2];
-    //this.logMessage(`* findMatchForRecord(${matchRecordOffset})`);
-    let matchSubObjectCount: number = 0;
-    let matchObjSize: number = 0;
-    // point to first record to check for match
-    searchRecordOffset = matchRecordOffset + 5 + startSubObjectCount;
-    let searchSubObjectCount: number = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // if we are at end of records in search?
-      if (searchRecordOffset >= this.distillPtr) {
-        // yes, abort search
-        break;
-      }
-      searchSubObjectCount = this.distiller[searchRecordOffset + 2]; // this was out of order in the new code, moved earlier
-      //this.logMessage(`  -- checking rcd(${matchRecordOffset}) against rcd(${searchRecordOffset})`);
-      let recordMatched: boolean = true;
-      // do object sizes match?
-      matchObjSize = this.distiller[matchRecordOffset + 4];
-      const searchObjSize = this.distiller[searchRecordOffset + 4];
-      if (matchObjSize != searchObjSize) {
-        // NOT a match, abort search
-        recordMatched = false;
-      }
-      if (recordMatched) {
-        // do sub-object counts match?
-        // TODO: COVERAGE test me
-        matchSubObjectCount = this.distiller[matchRecordOffset + 2];
-        if (matchSubObjectCount != searchSubObjectCount) {
-          // NOT a match, abort search
-          recordMatched = false;
-        }
-      }
-      if (recordMatched) {
-        // do sub-object id's match?
-        for (let index = 0; index < matchSubObjectCount; index++) {
-          const matchSubObjectId = this.distiller[matchRecordOffset + 5 + index];
-          const searchSubObjectId = this.distiller[searchRecordOffset + 5 + index];
-          if (matchSubObjectId != searchSubObjectId) {
-            // NOT a match, abort search
-            recordMatched = false;
-          }
-        }
-      }
-      if (recordMatched) {
-        // do object binaries match?
-        const matchObjectOffset = this.distiller[matchRecordOffset + 1];
-        const searchObjectOffset = this.distiller[searchRecordOffset + 1];
-        //this.logMessage(`* BINARY COMPARE matchOffset(${matchObjectOffset}), searchOffset(${searchObjectOffset}), lengthInBytes(${matchObjSize})`);
-        //this.objImage.dumpBytes(matchObjectOffset, matchObjSize, 'matchObject');
-        //this.objImage.dumpBytes(searchObjectOffset, matchObjSize, 'searchObject');
-        for (let longIndex = 0; longIndex < matchObjSize / 4; longIndex++) {
-          const matchObjLong = this.objImage.readLong(matchObjectOffset + longIndex * 4);
-          const searchObjLong = this.objImage.readLong(searchObjectOffset + longIndex * 4);
-          //this.logMessage(`  -- LONG COMPARE ${hexLong(matchObjLong)} <-> ${hexLong(searchObjLong)}`);
-          if (matchObjLong != searchObjLong) {
-            // NOT a match, abort search
-            //this.logMessage(`EEEE  failed match long[${longIndex}] match(${matchObjLong}) <> search(${searchObjLong})`);
-            recordMatched = false;
-          }
-        }
-      }
-      if (recordMatched) {
-        // record still matched, let's return it
-        matchingRecordOffset = searchRecordOffset;
-        break;
-      }
-      //this.logMessage(`  -- srchRcdOfs=(${searchRecordOffset}), srchSubObjCt=(${searchSubObjectCount})`);
-      searchRecordOffset += 5 + searchSubObjectCount;
-    }
-    this.logMessageDistill(`* (distill) findMatchForRecord(${matchRecordOffset}) -> (${matchingRecordOffset})`);
-    return matchingRecordOffset;
-  }
-
-  private distillEliminateUpdate(objectId: number, newObjectId: number) {
-    // PNut distill_eliminate: @@update:
-    // update sub-object id's in records
-    this.logMessageDistill(` - distillEliminateUpdate(${objectId}, ${newObjectId})`);
-    let recordOffset: number = 0;
-    do {
-      const subObjectCount = this.distiller[recordOffset + 2];
-      for (let subObjectIndex = 0; subObjectIndex < subObjectCount; subObjectIndex++) {
-        const subObjectOffset = recordOffset + 5 + subObjectIndex;
-        let subObjectId = this.distiller[subObjectOffset] & 0x7fffffff;
-        if (subObjectId == objectId || subObjectId == newObjectId) {
-          const bitFlag: string = (this.distiller[subObjectOffset] & 0x80000000) != 0 ? '+' : '';
-          this.logMessageDistill(
-            `  -- [${recordOffset}+5+${subObjectIndex}] subObjID (${bitFlag}${this.distiller[subObjectOffset] & 0x7fffffff}) -> (+${newObjectId})`
-          );
-          this.distiller[subObjectOffset] = newObjectId | 0x80000000;
-        }
-      }
-      recordOffset += 5 + subObjectCount;
-    } while (recordOffset < this.distillPtr);
-  }
-
-  private distill_rebuild() {
-    // Rebuild distilled object with sub-objects
-    // PNut distill_rebuild:
-    const savedOffset = this.objImage.offset;
-    this.logMessageDistill(`* distill_rebuild() imgOfs=(${savedOffset})(${hexLong(savedOffset, '0x')})`);
-    let recordOffset: number = 0;
-    let rebuildObjImage: ObjectImage = new ObjectImage(this.context, 'rebuildImage');
-    rebuildObjImage.setOffsetTo(0);
-    do {
-      // read the source object offset
-      const objectOffset = this.distiller[recordOffset + 1];
-      // replace with destination-object offset
-      this.distiller[recordOffset + 1] = rebuildObjImage.offset;
-      // get object length in bytes then convert to long count rounded up
-      const objectSizeInBytes = this.distiller[recordOffset + 4];
-      const objSizeInLongs = (objectSizeInBytes + 3) >> 2;
-      this.logMessageDistill(
-        `  -- [${recordOffset}+1] OBJ-OFS:(${this.distiller[recordOffset + 1]}) -> (${rebuildObjImage.offset}), ofs=(${objectOffset}), objSz=(${objectSizeInBytes}), (${objSizeInLongs * 4} -> ${objectOffset + objSizeInLongs * 4})`
-      );
-      // copy our longs from source to dest
-      for (let longIndex = 0; longIndex < objSizeInLongs; longIndex++) {
-        const sourceLong = this.objImage.readLong(objectOffset + longIndex * 4);
-        rebuildObjImage.appendLong(sourceLong);
-      }
-      const subObjectCount = this.distiller[recordOffset + 2];
-      // here is @@loop:
-      recordOffset += 5 + subObjectCount;
-    } while (recordOffset < this.distillPtr);
-
-    // now replace objImage content with rebuildObjImage content
-    this.objImage.rawUint8Array.set(rebuildObjImage.rawUint8Array.subarray(0, rebuildObjImage.offset));
-    this.objImage.setOffsetTo(rebuildObjImage.offset);
-    this.logMessageDistill(
-      `  -- distRebld EXIT imgOfs=(${savedOffset})(${hexLong(savedOffset, '0x')}) -> (${this.objImage.offset})(${hexLong(this.objImage.offset, '0x')})`
-    );
-  }
-
-  private distill_reconnect(recordOffset: number = 0, callerId: string = '') {
-    // Reconnect any sub-objects
-    // PNut distill_reconnect:
-    // LOG: if distiller is being logged then turn on object logging for this routine
-    const savedObjLoggingState: boolean = this.objImage.isLoggingEnabled;
-    this.objImage.setLogging(this.isLoggingDistill); // REMOVE BEFORE FLIGHT
-    const prefix: string = callerId == '' ? '* distill_reconnect' : '  try with ';
-    this.logMessageDistill(`${prefix}(rcdOfs=${recordOffset})`);
-    if (recordOffset == 0) {
-      //this.logMessage(`  -- reconn raw record longs=[${this.distiller}](${this.distiller.length})`);
-      this.distillDumpRecords('reconnect');
-    }
-    const subObjectCount = this.distiller[recordOffset + 2];
-    for (let subObjectIndex = 0; subObjectIndex < subObjectCount; subObjectIndex++) {
-      const objOffset = this.distiller[recordOffset + 1]; // [edx]
-      // here is @@sub:
-      // get sub object ID
-      const subObjId = this.distiller[recordOffset + 5 + subObjectIndex] & 0x7fffffff;
-      this.logMessageDistill(`    -- ofs=(${objOffset}), subObjId=(${subObjId})`);
-      let searchRcdOffset = 0;
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        if (this.distiller[searchRcdOffset + 0] == subObjId) {
-          break; // have our matching record, abort loop
-        }
-        const subObjectCount = this.distiller[searchRcdOffset + 2];
-        searchRcdOffset += 5 + subObjectCount;
-        // assert that we did find our record ;-)
-        if (searchRcdOffset >= this.distillPtr) {
-          throw new Error(`ERROR[INTERNAL] failed to locate Object Id ${subObjId} list`);
-        }
-      }
-      // now searchRcdOffset points to record matching our ID
-      const matchSubObjOffset = this.distiller[searchRcdOffset + 1];
-      // enter relative offset of sub-object into object SubObjectId Fields
-      const relativeSubObjOffset = (matchSubObjOffset - objOffset) & 0x7fffffff;
-      this.objImage.replaceLong(relativeSubObjOffset, objOffset + subObjectIndex * 8);
-      // LOG: restore object logging as we leave
-      this.objImage.setLogging(savedObjLoggingState); // REMOVE BEFORE FLIGHT
-      this.distill_reconnect(searchRcdOffset, 'recursed');
-    }
-    // LOG: restore object logging as we leave
-    this.objImage.setLogging(savedObjLoggingState); // REMOVE BEFORE FLIGHT
   }
 
   private pad_obj_long() {
@@ -12086,12 +11480,6 @@ private checkDec(): boolean {
 
   private logMessageOutline(message: string): void {
     if (this.isLoggingOutline) {
-      this.context.logger.logMessage(message);
-    }
-  }
-
-  private logMessageDistill(message: string): void {
-    if (this.isLoggingDistill) {
       this.context.logger.logMessage(message);
     }
   }

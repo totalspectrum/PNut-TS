@@ -1,11 +1,24 @@
 /** @format */
 
-// this is our math block stack
-
 'use strict';
 
 import { Context } from '../utils/context';
 
+/**
+ * DistillerRecord - Represents a compiled object in the distillation process.
+ *
+ * Each record contains metadata about a compiled Spin2/PASM2 object including
+ * its location in the object image, structure (sub-objects and methods), and
+ * relationships to other objects. Used by ObjectDistiller for deduplication.
+ *
+ * Memory layout per record:
+ * - objectId: Unique identifier for this object
+ * - objectOffset: Byte offset in the object image
+ * - subObjectCount: Number of child objects this object references
+ * - methodCount: Number of methods in this object
+ * - objectSize: Total size in bytes
+ * - subObjectIds: Array of child object IDs (with bit 31 as completion flag)
+ */
 export class DistillerRecord {
   private _objectId: number;
   private _objectOffset: number;
@@ -53,12 +66,41 @@ export class DistillerRecord {
     return this._subObjectIds;
   }
 
+  // Setters for mutation during distillation
+  set objectOffset(value: number) {
+    this._objectOffset = value;
+  }
+
+  set subObjectIds(ids: number[]) {
+    this._subObjectIds = ids;
+  }
+
+  // Update a specific sub-object ID at index
+  public updateSubObjectId(index: number, newId: number): void {
+    if (index >= 0 && index < this._subObjectIds.length) {
+      this._subObjectIds[index] = newId;
+    }
+  }
+
   public toString(): string {
     const description: string = `id=(${this.objectId}), offset=(${this.objectOffset}), subCt=(${this.subObjectCount}), mthdCt=(${this.methodCount}), objSz=(${this.objectSize})`;
     return description;
   }
 }
 
+/**
+ * DistillerList - Collection of DistillerRecords for object deduplication.
+ *
+ * Provides storage and manipulation of DistillerRecords during the five-phase
+ * distillation algorithm. Supports record addition, removal, search by object ID,
+ * and bulk updates of sub-object references. Used exclusively by ObjectDistiller.
+ *
+ * Key operations:
+ * - addrecord/getRecordAt: Basic record storage
+ * - findRecordIndexByObjectId: Search with 0x7FFFFFFF masking
+ * - replaceSubObjectId: Bulk ID replacement across all records
+ * - removeRecordAt: Record deletion during elimination phase
+ */
 export class DistillerList {
   private context: Context;
   private isLogging: boolean = false;
@@ -104,6 +146,83 @@ export class DistillerList {
       this.logMessage('     {empty distiller record list}');
     }
     this.logMessage('  -- ------------------------------');
+  }
+
+  // Clear all records
+  public clear(): void {
+    this._recordList = [];
+  }
+
+  // Get record count (method alias for property)
+  public getRecordCount(): number {
+    return this._recordList.length;
+  }
+
+  // Get record at index (clearer alias for record())
+  public getRecordAt(index: number): DistillerRecord | undefined {
+    return index >= 0 && index < this._recordList.length ? this._recordList[index] : undefined;
+  }
+
+  // Remove record at index
+  public removeRecordAt(index: number): boolean {
+    if (index >= 0 && index < this._recordList.length) {
+      this._recordList.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  // Replace record at index
+  public replaceRecordAt(index: number, record: DistillerRecord): boolean {
+    if (index >= 0 && index < this._recordList.length) {
+      this._recordList[index] = record;
+      return true;
+    }
+    return false;
+  }
+
+  // Find record by object ID (returns index or -1)
+  public findRecordIndexByObjectId(objectId: number): number {
+    const maskedSearchId = objectId & 0x7fffffff;
+    for (let i = 0; i < this._recordList.length; i++) {
+      if ((this._recordList[i].objectId & 0x7fffffff) === maskedSearchId) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // Find record by object ID (returns record or undefined)
+  public findRecordByObjectId(objectId: number): DistillerRecord | undefined {
+    const index = this.findRecordIndexByObjectId(objectId);
+    return index >= 0 ? this._recordList[index] : undefined;
+  }
+
+  // Replace all sub-object ID references across all records
+  public replaceSubObjectId(oldId: number, newId: number): void {
+    const maskedOldId = oldId & 0x7fffffff;
+    const newIdWithFlag = newId | 0x80000000;
+
+    for (const record of this._recordList) {
+      for (let i = 0; i < record.subObjectIds.length; i++) {
+        const subId = record.subObjectIds[i] & 0x7fffffff;
+        if (subId === maskedOldId || subId === (newId & 0x7fffffff)) {
+          record.updateSubObjectId(i, newIdWithFlag);
+        }
+      }
+    }
+  }
+
+  // Generator for iteration with index
+  public *records(): Generator<[number, DistillerRecord]> {
+    for (let i = 0; i < this._recordList.length; i++) {
+      yield [i, this._recordList[i]];
+    }
+  }
+
+  // forEach helper for cleaner iteration
+  public forEach(callback: (record: DistillerRecord, index: number) => void): void {
+    this._recordList.forEach((record, index) => callback(record, index));
   }
 
   private logMessage(message: string): void {
