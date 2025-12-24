@@ -287,6 +287,50 @@ jobs:
             fi
           done
 
+      - name: Create transparency removal script
+        run: |
+          cat > remove_border_bg.py << 'PYTHON_SCRIPT'
+          from PIL import Image
+          from collections import deque
+          import sys
+
+          def remove_border_background(src_path, dst_path, threshold=240):
+              img = Image.open(src_path).convert("RGBA")
+              pixels = img.load()
+              width, height = img.size
+              to_transparent = set()
+              visited = set()
+
+              def flood_fill(start_x, start_y):
+                  queue = deque([(start_x, start_y)])
+                  while queue:
+                      x, y = queue.popleft()
+                      if (x, y) in visited or x < 0 or x >= width or y < 0 or y >= height:
+                          continue
+                      visited.add((x, y))
+                      r, g, b, a = pixels[x, y]
+                      if r >= threshold and g >= threshold and b >= threshold:
+                          to_transparent.add((x, y))
+                          queue.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
+
+              for x in range(width):
+                  flood_fill(x, 0)
+                  flood_fill(x, height-1)
+              for y in range(height):
+                  flood_fill(0, y)
+                  flood_fill(width-1, y)
+
+              for x, y in to_transparent:
+                  r, g, b, a = pixels[x, y]
+                  pixels[x, y] = (r, g, b, 0)
+
+              img.save(dst_path, "PNG")
+              print(f"Transparency added ({len(to_transparent)} pixels)")
+
+          if __name__ == "__main__":
+              remove_border_background(sys.argv[1], sys.argv[2])
+          PYTHON_SCRIPT
+
       - name: Create icons with transparency
         run: |
           # Create volume icon ICNS with transparent background
@@ -299,61 +343,9 @@ jobs:
 
           if [ -n "$SOURCE_IMG" ]; then
             echo "Creating volume icon ICNS from $SOURCE_IMG..."
-
-            # Convert to proper PNG format first (handles JPEG with .png extension)
             sips -s format png "$SOURCE_IMG" --out volume-icon-tmp.png >/dev/null 2>&1
+            python3 remove_border_bg.py volume-icon-tmp.png volume-icon-transparent.png
 
-            # Remove white border background using Python PIL flood fill
-            python3 << 'PYEOF'
-from PIL import Image
-from collections import deque
-
-def remove_border_background(src_path, dst_path, threshold=240):
-    """Remove white background from edges only using flood fill."""
-    img = Image.open(src_path).convert("RGBA")
-    pixels = img.load()
-    width, height = img.size
-
-    to_transparent = set()
-    visited = set()
-
-    def flood_fill(start_x, start_y):
-        queue = deque([(start_x, start_y)])
-        while queue:
-            x, y = queue.popleft()
-            if (x, y) in visited:
-                continue
-            if x < 0 or x >= width or y < 0 or y >= height:
-                continue
-            visited.add((x, y))
-            r, g, b, a = pixels[x, y]
-            if r >= threshold and g >= threshold and b >= threshold:
-                to_transparent.add((x, y))
-                queue.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
-
-    # Flood fill from all edges
-    for x in range(width):
-        if (x, 0) not in visited:
-            flood_fill(x, 0)
-        if (x, height-1) not in visited:
-            flood_fill(x, height-1)
-    for y in range(height):
-        if (0, y) not in visited:
-            flood_fill(0, y)
-        if (width-1, y) not in visited:
-            flood_fill(width-1, y)
-
-    for x, y in to_transparent:
-        r, g, b, a = pixels[x, y]
-        pixels[x, y] = (r, g, b, 0)
-
-    img.save(dst_path, "PNG")
-    print(f"Transparency added ({len(to_transparent)} pixels)")
-
-remove_border_background("volume-icon-tmp.png", "volume-icon-transparent.png")
-PYEOF
-
-            # Create iconset from transparent image
             ICONSET_DIR="volume-icon.iconset"
             mkdir -p "$ICONSET_DIR"
             for size in 16 32 128 256 512; do
@@ -381,45 +373,7 @@ PYEOF
           if [ -n "$APP_SOURCE" ]; then
             echo "Creating app icon ICNS from $APP_SOURCE..."
             sips -s format png "$APP_SOURCE" --out app-icon-tmp.png >/dev/null 2>&1
-
-            # Same transparency treatment
-            python3 << 'PYEOF'
-from PIL import Image
-from collections import deque
-
-def remove_border_background(src_path, dst_path, threshold=240):
-    img = Image.open(src_path).convert("RGBA")
-    pixels = img.load()
-    width, height = img.size
-    to_transparent = set()
-    visited = set()
-
-    def flood_fill(start_x, start_y):
-        queue = deque([(start_x, start_y)])
-        while queue:
-            x, y = queue.popleft()
-            if (x, y) in visited or x < 0 or x >= width or y < 0 or y >= height:
-                continue
-            visited.add((x, y))
-            r, g, b, a = pixels[x, y]
-            if r >= 240 and g >= 240 and b >= 240:
-                to_transparent.add((x, y))
-                queue.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
-
-    for x in range(width):
-        flood_fill(x, 0)
-        flood_fill(x, height-1)
-    for y in range(height):
-        flood_fill(0, y)
-        flood_fill(width-1, y)
-
-    for x, y in to_transparent:
-        r, g, b, a = pixels[x, y]
-        pixels[x, y] = (r, g, b, 0)
-    img.save(dst_path, "PNG")
-
-remove_border_background("app-icon-tmp.png", "app-icon-transparent.png")
-PYEOF
+            python3 remove_border_bg.py app-icon-tmp.png app-icon-transparent.png
 
             ICONSET_DIR="app-icon.iconset"
             mkdir -p "$ICONSET_DIR"
@@ -437,68 +391,65 @@ PYEOF
             echo "Created app-icon.icns with transparency"
           fi
 
+          rm -f remove_border_bg.py
+
       - name: Create DMG background
         run: |
-          # Create DMG background using Python PIL (white background, maroon title)
-          python3 << 'PYEOF'
-from PIL import Image, ImageDraw, ImageFont
-import os
+          cat > create_dmg_bg.py << 'PYTHON_SCRIPT'
+          from PIL import Image, ImageDraw, ImageFont
+          import os
 
-width, height = 500, 300
-img = Image.new('RGB', (width, height), color='white')
-draw = ImageDraw.Draw(img)
+          width, height = 500, 300
+          img = Image.new('RGB', (width, height), color='white')
+          draw = ImageDraw.Draw(img)
 
-# Try system fonts, fall back to default
-try:
-    font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
-    font_subtitle = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
-    font_instruction = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 18)
-except:
-    font_title = ImageFont.load_default()
-    font_subtitle = font_title
-    font_instruction = font_title
+          try:
+              font_title = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+              font_subtitle = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 14)
+              font_instruction = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 18)
+          except:
+              font_title = ImageFont.load_default()
+              font_subtitle = font_title
+              font_instruction = font_title
 
-# Title (maroon)
-title = "PNut-TS"
-title_color = (128, 0, 0)
-bbox = draw.textbbox((0, 0), title, font=font_title)
-x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 25), title, fill=title_color, font=font_title)
+          title = "PNut-TS"
+          title_color = (128, 0, 0)
+          bbox = draw.textbbox((0, 0), title, font=font_title)
+          x = (width - (bbox[2] - bbox[0])) // 2
+          draw.text((x, 25), title, fill=title_color, font=font_title)
 
-# Subtitle
-subtitle = "Propeller 2 Spin2/PASM2 Compiler"
-bbox = draw.textbbox((0, 0), subtitle, font=font_subtitle)
-x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 58), subtitle, fill=(80, 80, 80), font=font_subtitle)
+          subtitle = "Propeller 2 Spin2/PASM2 Compiler"
+          bbox = draw.textbbox((0, 0), subtitle, font=font_subtitle)
+          x = (width - (bbox[2] - bbox[0])) // 2
+          draw.text((x, 58), subtitle, fill=(80, 80, 80), font=font_subtitle)
 
-# Arrow (maroon)
-arrow_y, arrow_left, arrow_right = 150, 200, 290
-arrow_color = (128, 0, 0)
-draw.rectangle([(arrow_left, arrow_y - 2), (arrow_right - 12, arrow_y + 2)], fill=arrow_color)
-draw.polygon([(arrow_right, arrow_y), (arrow_right - 12, arrow_y - 12), (arrow_right - 12, arrow_y + 12)], fill=arrow_color)
+          arrow_y, arrow_left, arrow_right = 150, 200, 290
+          arrow_color = (128, 0, 0)
+          draw.rectangle([(arrow_left, arrow_y - 2), (arrow_right - 12, arrow_y + 2)], fill=arrow_color)
+          draw.polygon([(arrow_right, arrow_y), (arrow_right - 12, arrow_y - 12), (arrow_right - 12, arrow_y + 12)], fill=arrow_color)
 
-# Instruction
-instruction = "Drag to Applications Folder to Install"
-bbox = draw.textbbox((0, 0), instruction, font=font_instruction)
-x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 255), instruction, fill=(80, 80, 80), font=font_instruction)
+          instruction = "Drag to Applications Folder to Install"
+          bbox = draw.textbbox((0, 0), instruction, font=font_instruction)
+          x = (width - (bbox[2] - bbox[0])) // 2
+          draw.text((x, 255), instruction, fill=(80, 80, 80), font=font_instruction)
 
-# Try to add logo if available
-logo_path = "REF-INSTALL/Images/SteveFinalLogoV5-m-200x269.png"
-if os.path.exists(logo_path):
-    try:
-        logo = Image.open(logo_path).convert("RGBA")
-        logo_h = 45
-        scale = logo_h / logo.size[1]
-        logo = logo.resize((int(logo.size[0] * scale), logo_h), Image.LANCZOS)
-        x = width - logo.size[0] - 20
-        img.paste(logo, (x, 25), logo)
-    except:
-        pass
+          logo_path = "REF-INSTALL/Images/SteveFinalLogoV5-m-200x269.png"
+          if os.path.exists(logo_path):
+              try:
+                  logo = Image.open(logo_path).convert("RGBA")
+                  logo_h = 45
+                  scale = logo_h / logo.size[1]
+                  logo = logo.resize((int(logo.size[0] * scale), logo_h), Image.LANCZOS)
+                  x = width - logo.size[0] - 20
+                  img.paste(logo, (x, 25), logo)
+              except:
+                  pass
 
-img.save('dmg-background.png')
-print("Created dmg-background.png (500x300)")
-PYEOF
+          img.save('dmg-background.png')
+          print("Created dmg-background.png (500x300)")
+          PYTHON_SCRIPT
+          python3 create_dmg_bg.py
+          rm -f create_dmg_bg.py
 
       - name: Create DMGs
         run: |
@@ -525,27 +476,25 @@ PYEOF
                 # Convert icns to png for folder icon
                 sips -s format png app-icon.icns --out /tmp/folder-icon.png >/dev/null 2>&1 || true
 
-                # Apply rounded corners and set as folder icon
-                python3 << 'PYEOF'
-from PIL import Image, ImageDraw
-img = Image.open("/tmp/folder-icon.png").convert("RGBA")
-size = img.size[0]
-radius = int(size * 0.22)
-mask = Image.new("L", (size, size), 0)
-draw = ImageDraw.Draw(mask)
-draw.rounded_rectangle([(0, 0), (size-1, size-1)], radius=radius, fill=255)
-result = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-result.paste(img, (0, 0), mask)
-result.save("/tmp/folder-icon-rounded.png", "PNG")
-PYEOF
+                # Apply rounded corners using Python
+                python3 -c "
+          from PIL import Image, ImageDraw
+          img = Image.open('/tmp/folder-icon.png').convert('RGBA')
+          size = img.size[0]
+          radius = int(size * 0.22)
+          mask = Image.new('L', (size, size), 0)
+          draw = ImageDraw.Draw(mask)
+          draw.rounded_rectangle([(0, 0), (size-1, size-1)], radius=radius, fill=255)
+          result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          result.paste(img, (0, 0), mask)
+          result.save('/tmp/folder-icon-rounded.png', 'PNG')
+          "
                 # Use NSWorkspace to set folder icon
-                osascript << EOF
-use framework "Cocoa"
-set iconPath to POSIX file "/tmp/folder-icon-rounded.png"
-set folderPath to POSIX file "$PWD/$STAGING/pnut_ts"
-set iconImage to current application's NSImage's alloc()'s initWithContentsOfFile:(POSIX path of iconPath)
-current application's NSWorkspace's sharedWorkspace()'s setIcon:iconImage forFile:(POSIX path of folderPath) options:0
-EOF
+                osascript -e 'use framework "Cocoa"' \
+                  -e "set iconPath to POSIX file \"/tmp/folder-icon-rounded.png\"" \
+                  -e "set folderPath to POSIX file \"$PWD/$STAGING/pnut_ts\"" \
+                  -e "set iconImage to current application's NSImage's alloc()'s initWithContentsOfFile:(POSIX path of iconPath)" \
+                  -e "current application's NSWorkspace's sharedWorkspace()'s setIcon:iconImage forFile:(POSIX path of folderPath) options:0"
                 rm -f /tmp/folder-icon.png /tmp/folder-icon-rounded.png
               fi
 
@@ -583,28 +532,30 @@ EOF
 
               # Apply window styling with AppleScript FIRST (before setting volume icon)
               echo "Applying window styling..."
-              osascript << 'EOF'
-tell application "Finder"
-  tell disk "PNut-TS"
-    open
-    set current view of container window to icon view
-    set toolbar visible of container window to false
-    set statusbar visible of container window to false
-    set the bounds of container window to {400, 100, 900, 400}
-    set theViewOptions to the icon view options of container window
-    set arrangement of theViewOptions to not arranged
-    set icon size of theViewOptions to 72
-    set background picture of theViewOptions to file ".background:background.png"
-    set position of item "pnut_ts" of container window to {125, 150}
-    set position of item "Applications" of container window to {375, 150}
-    close
-    open
-    update without registering applications
-    delay 2
-    close
-  end tell
-end tell
-EOF
+              cat > /tmp/dmg-style.scpt << 'APPLESCRIPT'
+              tell application "Finder"
+                tell disk "PNut-TS"
+                  open
+                  set current view of container window to icon view
+                  set toolbar visible of container window to false
+                  set statusbar visible of container window to false
+                  set the bounds of container window to {400, 100, 900, 400}
+                  set theViewOptions to the icon view options of container window
+                  set arrangement of theViewOptions to not arranged
+                  set icon size of theViewOptions to 72
+                  set background picture of theViewOptions to file ".background:background.png"
+                  set position of item "pnut_ts" of container window to {125, 150}
+                  set position of item "Applications" of container window to {375, 150}
+                  close
+                  open
+                  update without registering applications
+                  delay 2
+                  close
+                end tell
+              end tell
+              APPLESCRIPT
+              osascript /tmp/dmg-style.scpt || true
+              rm -f /tmp/dmg-style.scpt
               sleep 1
 
               # Set volume icon AFTER AppleScript (AppleScript can delete it)
