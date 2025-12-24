@@ -825,10 +825,14 @@ export class SpinElementizer {
 
   private symbolNameConversion(line: string): [number, string] {
     const isSymbolNameRegEx = /^([A-Z_a-z]+[A-Z_a-z0-9]*)/;
+    const MAX_SYMBOL_LENGTH = 30;
     let interpValue: string = '';
     let charsUsed: number = 0;
     const symbolMatch = line.match(isSymbolNameRegEx);
     if (symbolMatch) {
+      if (symbolMatch[0].length > MAX_SYMBOL_LENGTH) {
+        throw new Error('Symbol exceeds 30 characters');
+      }
       interpValue = symbolMatch[0].toUpperCase();
       charsUsed = symbolMatch[0].length;
     }

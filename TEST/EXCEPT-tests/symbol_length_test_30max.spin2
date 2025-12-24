@@ -1,0 +1,49 @@
+'' Symbol Length Test File - 30 Character Maximum
+'' Tests symbol name handling at lengths 28-30 characters
+'' Compatible with both original PNut (30 char limit) and PNut-TS
+'' Each pair differs only in the last character
+
+CON
+  ' 28 character symbols (differ in char 28: A vs B)
+  SYMBOL_LENGTH_TEST_28_CHAR_A = 28
+  SYMBOL_LENGTH_TEST_28_CHAR_B = 280
+
+  ' 29 character symbols (differ in char 29: A vs B)
+  SYMBOL_LENGTH_TEST_29_CHARS_A = 29
+  SYMBOL_LENGTH_TEST_29_CHARS_B = 290
+
+  ' 30 character symbols (differ in char 30: A vs B)
+  SYMBOL_LENGTH_TEST_30_CHARSS_A = 30
+  SYMBOL_LENGTH_TEST_30_CHARSS_B = 300
+
+  ' Test that we can reference the symbols in expressions
+  TEST_28_SUM = SYMBOL_LENGTH_TEST_28_CHAR_A + SYMBOL_LENGTH_TEST_28_CHAR_B
+  TEST_29_SUM = SYMBOL_LENGTH_TEST_29_CHARS_A + SYMBOL_LENGTH_TEST_29_CHARS_B
+  TEST_30_SUM = SYMBOL_LENGTH_TEST_30_CHARSS_A + SYMBOL_LENGTH_TEST_30_CHARSS_B
+
+  ' Additional constants with names at the limits
+  CONSTANT_NAME_TEST_28_LENGTH_A = 128
+  CONSTANT_NAME_TEST_28_LENGTH_B = 1280
+
+  CONSTANT_NAME_TEST_29_LENGTHS_A = 129
+  CONSTANT_NAME_TEST_29_LENGTHS_B = 1290
+
+  CONSTANT_NAME_TEST_30_LENGTHSS_A = 130
+  CONSTANT_NAME_TEST_30_LENGTHSS_B = 1300
+
+  ' Test complex expressions with long names
+  COMPLEX_28 = SYMBOL_LENGTH_TEST_28_CHAR_A * CONSTANT_NAME_TEST_28_LENGTH_A
+  COMPLEX_29 = SYMBOL_LENGTH_TEST_29_CHARS_A * CONSTANT_NAME_TEST_29_LENGTHS_A
+  COMPLEX_30 = SYMBOL_LENGTH_TEST_30_CHARSS_A * CONSTANT_NAME_TEST_30_LENGTHSS_A
+
+  ' Test that symbols at exactly 30 chars work correctly
+  THIS_IS_EXACTLY_30_CHARACTERSA = 3000
+  THIS_IS_EXACTLY_30_CHARACTERSB = 3001
+  THIS_IS_EXACTLY_30_CHARACTERSC = 3002
+
+  ' Verify the values are distinct
+  SUM_30_EXACT = THIS_IS_EXACTLY_30_CHARACTERSA + THIS_IS_EXACTLY_30_CHARACTERSB + THIS_IS_EXACTLY_30_CHARACTERSC
+
+DAT
+  ' DAT section for CON test files
+  orgh
