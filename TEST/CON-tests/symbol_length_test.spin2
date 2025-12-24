@@ -1,0 +1,184 @@
+'' Symbol Length Test File
+'' Tests symbol name handling at lengths 28-30 characters
+'' Each pair differs only in the last character
+'' Tests CON, VAR, DAT, PUB, and PRI symbol types
+
+CON
+  ' 28 character symbols (differ in char 28: A vs B)
+  SYMBOL_LENGTH_TEST_28_CHAR_A = 28
+  SYMBOL_LENGTH_TEST_28_CHAR_B = 280
+
+  ' 29 character symbols (differ in char 29: A vs B)
+  SYMBOL_LENGTH_TEST_29_CHARS_A = 29
+  SYMBOL_LENGTH_TEST_29_CHARS_B = 290
+
+  ' 30 character symbols (differ in char 30: A vs B)
+  SYMBOL_LENGTH_TEST_30_CHARSS_A = 30
+  SYMBOL_LENGTH_TEST_30_CHARSS_B = 300
+
+  ' 31 character symbols - KNOWN to FAIL in PNut (exceeds 30-char limit)
+  ' SYMBOL_LENGTH_TEST_31_CHARSSS_A = 31   ' Commented - CON confirmed fails at 31
+  ' SYMBOL_LENGTH_TEST_31_CHARSSS_B = 310  ' Commented - CON confirmed fails at 31
+  ' SYMBOL_LENGTH_TEST_32_CHARSSSS_A = 32
+  ' SYMBOL_LENGTH_TEST_32_CHARSSSS_B = 320
+  ' SYMBOL_LENGTH_TEST_33_CHARSSSSS_A = 33
+  ' SYMBOL_LENGTH_TEST_33_CHARSSSSS_B = 330
+  ' SYMBOL_LENGTH_TEST_34_CHARSSSSSS_A = 34
+  ' SYMBOL_LENGTH_TEST_34_CHARSSSSSS_B = 340
+  ' SYMBOL_LENGTH_TEST_35_CHARSSSSSSS_A = 35
+  ' SYMBOL_LENGTH_TEST_35_CHARSSSSSSS_B = 350
+
+  ' Test that we can reference the symbols in expressions
+  TEST_28_SUM = SYMBOL_LENGTH_TEST_28_CHAR_A + SYMBOL_LENGTH_TEST_28_CHAR_B
+  TEST_29_SUM = SYMBOL_LENGTH_TEST_29_CHARS_A + SYMBOL_LENGTH_TEST_29_CHARS_B
+  TEST_30_SUM = SYMBOL_LENGTH_TEST_30_CHARSS_A + SYMBOL_LENGTH_TEST_30_CHARSS_B
+  ' TEST_31_SUM = SYMBOL_LENGTH_TEST_31_CHARSSS_A + SYMBOL_LENGTH_TEST_31_CHARSSS_B  ' Commented - refs fail
+
+  ' Additional constants with correct lengths
+  CONSTANT_NAME_TEST_28_LENGTH_A = 128    ' Exactly 30 chars
+  CONSTANT_NAME_TEST_28_LENGTH_B = 1280   ' Exactly 30 chars
+
+  ' CONSTANT_NAME_TEST_29_LENGTHS_A = 129  ' This is 31 chars - exceeds limit
+  ' CONSTANT_NAME_TEST_29_LENGTHS_B = 1290 ' This is 31 chars - exceeds limit
+  ' CONSTANT_NAME_TEST_30_LENGTHSS_A = 130 ' This is 32 chars - exceeds limit
+  ' CONSTANT_NAME_TEST_30_LENGTHSS_B = 1300 ' This is 32 chars - exceeds limit
+
+  ' Correctly sized 30-char constants
+  CONST_NAME_TST_30_LENGTHSS_AAA = 130
+  CONST_NAME_TST_30_LENGTHSS_BBB = 1300
+
+  ' 31-char constant - KNOWN to FAIL in PNut
+  ' CONST_NAME_TST_31_LENGTHSSS_AAA = 131  ' Commented - CON confirmed fails at 31
+
+  ' Test complex expressions with long names
+  COMPLEX_28 = SYMBOL_LENGTH_TEST_28_CHAR_A * CONSTANT_NAME_TEST_28_LENGTH_A
+  COMPLEX_29 = SYMBOL_LENGTH_TEST_29_CHARS_A * SYMBOL_LENGTH_TEST_29_CHARS_B
+  COMPLEX_30 = SYMBOL_LENGTH_TEST_30_CHARSS_A * CONST_NAME_TST_30_LENGTHSS_AAA
+
+VAR
+  ' Variable names with CORRECT lengths
+  ' 28 character variable names
+  long var_length_tst_28_charss_AAA
+  long var_length_tst_28_charss_BBB
+
+  ' 29 character variable names
+  long var_length_tst_29_charsss_AAA
+  long var_length_tst_29_charsss_BBB
+
+  ' 30 character variable names
+  long var_length_tst_30_charssss_AAA
+  long var_length_tst_30_charssss_BBB
+
+  ' 31 character variable names - CONFIRMED FAILS in PNut (exceeds 30-char limit)
+  ' long var_length_tst_31_charsssss_AAA  ' Commented - VAR confirmed fails at 31
+  ' long var_length_tst_31_charsssss_BBB  ' Commented - VAR confirmed fails at 31
+
+DAT
+  ' DAT labels with CORRECT lengths
+  ' 28 character DAT labels
+  dat_label_test_28_charctrs_A  long  $28_28_28_A
+  dat_label_test_28_charctrs_B  long  $28_28_28_B
+
+  ' 29 character DAT labels
+  dat_label_test_29_charctrss_A  long  $29_29_29_A
+  dat_label_test_29_charctrss_B  long  $29_29_29_B
+
+  ' 30 character DAT labels
+  dat_label_test_30_charctrsss_A  long  $30_30_30_A
+  dat_label_test_30_charctrsss_B  long  $30_30_30_B
+
+  ' 31 character DAT labels - CONFIRMED FAILS in PNut (exceeds 30-char limit)
+  ' dat_label_test_31_charctrssss_A  long  $31_31_31_A  ' Commented - DAT confirmed fails at 31
+  ' dat_label_test_31_charctrssss_B  long  $31_31_31_B  ' Commented - DAT confirmed fails at 31
+
+PUB main()
+  ' Test variable assignments
+  var_length_tst_28_charss_AAA := SYMBOL_LENGTH_TEST_28_CHAR_A
+  var_length_tst_28_charss_BBB := SYMBOL_LENGTH_TEST_28_CHAR_B
+
+  var_length_tst_29_charsss_AAA := SYMBOL_LENGTH_TEST_29_CHARS_A
+  var_length_tst_29_charsss_BBB := SYMBOL_LENGTH_TEST_29_CHARS_B
+
+  var_length_tst_30_charssss_AAA := SYMBOL_LENGTH_TEST_30_CHARSS_A
+  var_length_tst_30_charssss_BBB := SYMBOL_LENGTH_TEST_30_CHARSS_B
+
+  ' var_length_tst_31_charsssss_AAA := 31   ' Commented - VAR symbols fail at 31
+  ' var_length_tst_31_charsssss_BBB := 310  ' Commented - VAR symbols fail at 31
+
+  ' Call public methods
+  pub_method_tst_28_chctrs_AAA()
+  pub_method_tst_28_chctrs_BBB()
+
+  pub_method_tst_29_chctrss_AAA()
+  pub_method_tst_29_chctrss_BBB()
+
+  pub_method_tst_30_chctrsss_AAA()
+  pub_method_tst_30_chctrsss_BBB()
+
+  ' pub_method_tst_31_chctrssss_AAA()  ' Commented - PUB confirmed fails at 31
+  ' pub_method_tst_31_chctrssss_BBB()  ' Commented - PUB confirmed fails at 31
+
+  ' Call private methods
+  pri_method_tst_28_chctrs_AAA()
+  pri_method_tst_28_chctrs_BBB()
+
+  pri_method_tst_29_chctrss_AAA()
+  pri_method_tst_29_chctrss_BBB()
+
+  pri_method_tst_30_chctrsss_AAA()
+  pri_method_tst_30_chctrsss_BBB()
+
+  ' pri_method_tst_31_chctrssss_AAA()  ' Commented - PRI confirmed fails at 31
+  ' pri_method_tst_31_chctrssss_BBB()  ' Commented - PRI confirmed fails at 31
+
+' Public method pairs with CORRECT lengths
+PUB pub_method_tst_28_chctrs_AAA() : r
+  r := 28
+
+PUB pub_method_tst_28_chctrs_BBB() : r
+  r := 280
+
+PUB pub_method_tst_29_chctrss_AAA() : r
+  r := 29
+
+PUB pub_method_tst_29_chctrss_BBB() : r
+  r := 290
+
+PUB pub_method_tst_30_chctrsss_AAA() : r
+  r := 30
+
+PUB pub_method_tst_30_chctrsss_BBB() : r
+  r := 300
+
+' 31 character public methods - CONFIRMED FAILS in PNut (exceeds 30-char limit)
+' PUB pub_method_tst_31_chctrssss_AAA() : r  ' Commented - PUB confirmed fails at 31
+'   r := 31
+
+' PUB pub_method_tst_31_chctrssss_BBB() : r  ' Commented - PUB confirmed fails at 31
+'   r := 310
+
+' Private method pairs with CORRECT lengths
+PRI pri_method_tst_28_chctrs_AAA() : r
+  r := 128
+
+PRI pri_method_tst_28_chctrs_BBB() : r
+  r := 1280
+
+PRI pri_method_tst_29_chctrss_AAA() : r
+  r := 129
+
+PRI pri_method_tst_29_chctrss_BBB() : r
+  r := 1290
+
+PRI pri_method_tst_30_chctrsss_AAA() : r
+  r := 130
+
+PRI pri_method_tst_30_chctrsss_BBB() : r
+  r := 1300
+
+' 31 character private methods - CONFIRMED FAILS in PNut (exceeds 30-char limit)
+' PRI pri_method_tst_31_chctrssss_AAA() : r  ' Commented - PRI confirmed fails at 31
+'   r := 131
+
+' PRI pri_method_tst_31_chctrssss_BBB() : r  ' Commented - PRI confirmed fails at 31
+'   r := 1310

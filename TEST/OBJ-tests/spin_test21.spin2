@@ -1,0 +1,24 @@
+' Test 21 - Explicit duplicate child object test
+' Uses the SAME child object twice to verify deduplication
+' Both child1 and child2 reference the same source file
+
+CON
+  _clkfreq = 20_000_000
+
+OBJ
+  child1 : "spin_test21_child"
+  child2 : "spin_test21_child"
+
+VAR
+  LONG result1
+  LONG result2
+
+PUB main()
+  child1.init()
+  child2.init()
+
+  result1 := child1.increment()
+  result2 := child2.increment()
+
+  result1 := child1.getData()
+  result2 := child2.getData()

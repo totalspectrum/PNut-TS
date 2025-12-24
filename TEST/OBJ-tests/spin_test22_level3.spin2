@@ -1,0 +1,17 @@
+' Test 22 Level 3 - Deepest level (great-grandchild)
+' No child objects - this is the leaf node
+
+CON
+  LEAF_ID = 3
+
+VAR
+  LONG leafValue
+
+PUB init()
+  leafValue := LEAF_ID
+
+PUB getLevel() : level
+  level := LEAF_ID
+
+PUB getValue() : value
+  value := leafValue

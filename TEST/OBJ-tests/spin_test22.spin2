@@ -1,0 +1,20 @@
+' Test 22 - Deep nesting test (4 levels)
+' Parent -> Level1 -> Level2 -> Level3
+' Tests distiller handling of deep object hierarchies
+
+CON
+  _clkfreq = 20_000_000
+  TOP_LEVEL = 0
+
+OBJ
+  child : "spin_test22_level1"
+
+VAR
+  LONG topValue
+  LONG deepestResult
+
+PUB main()
+  topValue := TOP_LEVEL
+  child.init()
+
+  deepestResult := child.getDeepestLevel()

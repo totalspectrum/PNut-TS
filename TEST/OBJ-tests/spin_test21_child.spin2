@@ -1,0 +1,20 @@
+' Test 21 Child - Simple child object for duplicate detection test
+' This child is used twice by the parent to test deduplication
+
+CON
+  CHILD_VALUE = 100
+
+VAR
+  LONG childData
+  LONG counter
+
+PUB init()
+  childData := CHILD_VALUE
+  counter := 0
+
+PUB increment() : value
+  counter++
+  value := counter
+
+PUB getData() : data
+  data := childData

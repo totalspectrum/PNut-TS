@@ -1,0 +1,21 @@
+' Test 22 Level 2 - Grandchild level
+' Contains one child (level 3)
+
+CON
+  LEVEL_ID = 2
+
+OBJ
+  deeper : "spin_test22_level3"
+
+VAR
+  LONG levelValue
+
+PUB init()
+  levelValue := LEVEL_ID
+  deeper.init()
+
+PUB getLevel() : level
+  level := LEVEL_ID
+
+PUB getDeepestLevel() : level
+  level := deeper.getLevel()

@@ -1,0 +1,18 @@
+' Test 23 Unique2 - Second unique child object (not duplicated)
+
+CON
+  UNIQUE2_ID = 202
+
+VAR
+  LONG uniqueData
+  LONG extraData
+
+PUB init()
+  uniqueData := UNIQUE2_ID
+  extraData := 0
+
+PUB getID() : id
+  id := UNIQUE2_ID
+
+PUB calculate(a, b) : result
+  result := a * b + uniqueData

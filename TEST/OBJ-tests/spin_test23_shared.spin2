@@ -1,0 +1,16 @@
+' Test 23 Shared - Child object used by multiple parents (will be deduplicated)
+
+CON
+  SHARED_ID = 50
+
+VAR
+  LONG sharedData
+
+PUB init()
+  sharedData := SHARED_ID
+
+PUB getID() : id
+  id := SHARED_ID
+
+PUB getData() : data
+  data := sharedData

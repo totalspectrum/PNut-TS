@@ -1,0 +1,30 @@
+' Test 23 - Mixed scenario: some duplicates, some unique
+' shared1 and shared2 reference the same file (should deduplicate)
+' unique1 and unique2 are different files (no deduplication)
+' Tests selective deduplication
+
+CON
+  _clkfreq = 20_000_000
+
+OBJ
+  shared1 : "spin_test23_shared"    ' duplicate
+  shared2 : "spin_test23_shared"    ' duplicate of shared1
+  unique1 : "spin_test23_unique1"   ' unique
+  unique2 : "spin_test23_unique2"   ' unique
+
+VAR
+  LONG results[4]
+
+PUB main() | temp
+  shared1.init()
+  shared2.init()
+  unique1.init()
+  unique2.init()
+
+  results[0] := shared1.getID()
+  results[1] := shared2.getID()
+  results[2] := unique1.getID()
+  results[3] := unique2.getID()
+
+  temp := unique1.process(10)
+  temp := unique2.calculate(5, 3)

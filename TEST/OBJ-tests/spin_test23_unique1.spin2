@@ -1,0 +1,16 @@
+' Test 23 Unique1 - First unique child object (not duplicated)
+
+CON
+  UNIQUE1_ID = 101
+
+VAR
+  LONG uniqueData
+
+PUB init()
+  uniqueData := UNIQUE1_ID
+
+PUB getID() : id
+  id := UNIQUE1_ID
+
+PUB process(value) : result
+  result := value + uniqueData
