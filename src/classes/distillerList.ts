@@ -108,7 +108,7 @@ export class DistillerList {
 
   constructor(ctx: Context) {
     this.context = ctx;
-    this.isLogging = true; // ctx.logOptions.logResolver;
+    this.isLogging = ctx.logOptions.logResolver;
   }
 
   public enableLogging(enable: boolean = true) {

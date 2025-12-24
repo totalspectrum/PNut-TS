@@ -44,6 +44,7 @@
     "test-var": "npm run build && jest -c jest-config/jest-var-only-config.json",
     "test-loader": "npm run build && jest -c jest-config/jest-loader-only-config.json",
     "test-spin": "npm run build && jest -c jest-config/jest-spin-only-config.json",
+    "test-map": "npm run build && jest -c jest-config/jest-map-only-config.json",
     "test-wummi": "npm run build && jest -c jest-config/jest-wummi-only-config.json",
     "test-full-only": "npm run build && jest -c jest-config/jest-full-only-config.json",
     "test-short-only": "npm run build && jest -c jest-config/jest-short-only-config.json",
