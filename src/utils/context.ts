@@ -66,6 +66,8 @@ export interface CompileOptions {
   propPlug: string; // selected deviceNode for PropPlug
   writeFlashImageFile: boolean; // write flash file (.flash file)
   flashFilename: string; // write flash image to this file
+  writeMapFile: boolean; // write memory map file (.map file)
+  mapFilename: string; // write memory map to this file
 }
 
 export interface CompileData {
@@ -176,7 +178,9 @@ export class Context {
       v44FormatListing: false,
       propPlug: '',
       writeFlashImageFile: false,
-      flashFilename: ''
+      flashFilename: '',
+      writeMapFile: false,
+      mapFilename: ''
     };
     this.compileData = {
       objectData: new ChildObjectsImage(this, 'GlbObjData'), // pascal P2.ObjData

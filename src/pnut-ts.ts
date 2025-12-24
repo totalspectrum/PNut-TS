@@ -95,6 +95,7 @@ export class PNutInTypeScript {
       //      .option('-f, --flash', 'Download to FLASH and run')
       //      .option('-r, --ram', 'Download to RAM and run')
       .option('-l, --list', 'Generate listing files (.lst) from compilation')
+      .option('-m, --map', 'Generate memory map file (.map) from compilation')
       //      .option('-p, --plug <dvcNode>', 'download to/flash Propeller attached to <dvcNode>')
       //      .option('-n, --dvcnodes', 'List available USB PropPlug device (n)odes')
       .option('-v, --verbose', 'Output verbose messages')
@@ -227,6 +228,9 @@ export class PNutInTypeScript {
     }
     if (this.options.list) {
       this.context.compileOptions.writeListing = true;
+    }
+    if (this.options.map) {
+      this.context.compileOptions.writeMapFile = true;
     }
     //if (this.options.ver44) {
     // always true from here out...
@@ -502,8 +506,13 @@ export class PNutInTypeScript {
         this.context.compileOptions.listFilename = lstFilespec;
         const flashFilespec = filename.replace('.spin2', '.flash');
         this.context.compileOptions.flashFilename = flashFilespec;
+        const mapFilespec = filename.replace('.spin2', '.map');
+        this.context.compileOptions.mapFilename = mapFilespec;
         if (this.options.list) {
           this.context.logger.verboseMsg(`* Write listing file: ${lstFilespec}`);
+        }
+        if (this.options.map) {
+          this.context.logger.verboseMsg(`* Write memory map file: ${mapFilespec}`);
         }
         if (this.context.compileOptions.writeObj) {
           const objFilespec = filename.replace('.spin2', '.obj');

@@ -460,6 +460,10 @@ export class SpinResolver {
     return this.pasmMode;
   }
 
+  get distiller(): ObjectDistiller {
+    return this.objectDistiller;
+  }
+
   // for lister  ^^^
 
   public compile1(overrideSymbolTable: SymbolTable | undefined) {

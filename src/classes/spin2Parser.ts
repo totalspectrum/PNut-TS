@@ -18,6 +18,7 @@ import { ObjectImage } from './objectImage';
 import { ExternalFiles } from './externalFiles';
 import { hexLong } from '../utils/formatUtils';
 import path from 'path';
+import { MapGenerator } from './mapGenerator';
 
 // src/classes/spin2Parser.ts
 
@@ -426,6 +427,14 @@ export class Spin2Parser {
       stream.end();
       this.context.logger.progressMsg(`Wrote ${outFilename}`);
     }
+  }
+
+  /**
+   * Generate memory map file (.map) if enabled
+   */
+  public P2Map(): void {
+    const mapGenerator = new MapGenerator(this.context, this.spinResolver);
+    mapGenerator.generate();
   }
 
   private rightAlignedHexValue(value: number, width: number): string {

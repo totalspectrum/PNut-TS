@@ -125,6 +125,7 @@ export class Compiler {
         this.spin2Parser.setEarlyDeduplicationSavings(this.memoryStats.memoryBytesSaved);
 
         this.spin2Parser.P2List();
+        this.spin2Parser.P2Map();
         const needFLash: boolean = this.context.compileOptions.writeFlash;
         const ramDownload: boolean = this.context.compileOptions.writeRAM || needFLash; // we need download when flashing too!
         this.spin2Parser.ComposeRam(needFLash, ramDownload);
