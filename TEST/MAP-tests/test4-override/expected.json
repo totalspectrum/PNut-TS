@@ -1,0 +1,76 @@
+{
+  "description": "Test 4: Constant override instances - same object with different CON values",
+  "top_file": "override_top.spin2",
+  "objects": [
+    {
+      "name": "override_top",
+      "file": "override_top.spin2",
+      "methods": [
+        {"name": "main", "visibility": "PUB", "params": 0, "returns": 0, "locals": 0},
+        {"name": "getTotal", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "total", "type": "LONG", "count": 1}
+      ],
+      "dat": [],
+      "pasm_labels": []
+    },
+    {
+      "name": "param_child",
+      "file": "param_child.spin2",
+      "instance": "CHILD1",
+      "overrides": [],
+      "methods": [
+        {"name": "compute", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0},
+        {"name": "getResult", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "result", "type": "LONG", "count": 1}
+      ],
+      "dat": [],
+      "pasm_labels": []
+    },
+    {
+      "name": "param_child",
+      "file": "param_child.spin2",
+      "instance": "CHILD2",
+      "overrides": [
+        {"name": "DEFAULT_VALUE", "value": 20}
+      ],
+      "methods": [
+        {"name": "compute", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0},
+        {"name": "getResult", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "result", "type": "LONG", "count": 1}
+      ],
+      "dat": [],
+      "pasm_labels": []
+    },
+    {
+      "name": "param_child",
+      "file": "param_child.spin2",
+      "instance": "CHILD3",
+      "overrides": [
+        {"name": "DEFAULT_VALUE", "value": 30},
+        {"name": "MULTIPLIER", "value": 5}
+      ],
+      "methods": [
+        {"name": "compute", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0},
+        {"name": "getResult", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "result", "type": "LONG", "count": 1}
+      ],
+      "dat": [],
+      "pasm_labels": []
+    }
+  ],
+  "totals": {
+    "object_count": 4,
+    "method_count": 8,
+    "var_symbols": 4,
+    "dat_symbols": 0,
+    "pasm_labels": 0
+  }
+}

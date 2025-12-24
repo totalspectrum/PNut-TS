@@ -1,0 +1,19 @@
+' override_top.spin2 - Test constant override instances
+' Three instances of same object with different constant values
+
+OBJ
+  child1 : "param_child"                                      ' defaults: DEFAULT_VALUE=10, MULTIPLIER=2
+  child2 : "param_child" | DEFAULT_VALUE = 20                 ' override one constant
+  child3 : "param_child" | DEFAULT_VALUE = 30, MULTIPLIER = 5 ' override both constants
+
+VAR
+  LONG total
+
+PUB main()
+  ' child1.compute() returns 10 * 2 = 20
+  ' child2.compute() returns 20 * 2 = 40
+  ' child3.compute() returns 30 * 5 = 150
+  total := child1.compute() + child2.compute() + child3.compute()
+
+PUB getTotal() : val
+  val := total

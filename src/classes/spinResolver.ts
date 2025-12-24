@@ -4371,6 +4371,10 @@ export class SpinResolver {
       }
       this.logMessage(`* enterDatSymbol value=(${float32ToHexString(value)}) upper=(${value.toString(16).toUpperCase()})`);
       const newSymbol: iSymbol = { name: this.symbolName, type: type, value: value };
+      // Mark symbol as inline if we're processing inline PASM (ORG/ORGH within method)
+      if (this.inlineModeForGetConstant) {
+        newSymbol.isInline = true;
+      }
       //this.logMessage(`* enterDatSymbol() calling record symbol [${newSymbol}]`);
       this.recordSymbol(newSymbol);
     }
@@ -4464,22 +4468,23 @@ export class SpinResolver {
     // PNut enter_symbol2: (which is called from enter_symbol2_print:)
     let symbolNumber: number = 0;
     let tableName: string = '';
+    const isInline = newSymbol.isInline ?? false;
     this.logMessage(`* recordSymbol name=[${newSymbol.name}] into [${eSymbolTableId[this.activeSymbolTable]}]`);
     switch (this.activeSymbolTable) {
       case eSymbolTableId.STI_MAIN:
-        this.mainSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value);
+        this.mainSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
         symbolNumber = this.mainSymbols.length;
         tableName = 'mainSymbols';
         break;
       case eSymbolTableId.STI_LOCAL:
-        this.localSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value);
-        this.listingLocalSymbols.addAllowDupe(newSymbol.name, newSymbol.type, newSymbol.value);
+        this.localSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
+        this.listingLocalSymbols.addAllowDupe(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
         symbolNumber = this.localSymbols.length;
         tableName = 'localSymbols';
         break;
       case eSymbolTableId.STI_INLINE:
-        this.inlineSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value);
-        this.listingLocalSymbols.addAllowDupe(newSymbol.name, newSymbol.type, newSymbol.value);
+        this.inlineSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
+        this.listingLocalSymbols.addAllowDupe(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
         symbolNumber = this.inlineSymbols.length;
         tableName = 'inlineSymbols';
         break;

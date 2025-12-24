@@ -1,0 +1,29 @@
+' hubexec_top.spin2 - Test 6: Hub-executable PASM code
+' Tests ORGH (HubExec) code that runs directly from hub RAM
+' These labels should show only HUB addresses (no COG address)
+
+CON
+  _clkfreq = 20_000_000
+
+VAR
+  LONG  result
+
+PUB main() | temp
+  temp := runHubCode()
+  result := temp
+
+PUB runHubCode() : value
+  ' Simple method that returns a computed value
+  value := 150
+
+DAT
+' Hub-executable PASM - runs directly from hub RAM
+                orgh
+hubEntry        mov     pa, #100
+                add     pa, #50
+hubLoop         djnz    pa, #hubLoop
+hubDone         ret
+
+' Regular DAT data for comparison
+                orgh
+dataTable       long    1, 2, 3, 4, 5

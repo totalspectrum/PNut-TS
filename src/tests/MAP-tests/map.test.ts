@@ -135,4 +135,38 @@ describe('Map File Verification', () => {
       expect(objectCheck?.expected).toBe('4'); // 1 top + 3 children
     });
   });
+
+  describe('test4-override', () => {
+    const testDir = path.join(TEST_DIR, 'test4-override');
+    const expectedJson = JSON.parse(fs.readFileSync(path.join(testDir, 'expected.json'), 'utf8'));
+
+    beforeAll(() => {
+      compileTest(testDir, expectedJson.top_file);
+    });
+
+    afterAll(() => {
+      cleanupGeneratedFiles(testDir);
+    });
+
+    it('should verify map matches listing and expected values', () => {
+      const result = verifyMapAgainstExpected(testDir);
+      if (!result.passed) {
+        console.log(formatResults(result));
+      }
+      expect(result.passed).toBe(true);
+    });
+
+    it('should have correct object count for override instances', () => {
+      const result = verifyMapAgainstExpected(testDir);
+      const objectCheck = result.checks.find((c) => c.name === 'Object count');
+      expect(objectCheck?.passed).toBe(true);
+      expect(objectCheck?.expected).toBe('4'); // 1 top + 3 instances of param_child
+    });
+
+    it('should have correct OBJ bytes', () => {
+      const result = verifyMapAgainstExpected(testDir);
+      const bytesCheck = result.checks.find((c) => c.name === 'OBJ bytes match');
+      expect(bytesCheck?.passed).toBe(true);
+    });
+  });
 });

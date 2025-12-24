@@ -1,0 +1,16 @@
+' param_child.spin2 - Object with overridable constants
+' Used to test constant override instances in map file
+
+CON
+  DEFAULT_VALUE = 10
+  MULTIPLIER = 2
+
+VAR
+  LONG result
+
+PUB compute() : val
+  val := DEFAULT_VALUE * MULTIPLIER
+  result := val
+
+PUB getResult() : val
+  val := result

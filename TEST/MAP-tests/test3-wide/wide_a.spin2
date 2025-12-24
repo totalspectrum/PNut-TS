@@ -1,14 +1,20 @@
 ' wide_a.spin2 - Test 3: First sibling object
-' Simple child with BYTE variables
+' Child with BYTE variables and DAT data
+
+DAT
+  multipliers   WORD    1, 2, 4, 8
+  maxValue      LONG    255
 
 VAR
   BYTE  valueA
   BYTE  flagA
 
 PUB getA() : result
-  result := valueA
+  result := valueA * multipliers[flagA]
 
 PUB setA(val)
   ' Method with 1 param, no return
+  if val > maxValue
+    val := maxValue
   valueA := val
   flagA := 1

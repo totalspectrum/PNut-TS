@@ -14,6 +14,8 @@ import { loadFileAsUint8Array, loadUint8ArrayFailed } from '../utils/files';
 import { ObjectImage } from './objectImage';
 import path from 'path';
 import { OBJ_LIMIT } from './spinResolver';
+import { ObjInstanceInfo } from './objInstanceInfo';
+import { eElementType } from './types';
 
 // src/classes/compiler.ts
 
@@ -120,6 +122,9 @@ export class Compiler {
 
         // Log deduplication statistics if any duplicates were found
         this.logDuplicationStats();
+
+        // Build object instance info for map file generation
+        this.buildObjInstanceInfo();
 
         // Pass early deduplication savings to spin2Parser for list file reporting
         this.spin2Parser.setEarlyDeduplicationSavings(this.memoryStats.memoryBytesSaved);
@@ -281,6 +286,13 @@ export class Compiler {
           this.logMessageOutline(`  -- compRecur(${depth}).compile2 ENTRY`);
           this.spin2Parser.P2Compile2(depth == 0); // NOTE: if at zero  (see above note...)
 
+          // Save symbols for this object (for map file generation)
+          const fileIndex = this.context.sourceFiles.getFileIndex(srcFile);
+          if (fileIndex >= 0) {
+            const symbols = this.spin2Parser.getUserSymbolTable();
+            this.context.objectSymbolStore.storeSymbols(fileIndex, symbols);
+          }
+
           const objectLength: number = this.objImage.offset;
           // Track this compilation for statistics
           this.memoryStats.totalObjectsCompiled++;
@@ -424,5 +436,68 @@ export class Compiler {
       this.logMessageOutline('==============================================');
       this.logMessageOutline('');
     }
+  }
+
+  /**
+   * Build object instance info for map file generation
+   * Walks through all stored symbols to find OBJ declarations and their overrides
+   */
+  private buildObjInstanceInfo(): void {
+    // Clear any existing instance info
+    this.context.objInstanceStore.clear();
+
+    const distiller = this.spin2Parser.distiller;
+    const records = distiller.records;
+    const allSymbols = this.context.objectSymbolStore.getAllSymbols();
+
+    // First, add the top-level file as object 0
+    const topFile = this.context.sourceFiles.getTopFile();
+    const topInstance = new ObjInstanceInfo(
+      topFile.fileName.replace(/\.spin2$/i, ''), // Use filename as "instance name" for top
+      topFile.fileName,
+      -1, // No parent
+      0 // Object index 0
+    );
+    this.context.objInstanceStore.addInstance(topInstance);
+
+    // Build hierarchy from distiller records which have the true parent-child relationships
+    // Each record's subObjectIds contains the objectIds of its children
+    for (let parentIdx = 0; parentIdx < records.recordCount; parentIdx++) {
+      const parentRecord = records.getRecordAt(parentIdx);
+      if (!parentRecord) continue;
+
+      const subObjectIds = parentRecord.subObjectIds;
+      if (subObjectIds.length === 0) continue;
+
+      // Get symbols for this parent to match child names
+      const parentSymbols = allSymbols.get(parentIdx);
+      const objSymbols = parentSymbols ? parentSymbols.filter((s) => s.type === eElementType.type_obj) : [];
+
+      // For each child object in the distiller records
+      for (let childPosition = 0; childPosition < subObjectIds.length; childPosition++) {
+        const childObjectId = subObjectIds[childPosition] & 0x7fffffff; // Remove completion flag
+
+        // Find the matching type_obj symbol for this child position
+        // The symbol's instanceInMemoryIndex tells us which position it's at
+        let instanceName = `child_${childPosition}`;
+        for (const sym of objSymbols) {
+          const value = typeof sym.value === 'bigint' ? Number(sym.value) : 0;
+          const symInstanceIndex = value & 0xffffff;
+          if (symInstanceIndex === childPosition) {
+            instanceName = sym.name;
+            break;
+          }
+        }
+
+        // Get source file name from the child's record or source files
+        const childFile = this.context.sourceFiles.getFileAtIndex(childObjectId);
+        const sourceFileName = childFile ? childFile.fileName : `object_${childObjectId}.spin2`;
+
+        const instance = new ObjInstanceInfo(instanceName, sourceFileName, parentIdx, childObjectId);
+        this.context.objInstanceStore.addInstance(instance);
+      }
+    }
+
+    this.logMessageOutline(`Built instance info for ${this.context.objInstanceStore.count} objects`);
   }
 }

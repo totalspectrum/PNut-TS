@@ -18,6 +18,7 @@ export interface iSymbol {
   name: string;
   type: eElementType;
   value: bigint | string;
+  isInline?: boolean; // true if symbol is from inline PASM (ORG/ORGH within method)
 }
 
 export class SymbolEntry {
@@ -26,12 +27,14 @@ export class SymbolEntry {
   private _type: eElementType;
   private _value: bigint | string;
   private _instanceNumber: number;
+  private _isInline: boolean;
 
-  constructor(symbolName: string, symbolType: eElementType, symbolValue: bigint | string) {
+  constructor(symbolName: string, symbolType: eElementType, symbolValue: bigint | string, isInline: boolean = false) {
     this._instanceNumber = ++SymbolEntry.nextInstanceNumber;
     this._name = symbolName;
     this._type = symbolType;
     this._value = symbolValue;
+    this._isInline = isInline;
   }
 
   get name(): string {
@@ -45,6 +48,9 @@ export class SymbolEntry {
   }
   get instanceNumber(): number {
     return this._instanceNumber;
+  }
+  get isInline(): boolean {
+    return this._isInline;
   }
 }
 /**
@@ -65,17 +71,17 @@ export class SymbolTable {
    * @param {bigint} symbolValue
    * @memberof SymbolTable
    */
-  public add(symbolName: string, symbolType: eElementType, symbolValue: bigint | string) {
+  public add(symbolName: string, symbolType: eElementType, symbolValue: bigint | string, isInline: boolean = false) {
     const nameKey: string = symbolName.toUpperCase();
     if (!this.exists(nameKey)) {
-      const newEntry: SymbolEntry = new SymbolEntry(symbolName, symbolType, symbolValue);
+      const newEntry: SymbolEntry = new SymbolEntry(symbolName, symbolType, symbolValue, isInline);
       //const newSymbol: iSymbol = { name: nameKey, type: symbolType, value: symbolValue };
       this.symbols.set(nameKey, newEntry);
     }
   }
 
-  public addAllowDupe(symbolName: string, symbolType: eElementType, symbolValue: bigint | string) {
-    const newEntry: SymbolEntry = new SymbolEntry(symbolName, symbolType, symbolValue);
+  public addAllowDupe(symbolName: string, symbolType: eElementType, symbolValue: bigint | string, isInline: boolean = false) {
+    const newEntry: SymbolEntry = new SymbolEntry(symbolName, symbolType, symbolValue, isInline);
     const nameKey: string = `${symbolName.toUpperCase()}${ID_SEPARATOR_STRING}${newEntry.instanceNumber}`;
     if (!this.exists(nameKey)) {
       //const newSymbol: iSymbol = { name: nameKey, type: symbolType, value: symbolValue };

@@ -70,6 +70,10 @@ export class Spin2Parser {
     return this.spinResolver.failingFileID;
   }
 
+  get distiller() {
+    return this.spinResolver.distiller;
+  }
+
   public setSourceFile(spinCode: SpinDocument) {
     this.srcFile = spinCode;
     this.logMessage(`* Parser.setSourceFile([${this.srcFile.fileName}])`);
@@ -125,6 +129,14 @@ export class Spin2Parser {
       throw error;
     }
     this.logMessage(`* P2Compile2(isTopLevel=(${isTopLevel})) - EXIT`);
+  }
+
+  /**
+   * Get the current user symbol table (for map file generation)
+   * Returns a copy of the symbols to avoid reference issues
+   */
+  public getUserSymbolTable(): SymbolEntry[] {
+    return [...this.spinResolver.userSymbolTable];
   }
 
   private P2MakeFlashFile(objImage: ObjectImage) {

@@ -10,6 +10,7 @@
     "<rootDir>/dist/tests/FLASH-tests/",
     "<rootDir>/dist/tests/LOADER-tests/",
     "<rootDir>/dist/tests/LARGE-tests/",
+    "<rootDir>/dist/tests/MAP-tests/",
     "<rootDir>/dist/tests/OBJ-tests/",
     "<rootDir>/dist/tests/SPIN-tests/",
     "<rootDir>/dist/tests/VAR-tests/",

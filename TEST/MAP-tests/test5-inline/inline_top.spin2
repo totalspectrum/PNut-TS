@@ -1,0 +1,20 @@
+' inline_top.spin2 - Test 5: Inline PASM test
+' Tests inline PASM within methods (ORG/END blocks)
+
+CON
+  _CLKFREQ = 20_000_000
+
+VAR
+  LONG  result
+
+PUB main() | temp
+  temp := runInline()
+  result := temp
+
+PUB runInline() : value
+  ' Inline PASM block - this code is copied to cog at runtime
+  org
+entry       mov     pa, #100
+            add     pa, #50
+done        mov     value, pa
+  end

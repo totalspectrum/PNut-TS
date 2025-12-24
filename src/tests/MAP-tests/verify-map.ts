@@ -75,6 +75,7 @@ interface MapObjectEntry {
 }
 
 interface MapVarEntry {
+  objectName: string;
   offset: string;
   type: string;
   name: string;
@@ -86,8 +87,9 @@ interface MapMethodEntry {
 }
 
 interface MapPasmEntry {
+  objectName: string;
   cogAddr: string;
-  hubOffset: string;
+  type: string;
   name: string;
 }
 
@@ -161,112 +163,135 @@ export function parseMap(content: string): MapSummary {
   let variableBytes = 0;
 
   let section = '';
+  let currentObjectName = '';
 
   for (const line of lines) {
-    // Detect section headers
-    if (line.startsWith('=== Object Layout ===')) {
-      section = 'objects';
+    // Detect section headers (new Option A format)
+    if (line.startsWith('=== PROGRAM SUMMARY ===')) {
+      section = 'summary';
       continue;
     }
-    if (line.startsWith('=== DAT Sections ===')) {
-      section = 'dat';
+    if (line.startsWith('=== OBJECT HIERARCHY ===')) {
+      section = 'hierarchy';
       continue;
     }
-    if (line.startsWith('=== VAR Sections ===')) {
-      section = 'var';
+    if (line.startsWith('=== MEMORY LAYOUT ===')) {
+      section = 'memory';
       continue;
     }
-    if (line.startsWith('=== Methods ===')) {
-      section = 'methods';
+    if (line.startsWith('=== OBJECT DETAILS ===')) {
+      section = 'details';
       continue;
     }
-    if (line.startsWith('=== Runtime Addresses ===')) {
-      section = 'runtime';
+    if (line.startsWith('=== ADDRESS INDEX ===')) {
+      section = 'address';
       continue;
     }
-    if (line.startsWith('=== PASM Labels ===')) {
-      section = 'pasm';
-      continue;
-    }
-    if (line.startsWith('=== Address Cross-Reference ===')) {
-      section = 'xref';
+    if (line.startsWith('=== SYMBOL INDEX ===')) {
+      section = 'symbol';
       continue;
     }
 
-    // Parse objects (format: Idx   Object   Methods  SubObjs   Size)
-    if (section === 'objects') {
-      const objMatch = line.match(/^\s*(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)/);
-      if (objMatch) {
-        objects.push({
-          index: parseInt(objMatch[1], 10),
-          name: objMatch[2],
-          methods: parseInt(objMatch[3], 10),
-          subObjs: parseInt(objMatch[4], 10),
-          size: parseInt(objMatch[5], 10)
-        });
+    // Parse Program Summary section
+    if (section === 'summary') {
+      // Total Size:    176 bytes (144 code/data + 32 var bytes)
+      const totalMatch = line.match(/Total Size:\s+(\d+)\s+bytes\s+\((\d+)\s+code\/data\s+\+\s+(\d+)\s+var bytes\)/);
+      if (totalMatch) {
+        executableBytes = parseInt(totalMatch[2], 10);
+        variableBytes = parseInt(totalMatch[3], 10);
+      }
+      // Objects:       4
+      const objCountMatch = line.match(/Objects:\s+(\d+)/);
+      if (objCountMatch) {
+        // Will be populated from memory layout
       }
     }
 
-    // Parse VAR entries (format: $offset  TYPE  NAME)
-    if (section === 'var') {
-      const varMatch = line.match(/^\$([0-9A-Fa-f]+)\s+(\S+)\s+(\S+)/);
-      if (varMatch) {
-        vars.push({
-          offset: varMatch[1],
-          type: varMatch[2],
-          name: varMatch[3]
-        });
+    // Parse Memory Layout section (Start/End/Size/Object/Instance/Overrides)
+    if (section === 'memory') {
+      // $00000  $00040     65  wide_top         (entry)
+      // $00044  $0005F     28  wide_a           CHILDA
+      const memMatch = line.match(/^\s*\$([0-9A-Fa-f]+)\s+\$([0-9A-Fa-f]+)\s+(\d+)\s+(\S+)\s+(\S+)/);
+      if (memMatch && !line.includes('-----') && !line.includes('Start')) {
+        const objectName = memMatch[4];
+        // Skip VAR SPACE entry
+        if (objectName !== 'VAR') {
+          objects.push({
+            index: objects.length,
+            name: objectName,
+            methods: 0, // Will be populated from details
+            subObjs: 0,
+            size: parseInt(memMatch[3], 10)
+          });
+        }
       }
-      // Get total count
-      const countMatch = line.match(/^VAR Symbols:\s*(\d+)/);
-      if (countMatch) {
-        varSymbols = parseInt(countMatch[1], 10);
+      // CODE/DATA TOTAL:      196 bytes
+      const codeTotalMatch = line.match(/CODE\/DATA TOTAL:\s+(\d+)\s+bytes/);
+      if (codeTotalMatch) {
+        executableBytes = parseInt(codeTotalMatch[1], 10);
       }
     }
 
-    // Parse DAT symbol count
-    if (section === 'dat') {
-      const countMatch = line.match(/^DAT Symbols:\s*(\d+)/);
-      if (countMatch) {
-        datSymbols = parseInt(countMatch[1], 10);
+    // Parse Object Details section
+    if (section === 'details') {
+      // --- wide_top ---
+      // --- CHILDA : wide_a ---
+      const objHeaderMatch = line.match(/^---\s+(?:(\S+)\s+:\s+)?(\S+)\s+---$/);
+      if (objHeaderMatch) {
+        currentObjectName = objHeaderMatch[2] || objHeaderMatch[1] || '';
+        continue;
       }
-    }
 
-    // Parse method entries (format: $entry  NAME)
-    if (section === 'methods') {
-      const methodMatch = line.match(/^\$([0-9A-Fa-f]+)\s+(\S+)/);
-      if (methodMatch) {
+      // Methods: (indent)  NAME  Entry $XXXXX
+      const methodMatch = line.match(/^\s+(\S+)\s+Entry\s+\$([0-9A-Fa-f]+)/);
+      if (methodMatch && currentObjectName) {
         methods.push({
-          entry: methodMatch[1],
-          name: methodMatch[2]
+          entry: methodMatch[2],
+          name: methodMatch[1]
         });
       }
-    }
 
-    // Parse PASM labels (format: $cogAddr  $hubOffset  NAME)
-    if (section === 'pasm') {
-      const pasmMatch = line.match(/^\$([0-9A-Fa-f]+)\s+\$([0-9A-Fa-f]+)\s+(\S+)/);
-      if (pasmMatch) {
+      // Variables: (indent)  TYPE  NAME  +$XXXX
+      const varMatch = line.match(/^\s+(LONG|WORD|BYTE)\s+(\S+)\s+\+\$([0-9A-Fa-f]+)/);
+      if (varMatch && currentObjectName) {
+        vars.push({
+          objectName: currentObjectName,
+          offset: varMatch[3],
+          type: varMatch[1],
+          name: varMatch[2]
+        });
+      }
+
+      // PASM Labels: (indent)  NAME  COG $XXX
+      const pasmMatch = line.match(/^\s+(\S+)\s+COG\s+\$([0-9A-Fa-f]+)/);
+      if (pasmMatch && currentObjectName) {
         pasmLabels.push({
-          cogAddr: pasmMatch[1],
-          hubOffset: pasmMatch[2],
-          name: pasmMatch[3]
+          objectName: currentObjectName,
+          cogAddr: pasmMatch[2],
+          type: 'PASM',
+          name: pasmMatch[1]
         });
+      }
+
+      // DAT Data: (indent)  TYPE  NAME  $XXXXX
+      const datMatch = line.match(/^\s+(LONG|WORD|BYTE)\s+(\S+)\s+\$([0-9A-Fa-f]+)/);
+      if (datMatch && currentObjectName) {
+        datSymbols++;
       }
     }
 
-    // Parse memory summary
-    if (section === 'runtime') {
-      const execMatch = line.match(/Executable \(Code\+DAT\):\s*(\d+)/);
-      if (execMatch) {
-        executableBytes = parseInt(execMatch[1], 10);
-      }
-      const varMatch = line.match(/Variables \(VAR\):\s*(\d+)/);
-      if (varMatch) {
-        variableBytes = parseInt(varMatch[1], 10);
+    // Parse Symbol Index for total counts
+    if (section === 'symbol') {
+      // Symbols: 19
+      const symbolCountMatch = line.match(/^\s*Symbols:\s+(\d+)/);
+      if (symbolCountMatch) {
+        // Total symbol count
       }
     }
   }
+
+  // Set varSymbols count
+  varSymbols = vars.length;
 
   return {
     objects,
@@ -502,7 +527,12 @@ export function formatResults(result: VerificationResult): string {
 
 // Main entry for running standalone
 if (require.main === module) {
-  const testDirs = [path.join(__dirname, 'test1-simple'), path.join(__dirname, 'test2-deep'), path.join(__dirname, 'test3-wide')];
+  const testDirs = [
+    path.join(__dirname, 'test1-simple'),
+    path.join(__dirname, 'test2-deep'),
+    path.join(__dirname, 'test3-wide'),
+    path.join(__dirname, 'test4-override')
+  ];
 
   let allPassed = true;
   for (const testDir of testDirs) {
