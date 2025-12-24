@@ -11,8 +11,8 @@
       "installOhMyZshConfig": false,
       "upgradePackages": false,
       "username": "vscode",
-      "userUid": "1000",
-      "userGid": "1000"
+      "userUid": "automatic",
+      "userGid": "automatic"
     }
   },
   "remoteUser": "vscode",
