@@ -265,4 +265,12 @@ CLAUDE.md
 /.claude-todo
 TEST/MAP-tests/.vscode/settings.json
 /REF-INSTALL
-/scripts-pkg-macos
+
+# macOS packaging - ignore generated files and signing scripts (contain identity info)
+scripts-pkg-macos/*.icns
+scripts-pkg-macos/pnut-ts-macos-*/
+scripts-pkg-macos/*.dmg
+scripts-pkg-macos/dmg-staging-*/
+scripts-pkg-macos/SIGN-*.command
+scripts-pkg-macos/NOTARIZE-*.command
+scripts-pkg-macos/CREATE-*.command

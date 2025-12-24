@@ -250,8 +250,34 @@ jobs:
             fi
           done
 
-      - name: Create DMG background
+      - name: Create icons and background
         run: |
+          # Copy source icons from repo and convert to ICNS
+          # Note: Source files may be JPEG with .png extension, so convert first
+          if [ -f "scripts-pkg-macos/volume-icon.png" ]; then
+            echo "Creating volume icon ICNS..."
+
+            # Convert to proper PNG format first (handles JPEG with .png extension)
+            sips -s format png scripts-pkg-macos/volume-icon.png --out volume-icon-tmp.png >/dev/null 2>&1
+
+            ICONSET_DIR="volume-icon.iconset"
+            mkdir -p "$ICONSET_DIR"
+            sips -z 16 16     volume-icon-tmp.png --out "${ICONSET_DIR}/icon_16x16.png" >/dev/null 2>&1
+            sips -z 32 32     volume-icon-tmp.png --out "${ICONSET_DIR}/icon_16x16@2x.png" >/dev/null 2>&1
+            sips -z 32 32     volume-icon-tmp.png --out "${ICONSET_DIR}/icon_32x32.png" >/dev/null 2>&1
+            sips -z 64 64     volume-icon-tmp.png --out "${ICONSET_DIR}/icon_32x32@2x.png" >/dev/null 2>&1
+            sips -z 128 128   volume-icon-tmp.png --out "${ICONSET_DIR}/icon_128x128.png" >/dev/null 2>&1
+            sips -z 256 256   volume-icon-tmp.png --out "${ICONSET_DIR}/icon_128x128@2x.png" >/dev/null 2>&1
+            sips -z 256 256   volume-icon-tmp.png --out "${ICONSET_DIR}/icon_256x256.png" >/dev/null 2>&1
+            sips -z 512 512   volume-icon-tmp.png --out "${ICONSET_DIR}/icon_256x256@2x.png" >/dev/null 2>&1
+            sips -z 512 512   volume-icon-tmp.png --out "${ICONSET_DIR}/icon_512x512.png" >/dev/null 2>&1
+            sips -z 1024 1024 volume-icon-tmp.png --out "${ICONSET_DIR}/icon_512x512@2x.png" >/dev/null 2>&1
+            rm -f volume-icon-tmp.png
+            iconutil -c icns "$ICONSET_DIR"
+            rm -rf "$ICONSET_DIR"
+            echo "Created volume-icon.icns"
+          fi
+
           # Create SVG background
           cat > dmg-background.svg << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -265,7 +291,7 @@ jobs:
             <rect width="500" height="300" fill="url(#bg)"/>
             <text x="250" y="40" font-family="Helvetica, Arial" font-size="28" font-weight="bold" fill="#ff6b35" text-anchor="middle">PNut-TS</text>
             <text x="250" y="62" font-family="Helvetica, Arial" font-size="14" font-weight="500" fill="white" opacity="0.9" text-anchor="middle">Propeller 2 Spin2/PASM2 Compiler</text>
-            <text x="250" y="82" font-family="Helvetica, Arial" font-size="11" fill="white" opacity="0.6" text-anchor="middle">Parallax Inc &amp; Iron Sheep Productions, LLC</text>
+            <text x="250" y="82" font-family="Helvetica, Arial" font-size="11" fill="white" opacity="0.6" text-anchor="middle">Iron Sheep Productions, LLC</text>
             <line x1="210" y1="150" x2="270" y2="150" stroke="white" stroke-width="4" opacity="0.9"/>
             <polygon points="290,150 270,140 270,160" fill="white" opacity="0.9"/>
             <text x="250" y="260" font-family="Helvetica, Arial" font-size="18" font-weight="600" fill="white" text-anchor="middle">Drag to Applications Folder to Install</text>
@@ -273,12 +299,10 @@ jobs:
           EOF
 
           # Convert SVG to PNG using sips (available on macOS)
-          # First convert to PDF, then to PNG
           /usr/bin/qlmanage -t -s 500 -o . dmg-background.svg 2>/dev/null || true
 
-          # If that didn't work, try using a simple approach
+          # If that didn't work, try using ImageMagick
           if [ ! -f "dmg-background.png" ]; then
-            # Create a simple gradient background using ImageMagick if available
             if command -v convert &> /dev/null; then
               convert -size 500x300 gradient:'#1e3a5f'-'#0d1f33' dmg-background.png
             fi
