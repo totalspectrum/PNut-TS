@@ -3,7 +3,7 @@
 
 set -e
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.3.0"
 
 echo "PNut-TS DMG Background Creation v${SCRIPT_VERSION}"
 echo "=============================================="
@@ -28,11 +28,38 @@ if [ -f "dmg-background.png" ]; then
     fi
 fi
 
+# Find and prepare company logo
+LOGO_SVG=""
+LOGO_PNG=""
+SCRIPT_PARENT="$(dirname "$SCRIPT_DIR")"
+
+# Look for company logo SVG
+if [ -f "$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m.svg" ]; then
+    LOGO_SVG="$SCRIPT_PARENT/REF-INSTALL/Images/SteveFinalLogoV5-m.svg"
+    echo "Found company logo: $LOGO_SVG"
+
+    # Convert SVG to PNG using ImageMagick (if available)
+    if command -v convert &> /dev/null; then
+        LOGO_PNG="$SCRIPT_DIR/logo_temp.png"
+        echo "Converting SVG to PNG..."
+        # Render at high quality then resize - logo is vertical so use height constraint
+        convert -background none -density 150 "$LOGO_SVG" -resize x40 PNG32:"$LOGO_PNG" 2>/dev/null && \
+            echo "Logo converted successfully" || \
+            echo "Warning: Logo conversion failed, will use text fallback"
+    else
+        echo "ImageMagick not found, will use text fallback"
+    fi
+else
+    echo "Company logo not found, will use text"
+fi
+echo ""
+
 # Create Python script to generate the image using PIL
 cat > create_bg.py << 'PYTHON_EOF'
 #!/usr/bin/env python3
 """Generate DMG background image for PNut-TS"""
 import sys
+import os
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -40,6 +67,15 @@ except ImportError:
     print("ERROR: PIL/Pillow not available")
     print("Install with: pip3 install Pillow")
     sys.exit(1)
+
+# Check for logo path argument
+logo_path = sys.argv[1] if len(sys.argv) > 1 else None
+has_logo = logo_path and os.path.exists(logo_path)
+
+if has_logo:
+    print(f"Using company logo: {logo_path}")
+else:
+    print("Using text fallback for company name")
 
 # Image dimensions
 width, height = 500, 300
@@ -98,11 +134,40 @@ bbox = draw.textbbox((0, 0), subtitle, font=font_subtitle)
 x = (width - (bbox[2] - bbox[0])) // 2
 draw.text((x, 58), subtitle, fill=(255, 255, 255), font=font_subtitle)
 
-# Company
-company = "Iron Sheep Productions, LLC"
-bbox = draw.textbbox((0, 0), company, font=font_company)
-x = (width - (bbox[2] - bbox[0])) // 2
-draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
+# Company logo or text
+if has_logo:
+    # Load and composite the logo
+    try:
+        logo = Image.open(logo_path)
+        # Convert to RGBA if needed for transparency
+        if logo.mode != 'RGBA':
+            logo = logo.convert('RGBA')
+        # For a vertical logo, position it to the right of the subtitle
+        # Scale to fit header height nicely
+        logo_w, logo_h = logo.size
+        target_h = 35  # Height constraint for header area
+        scale = target_h / logo_h
+        new_w = int(logo_w * scale)
+        new_h = int(logo_h * scale)
+        logo = logo.resize((new_w, new_h), Image.LANCZOS)
+        # Position to right side of header
+        x = width - new_w - 15  # 15px from right edge
+        y = 50
+        # Paste with transparency
+        img.paste(logo, (x, y), logo)
+        print(f"Logo composited at ({x}, {y}), size {logo.size}")
+    except Exception as e:
+        print(f"Warning: Could not load logo: {e}")
+        # Fall back to text
+        company = "Iron Sheep Productions, LLC"
+        bbox = draw.textbbox((0, 0), company, font=font_company)
+        x = (width - (bbox[2] - bbox[0])) // 2
+        draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
+else:
+    company = "Iron Sheep Productions, LLC"
+    bbox = draw.textbbox((0, 0), company, font=font_company)
+    x = (width - (bbox[2] - bbox[0])) // 2
+    draw.text((x, 78), company, fill=(180, 180, 180), font=font_company)
 
 # Draw arrow (dark gray on light background)
 arrow_y = 150
@@ -138,8 +203,17 @@ PYTHON_EOF
 echo "Generating background with Python PIL..."
 echo ""
 
-if python3 create_bg.py; then
+# Pass logo path if available
+if [ -n "$LOGO_PNG" ] && [ -f "$LOGO_PNG" ]; then
+    LOGO_ARG="$LOGO_PNG"
+else
+    LOGO_ARG=""
+fi
+
+if python3 create_bg.py $LOGO_ARG; then
     rm -f create_bg.py
+    # Clean up temporary logo PNG
+    [ -f "$LOGO_PNG" ] && rm -f "$LOGO_PNG"
     echo ""
     echo "=========================================="
     echo "DMG Background Creation Complete!"
@@ -155,6 +229,8 @@ if python3 create_bg.py; then
     echo "Next step: Run CREATE-STANDARD-DMGS.command"
 else
     rm -f create_bg.py
+    # Clean up temporary logo PNG
+    [ -f "$LOGO_PNG" ] && rm -f "$LOGO_PNG"
     echo ""
     echo "ERROR: Python PIL generation failed"
     echo ""

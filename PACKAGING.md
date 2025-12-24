@@ -183,6 +183,8 @@ pnut_ts.dmg
 - No .app bundle structure required
 - DMG contains `pnut_ts/` folder directly
 
+**Icon Limitation:** Custom icons cannot be set directly on the standalone binary because macOS code signing with hardened runtime rejects resource forks ("resource fork, Finder information, or similar detritus not allowed"). The icon is instead set on the containing `pnut_ts/` folder in the DMG.
+
 ---
 
 ## Required Visual Assets (macOS)
@@ -705,3 +707,70 @@ git push origin v1.51.6
 - [ ] Download and test each platform package
 - [ ] Verify macOS DMG opens without Gatekeeper warning
 - [ ] Verify `pnut_ts --version` shows correct version
+
+---
+
+## Future Consideration: App Bundle Wrapper
+
+### The Problem
+
+macOS code signing with hardened runtime does not allow resource forks on binaries. This means custom icons cannot be set directly on the `pnut_ts` executable - the codesign tool rejects them with "resource fork, Finder information, or similar detritus not allowed".
+
+The `vercel/pkg` tool (now archived) never implemented `--icon` support for macOS binaries.
+
+### Current Workaround
+
+Set the custom icon on the `pnut_ts/` folder instead of the binary. Users see the icon in the DMG when dragging to Applications.
+
+### Future Alternative: Minimal App Bundle
+
+Wrap the CLI binary in a minimal `.app` bundle structure. App bundles can have icons via `Info.plist` (stored in `Contents/Resources/`) without breaking code signatures.
+
+**Structure:**
+```
+PNut-TS.app/
+├── Contents/
+│   ├── Info.plist          ← references the icon
+│   ├── MacOS/
+│   │   └── pnut_ts         ← the signed binary
+│   └── Resources/
+│       └── app-icon.icns   ← the icon file
+```
+
+**Minimal Info.plist:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>pnut_ts</string>
+    <key>CFBundleIconFile</key>
+    <string>app-icon</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.ironsheep.pnut-ts</string>
+    <key>CFBundleName</key>
+    <string>PNut-TS</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1.51.5</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.13</string>
+</dict>
+</plist>
+```
+
+**Pros:**
+- Icon displays properly on the app
+- Proper macOS application experience
+- Could add file associations in the future
+
+**Cons:**
+- More complex packaging
+- Users install `.app` instead of raw binary
+- CLI usage requires adding to PATH or creating symlink
+
+**References:**
+- [The Eclectic Light Company: How to add a custom icon without breaking signature](https://eclecticlight.co/2019/07/20/how-to-add-a-custom-icon-to-an-app-without-breaking-its-signature/)
+- [Apple QA1940: Resource fork not allowed](https://developer.apple.com/library/archive/qa/qa1940/_index.html)

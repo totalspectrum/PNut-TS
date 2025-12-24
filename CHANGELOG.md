@@ -19,6 +19,14 @@ Work to appear in upcoming releases:
 - Add User Reqeuested enhancements
 - Keep up with PNut changes soon after they are released.
 
+## [1.51.7] 2025-12-24
+
+### Added
+- **New Feature**: Added `-m` / `--map` command-line option to generate memory map files (`.map`). The map file provides a detailed narrative of the compiled object structure, memory allocation, and multi-object relationships.
+
+### Internal
+- Internal cleanup and refactoring of the compiler
+
 ## [1.51.6] 2025-09-30
 
 ### Fixed
