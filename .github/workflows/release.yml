@@ -45,13 +45,26 @@ jobs:
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           PKG_VERSION="${{ steps.version.outputs.VERSION }}"
 
-          echo "Tag version:     ${TAG_VERSION}"
-          echo "Package version: ${PKG_VERSION}"
+          # Extract base version (strip -testN, -rcN, -beta, -alpha suffixes)
+          BASE_TAG_VERSION=$(echo "$TAG_VERSION" | sed -E 's/-(test|rc|beta|alpha)[0-9]*$//')
 
+          echo "Tag version:      ${TAG_VERSION}"
+          echo "Base tag version: ${BASE_TAG_VERSION}"
+          echo "Package version:  ${PKG_VERSION}"
+
+          if [ "$BASE_TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo ""
+            echo "ERROR: Tag base version (${BASE_TAG_VERSION}) does not match package.json (${PKG_VERSION})"
+            exit 1
+          fi
+
+          # Check if this is a test/pre-release
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
             echo ""
-            echo "ERROR: Tag (v${TAG_VERSION}) does not match package.json (${PKG_VERSION})"
-            exit 1
+            echo "NOTE: This is a pre-release build (${TAG_VERSION})"
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           fi
 
       - name: Install dependencies
@@ -744,16 +757,29 @@ EOF
           echo "Checksums:"
           cat checksums.txt
 
+      - name: Determine release type
+        id: release_type
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PKG_VERSION="${{ steps.version.outputs.VERSION }}"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            echo "RELEASE_NAME=PNut-TS v${TAG_VERSION} (Test Release)" >> $GITHUB_OUTPUT
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "RELEASE_NAME=PNut-TS v${TAG_VERSION}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: PNut-TS v${{ steps.version.outputs.VERSION }}
+          name: ${{ steps.release_type.outputs.RELEASE_NAME }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release_type.outputs.IS_PRERELEASE == 'true' }}
           files: |
             release/*
           body: |
-            ## PNut-TS v${{ steps.version.outputs.VERSION }}
+            ## PNut-TS ${{ github.ref_name }}
 
             Propeller 2 Spin2/PASM2 Compiler - TypeScript Implementation
 
