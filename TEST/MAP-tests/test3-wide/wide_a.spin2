@@ -1,0 +1,14 @@
+' wide_a.spin2 - Test 3: First sibling object
+' Simple child with BYTE variables
+
+VAR
+  BYTE  valueA
+  BYTE  flagA
+
+PUB getA() : result
+  result := valueA
+
+PUB setA(val)
+  ' Method with 1 param, no return
+  valueA := val
+  flagA := 1

@@ -1,0 +1,19 @@
+' deep_mid.spin2 - Test 2: Middle level object
+' Middle object linking top to leaf
+
+OBJ
+  leaf : "deep_leaf"
+
+VAR
+  LONG  midState
+  BYTE  midCount
+
+PUB process(a, b) : sum
+  ' Method with 2 params and 1 return
+  sum := leaf.compute(a) + leaf.compute(b)
+  midState := sum
+  midCount++
+
+PUB getState() : value
+  ' Simple getter
+  value := midState

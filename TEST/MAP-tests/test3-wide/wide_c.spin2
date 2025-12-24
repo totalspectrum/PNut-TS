@@ -1,0 +1,18 @@
+' wide_c.spin2 - Test 3: Third sibling object
+' Child with LONG array in DAT
+
+DAT
+  table     LONG    1, 2, 3, 4
+
+VAR
+  LONG  valueC
+  LONG  indexC
+
+PUB getC() : result
+  result := valueC + table[indexC]
+
+PUB setIndex(idx)
+  indexC := idx
+
+PRI lookupVal(i) : val
+  val := table[i]

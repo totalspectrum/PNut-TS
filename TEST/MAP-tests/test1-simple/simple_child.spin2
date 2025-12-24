@@ -1,0 +1,12 @@
+' simple_child.spin2 - Test 1: Simple child object
+' Child object with 1 method and DAT variable
+
+DAT
+  myValue   LONG    42
+
+VAR
+  LONG  state
+
+PUB getValue() : result
+  ' Method with 1 return value
+  result := myValue + state

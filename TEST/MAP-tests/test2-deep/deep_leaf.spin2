@@ -1,0 +1,19 @@
+' deep_leaf.spin2 - Test 2: Leaf level object
+' Leaf with DAT section and calculations
+
+DAT
+  multiplier    LONG    5
+  offset        WORD    100
+
+VAR
+  LONG  lastResult
+
+PUB compute(input) : output | working
+  ' Method with 1 param, 1 return, 1 local
+  working := input * multiplier
+  output := working + offset
+  lastResult := output
+
+PRI squared(n) : sq
+  ' Private method
+  sq := n * n

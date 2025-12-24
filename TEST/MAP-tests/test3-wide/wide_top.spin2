@@ -1,0 +1,20 @@
+' wide_top.spin2 - Test 3: Wide hierarchy (1 top with 3 children)
+' Top object demonstrating breadth
+
+OBJ
+  childA : "wide_a"
+  childB : "wide_b"
+  childC : "wide_c"
+
+VAR
+  LONG  result
+
+PUB main() | valA, valB, valC
+  ' Method with 3 locals
+  valA := childA.getA()
+  valB := childB.getB()
+  valC := childC.getC()
+  result := valA + valB + valC
+
+PUB getResult() : value
+  value := result

@@ -1,0 +1,41 @@
+{
+  "description": "Test 1: Simple parent/child hierarchy - basic method signatures, VAR and DAT",
+  "top_file": "simple_top.spin2",
+  "objects": [
+    {
+      "name": "simple_top",
+      "file": "simple_top.spin2",
+      "methods": [
+        {"name": "go", "visibility": "PUB", "params": 0, "returns": 0, "locals": 1},
+        {"name": "addNums", "visibility": "PUB", "params": 2, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "counter", "type": "LONG", "count": 1},
+        {"name": "flags", "type": "BYTE", "count": 1}
+      ],
+      "dat": [],
+      "pasm_labels": []
+    },
+    {
+      "name": "simple_child",
+      "file": "simple_child.spin2",
+      "methods": [
+        {"name": "getValue", "visibility": "PUB", "params": 0, "returns": 1, "locals": 0}
+      ],
+      "vars": [
+        {"name": "state", "type": "LONG", "count": 1}
+      ],
+      "dat": [
+        {"name": "myValue", "type": "LONG", "count": 1}
+      ],
+      "pasm_labels": []
+    }
+  ],
+  "totals": {
+    "object_count": 2,
+    "method_count": 3,
+    "var_symbols": 3,
+    "dat_symbols": 1,
+    "pasm_labels": 0
+  }
+}

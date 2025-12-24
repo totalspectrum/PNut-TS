@@ -1,0 +1,22 @@
+' deep_top.spin2 - Test 2: Deep nesting (top -> mid -> leaf)
+' Top object with multiple return values and local variables
+
+OBJ
+  mid : "deep_mid"
+
+VAR
+  LONG  topValue
+  WORD  topFlags
+
+PUB run() : x, y | temp1, temp2
+  ' Method with 2 returns and 2 locals
+  temp1 := mid.process(10, 20)
+  temp2 := mid.process(30, 40)
+  x := temp1
+  y := temp2
+  topValue := x + y
+  topFlags := 1
+
+PRI internal(p1) : result
+  ' Private method with 1 param and 1 return
+  result := p1 * 2

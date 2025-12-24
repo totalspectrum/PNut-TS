@@ -1,0 +1,19 @@
+' simple_top.spin2 - Test 1: Simple parent/child hierarchy
+' Parent object with 2 methods and VAR variables
+
+OBJ
+  child : "simple_child"
+
+VAR
+  LONG  counter
+  BYTE  flags
+
+PUB go() | temp
+  ' Simple method with one local variable
+  temp := 0
+  counter := child.getValue()
+  flags := 1
+
+PUB addNums(a, b) : sum
+  ' Method with 2 parameters and 1 return value
+  sum := a + b

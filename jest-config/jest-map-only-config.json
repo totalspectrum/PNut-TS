@@ -1,0 +1,6 @@
+{
+  "displayName": "MAP only suite of tests",
+  "roots": ["<rootDir>/../dist/tests/MAP-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}

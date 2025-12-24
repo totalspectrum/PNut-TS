@@ -1,0 +1,23 @@
+' wide_b.spin2 - Test 3: Second sibling with PASM code
+' Child with DAT containing PASM labels
+
+DAT
+            ORG     0
+
+entry       mov     pa, #10
+            add     pa, pb
+loop        djnz    pa, #loop
+done        ret
+
+CON
+  PASM_VALUE = 42
+
+VAR
+  WORD  valueB
+
+PUB getB() : result
+  result := valueB + PASM_VALUE
+
+PUB runPasm()
+  ' Would run PASM if we had coginit
+  valueB := 0
