@@ -44,7 +44,9 @@ describe('Directory existence tests', () => {
 
 //const TIMEOUT_7_SECONDS: number = 7000;
 //const TIMEOUT_10_SECONDS: number = 10000;
-const TIMEOUT_15_SECONDS: number = 10000;
+// Coverage mode adds significant overhead - large files like spin_test2.spin2
+// take ~3.5s normally but can exceed 15s with coverage instrumentation
+const TIMEOUT_15_SECONDS: number = 20000;
 
 describe('PNut_ts compiles .spin2 w/debug() correctly', () => {
   // Variable to store stderr output
@@ -60,8 +62,8 @@ describe('PNut_ts compiles .spin2 w/debug() correctly', () => {
     console.error('ERROR: glob issue:', error);
   }
   if (files.length > 1) {
-    // Don't' compile -pre.spin2 files!
-    files = files.filter((file) => !file.includes('-pre.spin2'));
+    // Don't compile __pre.spin2 files (preprocessor intermediates)!
+    files = files.filter((file) => !file.includes('__pre.spin2'));
     // isp_dummy_flash_rpi is NOT a debug compile
     files = files.filter((file) => !file.includes('isp_dummy_flash_rpi.spin2'));
     // isp_dummy_flash is NOT a debug compile
@@ -217,8 +219,8 @@ describe('PNut_ts compiles .spin2 w/o debug() correctly', () => {
     console.error('ERROR: glob issue:', error);
   }
   if (files.length > 1) {
-    // Dont' compile -pre.spin2 files!
-    files = files.filter((file) => !file.includes('-pre.spin2'));
+    // Don't compile __pre.spin2 files (preprocessor intermediates)!
+    files = files.filter((file) => !file.includes('__pre.spin2'));
     // add these files if they exist
     let specificFile: string = path.join(testDirPath, 'isp_dummy_flash_rpi.spin2');
     if (fs.existsSync(specificFile)) {
