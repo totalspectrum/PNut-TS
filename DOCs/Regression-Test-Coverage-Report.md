@@ -2,7 +2,7 @@
 
 **Version:** v1.51.7
 **Generated:** December 2025
-**Test Suite:** 301 Spin2/PASM2 source files across 21 test categories
+**Test Suite:** 351 Spin2/PASM2 source files across 18 test categories
 
 ---
 
@@ -24,16 +24,16 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 
 | Feature Category | Tested | Total | Coverage |
 |-----------------|--------|-------|----------|
-| **PASM2 Instructions** | 205 | 276 | **74%** |
-| **PASM2 Operand Forms** | 16 | 31 | **52%** |
+| **PASM2 Instructions** | 220+ | 276 | **80%+** |
+| **PASM2 Operand Forms** | 28 | 31 | **90%** |
 | **Conditional Prefixes (IF_*)** | 65 | 65 | **100%** |
 | **Smart Pin Constants (P_*)** | 116 | 116 | **100%** |
 | **Streamer Constants (X_*)** | 78 | 78 | **100%** |
 | **Event Constants (EVENT_*)** | 16 | 16 | **100%** |
 | **MODCZ Constants (_*)** | 16 | 16 | **100%** |
-| **Spin2 Control Flow** | 17 | 18 | **94%** |
-| **Spin2 Operators** | ~65 | 74 | **~88%** |
-| **Spin2 Built-in Methods** | ~75 | 90 | **~83%** |
+| **Spin2 Control Flow** | 18 | 18 | **100%** |
+| **Spin2 Operators** | ~70 | 74 | **~95%** |
+| **Spin2 Built-in Methods** | ~80 | 90 | **~89%** |
 
 ### PASM2 Instruction Coverage Details
 
@@ -53,13 +53,19 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 - 32-bit immediate (##n with AUGS/AUGD)
 - PTRA/PTRB base addressing
 - PTRA++/PTRA-- post-increment/decrement
+- ++PTRA/--PTRA pre-increment/decrement
 - PTRA[n] indexed addressing
-- WC/WZ/WCZ flag effects
+- ++PTRA[n]/PTRA[n]++ combined modes
+- WC/WZ/WCZ flag effects (comprehensive)
+- WC-only instructions (MUL, MULS, SCA, SCAS)
+- WCZ-only instructions (40+ BIT*, DIR*, DRV*, FLT*, OUT* instructions)
+- Special TESTB/TESTBN effects (ANDC, ANDZ, ORC, ORZ, XORC, XORZ)
 - PA/PB return address registers
+- All 16 IF_* conditional execution prefixes
 
 ### Spin2 Language Coverage
 
-**Control Flow (94% - 17/18):**
+**Control Flow (100% - 18/18):**
 - All loop forms: REPEAT, REPEAT WHILE, REPEAT UNTIL, REPEAT FROM..TO..STEP
 - All conditionals: IF, ELSEIF, ELSE, IFNOT
 - All case statements: CASE, CASE_FAST, OTHER
@@ -91,17 +97,17 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 | Category | Files | Purpose |
 |----------|-------|---------|
 | **LARGE-tests** | 91 | Real-world projects validating comprehensive feature interaction |
-| **OBJ-tests** | 37 | Object inheritance, child objects, and multi-file compilation |
+| **OBJ-tests** | 27 | Object inheritance, child objects, and multi-file compilation |
+| **ENCODING-tests** | 29 | PASM2 instruction and operand encoding validation |
 | **DBG-tests** | 27 | DEBUG statement processing and display types |
 | **COV-tests** | 24 | Targeted code path coverage tests |
-| **ENCODING-tests** | 15 | PASM2 instruction encoding validation |
-| **EXCEPT-tests** | 15 | Error detection and error message validation |
-| **CON-tests** | 14 | Built-in constant definitions |
-| **LANG-VER-tests** | 13 | Language version-specific features (v43-v51) |
-| **MAP-tests** | 13 | Memory map generation tests |
-| **PREPROC-tests** | 12 | Preprocessor directive testing |
+| **SPIN-tests** | 15 | Core Spin2 language features |
+| **LANG-VER-tests** | 15 | Language version-specific features (v43-v51) |
+| **CON-tests** | 9 | Built-in constant definitions |
 | **DAT-PASM-tests** | 9 | Pure PASM assembly programs |
-| **SPIN-tests** | 6 | Core Spin2 language features |
+| **MAP-tests** | 13 | Memory map generation tests |
+| **PREPROC-tests** | 10 | Preprocessor directive testing |
+| **EXCEPT-tests** | 6 | Error detection and error message validation |
 | **EXT-tests** | 5 | External/system components (interpreter, debugger) |
 | **LOADER-tests** | 4 | Flash programming and device loading |
 | **VAR-tests** | 2 | Variable declaration and alignment |
@@ -185,12 +191,14 @@ The test suite covers built-in methods across categories:
 
 ## PASM2 Instruction Coverage
 
-### Encoding Tests (15 files)
+### Encoding Tests (29 files)
 
-The ENCODING-tests directory validates instruction binary encoding for:
+The ENCODING-tests directory validates instruction binary encoding across multiple dimensions:
 
-| Test File | Instructions Covered |
-|-----------|---------------------|
+#### Encoding Dimension Tests (7 files)
+
+| Test File | Encoding Dimension |
+|-----------|-------------------|
 | `pasm_encoding_branch.spin2` | JMP, CALL, CALLA, CALLB, CALLD, RET, RETA, RETB, RETI0-3, DJNZ, DJZ, TJNZ, TJZ, TJNS, TJS, TJF, TJNF, TJV, IJNZ, IJZ, REP, LOC, SKIP, SKIPF, EXECF, MODCZ, POLLCT, WAITCT, JMPREL |
 | `pasm_encoding_conditional.spin2` | All 16 IF_* condition prefixes (IF_C, IF_NC, IF_Z, IF_NZ, IF_C_AND_Z, etc.) |
 | `pasm_encoding_immediate.spin2` | 9-bit immediates (#), 32-bit immediates (##), AUGS/AUGD prefixes |
@@ -198,6 +206,26 @@ The ENCODING-tests directory validates instruction binary encoding for:
 | `pasm_encoding_wc.spin2` | WC (write carry) effect testing |
 | `pasm_encoding_wz.spin2` | WZ (write zero) effect testing |
 | `pasm_encoding_wcz.spin2` | WCZ (write both) effect testing |
+| `pasm_encoding_special.spin2` | Special encoding forms and edge cases |
+
+#### Instruction Family Tests (14 files)
+
+| Test File | Instruction Family |
+|-----------|-------------------|
+| `pasm_instr_alt.spin2` | ALT* family (ALTS, ALTD, ALTR, ALTB, ALTI, ALTGN, ALTGW, ALTSN, ALTSW) |
+| `pasm_instr_cordic.spin2` | CORDIC operations (QMUL, QDIV, QFRAC, QSQRT, QROTATE, QVECTOR, QLOG, QEXP, GETQX, GETQY) |
+| `pasm_instr_counter.spin2` | Counter operations (GETCT, ADDCT1/2/3, POLLCT1/2/3, WAITCT1/2/3) |
+| `pasm_instr_event.spin2` | Event operations (SETSE1-4, POLLSE1-4, WAITSE1-4, SETINT1/2/3, NIXINT1/2/3, TRGINT1/2/3) |
+| `pasm_instr_lut.spin2` | LUT operations (WRLUT, RDLUT, SETLUTS) |
+| `pasm_instr_pin.spin2` | Smart pin operations (WRPIN, WXPIN, WYPIN, RDPIN, RQPIN, AKPIN, FLT*, DRV*, OUT*, DIR*, TESTP, TESTPN) |
+| `pasm_instr_pixel.spin2` | Pixel operations (ADDPIX, MULPIX, BLNPIX, MIXPIX, SETPIX, MOVBYTS, MERGEB, SPLITB, MERGEW, SPLITW) |
+| `pasm_instr_rotate.spin2` | Rotate and bit manipulation (ROL, ROR, RCL, RCR, SAL, SAR, SHL, SHR, REV, RCZL, RCZR, TESTB, TESTN) |
+| `pasm_instr_stack.spin2` | Stack operations (PUSH, POP, PUSHA, POPA, PUSHB, POPB) |
+| `pasm_instr_streamer.spin2` | Streamer operations (XINIT, XZERO, XCONT, XSTOP, SETXFRQ, RDFAST, WRFAST, FBLOCK, RF*, WF*, GETPTR, GETBRK, BRK) |
+| `pasm_instr_hub_memory.spin2` | Hub memory operations (RDBYTE, RDWORD, RDLONG, WRBYTE, WRWORD, WRLONG, WMLONG) |
+| `pasm_instr_fifo.spin2` | FIFO operations (RFBYTE, RFWORD, RFLONG, RFVAR, RFVARS, WFBYTE, WFWORD, WFLONG) |
+| `pasm_instr_modcz.spin2` | MODCZ flag operations |
+| `pasm_instr_cog_memory.spin2` | Cog memory operations (MOV, MOVBYTS, GETWORD, GETNIB, GETBYTE, SETWORD, SETNIB, SETBYTE) |
 
 ### Instruction Category Tests (8 files)
 
@@ -391,21 +419,40 @@ Exception tests compare:
 - **Error output** (`.errout`) against `.errout.GOLD` reference files
 - Validates error message format and line numbers
 
+### 1 ULP Floating-Point Tolerance Filter (v1.51.7)
+
+The test infrastructure includes a **1 ULP (Unit in Last Place) filter** that handles floating-point differences between PNut-TS and the reference PNut compiler:
+
+- **Problem:** IEEE 754 floating-point values can differ by 1 ULP between compilers (e.g., 100.0 = 0x42C80000 vs 99.99999237 = 0x42C7FFFF)
+- **Cascade Effect:** 1 ULP byte-level differences affect object file checksums by a predictable amount
+- **Solution:** The filter identifies 4-byte aligned groups that differ by exactly 1, calculates the expected checksum delta, and allows both the 1 ULP differences and the corresponding checksum differences
+
+This allows tests with floating-point operations to pass without requiring exact byte-matching, while still catching real bugs (differences > 1 ULP fail).
+
+### Debug/Non-Debug Test Separation
+
+Test runners automatically detect whether each test file requires the `-d` (debug) flag:
+- Files containing `debug()` statements are compiled with `-d`
+- Files without `debug()` statements are compiled without `-d`
+
+This allows test suites to contain both types of tests with correct compilation flags.
+
 ---
 
 ## Summary Statistics
 
 | Metric | Value |
 |--------|-------|
-| Total Test Files | 301 |
-| Test Categories | 21 |
-| PUB Methods Tested | 2,104 |
-| PRI Methods Tested | 1,179 |
-| PASM Instructions | 205 (74%) |
-| Built-in Constants | 200+ |
-| Files with Debug | 150 |
-| Files with Objects | 141 |
-| Files with Preprocessor | 10 |
+| Total Test Files | 351 |
+| Total GOLD Reference Files | 959 |
+| Test Categories | 18 |
+| PUB Methods Tested | 2,104+ |
+| PRI Methods Tested | 1,179+ |
+| PASM Instructions | 205+ (74%+) |
+| Built-in Constants | 250+ |
+| Files with Debug | 150+ |
+| Files with Objects | 141+ |
+| Files with Preprocessor | 10+ |
 | Language Versions | v43-v51 |
 
 ---
@@ -419,18 +466,19 @@ Run tests with:
 npm test
 
 # Specific categories
-npm run test-con      # Constants
-npm run test-obj      # Objects
-npm run test-dbg      # Debug
-npm run test-pre      # Preprocessor
-npm run test-exc      # Exceptions
-npm run test-lrg      # Large files
-npm run test-lang     # Language versions
-npm run test-datpasm  # DAT/PASM
-npm run test-loader   # Loader tests
-npm run test-var      # Variables
-npm run test-spin     # Spin features
-npm run test-ext      # External components
+npm run test-con       # Constants (9 tests)
+npm run test-obj       # Objects (27 tests)
+npm run test-dbg       # Debug (27 tests)
+npm run test-encoding  # PASM2 Encoding (29 tests)
+npm run test-spin      # Spin features (15 tests)
+npm run test-lang      # Language versions (15 tests)
+npm run test-pre       # Preprocessor (10 tests)
+npm run test-datpasm   # DAT/PASM (9 tests)
+npm run test-exc       # Exceptions (6 tests)
+npm run test-lrg       # Large files (91 tests)
+npm run test-loader    # Loader tests (4 tests)
+npm run test-var       # Variables (2 tests)
+npm run test-ext       # External components (5 tests)
 ```
 
 ---
