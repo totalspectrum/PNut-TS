@@ -561,8 +561,41 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 | 4. Feature audit | 10-15 hrs | 41-61 hrs | Gap discovery | Pending |
 | 5. Encoding coverage | 30-40 hrs | 71-101 hrs | All encoding dims | ✅ Done |
 | 5b. Mnemonic coverage | 20-30 hrs | 91-131 hrs | Instruction families | ✅ Done |
+| **6. 100% Coverage Audit** | 15-25 hrs | 106-156 hrs | Verify & fill gaps | **Pending** |
 
 **After these 5 waves:** Critical gaps addressed, systematic backlog for remaining work (structures, mnemonic coverage, etc.).
+
+### Wave 6: 100% Coverage Audit (PENDING)
+
+**Key Insight:** The v1.51.7 sprint created test files organized by *category* (instruction families, operator types, built-in method groups), but did NOT systematically verify every item against a complete reference list. The coverage percentages (80%, 90%, 95%) are estimates, not verified counts.
+
+**What's Missing:**
+
+| Category | Current Estimate | Gap |
+|----------|------------------|-----|
+| PASM2 Instructions | ~80% (220/276) | Need to identify missing ~56 instructions |
+| PASM2 Operand Forms | ~90% (28/31) | Need to identify missing ~3 forms |
+| Spin2 Operators | ~95% (~70/74) | Need to identify missing ~4 operators |
+| Spin2 Built-in Methods | ~89% (~80/90) | Need to identify missing ~10 methods |
+
+**Required Work:**
+
+1. **Extract complete reference lists** from Spin2_Language_v51a.pdf:
+   - All 276 PASM2 instruction mnemonics
+   - All 31 operand forms
+   - All 74 Spin2 operators
+   - All 90 built-in methods
+
+2. **Create verification checklists** mapping each item to test file(s) that cover it
+
+3. **Identify gaps** - items with no test coverage
+
+4. **Create targeted test files** to fill each gap
+
+5. **Update coverage report** with verified 100% counts
+
+**Effort:** 15-25 hours (audit 5-8 hrs, gap-filling 10-17 hrs)
+**Impact:** Verified 100% coverage for core language features
 
 ---
 
@@ -595,6 +628,11 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 - [x] PTRx addressing modes have dedicated test coverage ✅ (v1.51.7)
 - [x] Encoding test files organized by dimension (immediate, effects, addressing) ✅ (v1.51.7)
 - [x] Built-in constants (SmartPin, Streamer, Clock, Event, MODCZ, Debug) validated ✅ (v1.51.7)
+- [ ] **100% Coverage Audit** - Verify all items against reference lists:
+  - [ ] All 276 PASM2 instructions verified with test coverage
+  - [ ] All 31 PASM2 operand forms verified with test coverage
+  - [ ] All 74 Spin2 operators verified with test coverage
+  - [ ] All 90 Spin2 built-in methods verified with test coverage
 
 ---
 
