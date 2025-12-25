@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.68% </span>
+                <span class="strong">73.36% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>476/646</span>
+                <span class='fraction'>482/657</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.88% </span>
+                <span class="strong">58.2% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>38/68</span>
+                <span class='fraction'>39/67</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.68% </span>
+                <span class="strong">73.36% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>476/646</span>
+                <span class='fraction'>482/657</span>
             </div>
         
             
@@ -709,7 +709,18 @@
 <a name='L644'></a><a href='#L644'>644</a>
 <a name='L645'></a><a href='#L645'>645</a>
 <a name='L646'></a><a href='#L646'>646</a>
-<a name='L647'></a><a href='#L647'>647</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L647'></a><a href='#L647'>647</a>
+<a name='L648'></a><a href='#L648'>648</a>
+<a name='L649'></a><a href='#L649'>649</a>
+<a name='L650'></a><a href='#L650'>650</a>
+<a name='L651'></a><a href='#L651'>651</a>
+<a name='L652'></a><a href='#L652'>652</a>
+<a name='L653'></a><a href='#L653'>653</a>
+<a name='L654'></a><a href='#L654'>654</a>
+<a name='L655'></a><a href='#L655'>655</a>
+<a name='L656'></a><a href='#L656'>656</a>
+<a name='L657'></a><a href='#L657'>657</a>
+<a name='L658'></a><a href='#L658'>658</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1169,8 +1180,8 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -1203,6 +1214,17 @@
 <span class="cline-any cline-yes">155x</span>
 <span class="cline-any cline-yes">155x</span>
 <span class="cline-any cline-yes">155x</span>
+<span class="cline-any cline-yes">155x</span>
+<span class="cline-any cline-yes">155x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">155x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1248,8 +1270,8 @@
 <span class="cline-any cline-yes">158x</span>
 <span class="cline-any cline-yes">158x</span>
 <span class="cline-any cline-yes">158x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">158x</span>
 <span class="cline-any cline-yes">158x</span>
 <span class="cline-any cline-yes">158x</span>
@@ -1814,9 +1836,9 @@ export class PNutInTypeScript {
       // forward  Include Folder name(s)
       const includeDirs: string[] = this.options.Include;
       for (const newFolder of includeDirs) {
-        if (fs.existsSync(newFolder)<span class="branch-0 cbranch-no" title="branch not covered" > &amp;&amp; fs.statSync(newFolder).isDirectory())</span> <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >          this.context.preProcessorOptions.includeFolders.push(newFolder);</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
+        if (fs.existsSync(newFolder) &amp;&amp; fs.statSync(newFolder).isDirectory()) {
+          this.context.preProcessorOptions.includeFolders.push(newFolder);
+        }
       }
       //this.context.logger.verboseMsg(`Include Dirs=[${this.context.preProcessorOptions.includeFolders}]`);
     }
@@ -1848,7 +1870,18 @@ export class PNutInTypeScript {
     if (filename !== undefined &amp;&amp; filename.length &gt; 0) {
       this.context.logger.verboseMsg(`Working with file [${filename}]`);
       // and load our .spin2 top-level file
-      this.spinDocument = new SpinDocument(this.context, filename);
+      try {
+        this.spinDocument = new SpinDocument(this.context, filename);
+      } <span class="branch-0 cbranch-no" title="branch not covered" >catch (error) {</span>
+<span class="cstat-no" title="statement not covered" >        // Handle preprocessor errors (e.g., missing include files)</span>
+<span class="cstat-no" title="statement not covered" >        if (error instanceof Error) {</span>
+<span class="cstat-no" title="statement not covered" >          this.context.logger.errorMsg(error.message);</span>
+<span class="cstat-no" title="statement not covered" >        } else {</span>
+<span class="cstat-no" title="statement not covered" >          this.context.logger.errorMsg(`Preprocessing failed: ${error}`);</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+<span class="cstat-no" title="statement not covered" >        this.shouldAbort = true;</span>
+<span class="cstat-no" title="statement not covered" >        return Promise.resolve(-1);</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
       if (this.spinDocument === undefined || !this.spinDocument.validFile) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 <span class="cstat-no" title="statement not covered" >        this.context.logger.errorMsg(`File [${filename}] does not exist or is not a .spin2 file!`);</span>
 <span class="cstat-no" title="statement not covered" >        this.shouldAbort = true;</span>
@@ -1893,9 +1926,9 @@ export class PNutInTypeScript {
       this.context.logger.verboseMsg(`ext dir [${this.context.extensionFolder}]`);
       this.context.logger.verboseMsg(`lib dir [${this.context.libraryFolder}]`);
       this.context.logger.verboseMsg(`wkg dir [${this.context.currentFolder}]`);
-      if (this.context.preProcessorOptions.includeFolders.length &gt; 0) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >        this.context.logger.verboseMsg(`inc dir [${this.context.preProcessorOptions.includeFolders}]`);</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
+      if (this.context.preProcessorOptions.includeFolders.length &gt; 0) {
+        this.context.logger.verboseMsg(`inc dir [${this.context.preProcessorOptions.includeFolders}]`);
+      }
       this.context.logger.verboseMsg(''); // blank line
       /*
       this.runCommand('node -v').then((result) =&gt; {
@@ -2008,7 +2041,7 @@ cliTool.run();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-25T02:42:18.661Z
+                at 2025-12-25T03:11:44.597Z
             </div>
         <script src="../prettify.js"></script>
         <script>
