@@ -498,6 +498,65 @@ Each of these is a different encoding even though they're all "MOV". The compile
 
 ---
 
+## Part 5B: Optimized Execution Order (Maximum Coverage, Minimum Time)
+
+This section provides a wave-based approach to achieve the broadest coverage in the shortest time.
+
+### Wave 1: Instant Payoff (4-8 hours) → +11 tests immediately
+
+| Task | Effort | Payoff |
+|------|--------|--------|
+| **Enable HOLD exception tests** | 4-8 hrs | 11+ existing tests restored to active |
+
+**Rationale:** These tests already exist with GOLD files. Review and enable them. Zero test creation work, maximum immediate coverage gain.
+
+### Wave 2: Simple Pattern, High Breadth (15-20 hours) → ~250+ constants validated
+
+| Task | Effort | Payoff |
+|------|--------|--------|
+| **Built-in Constants Coverage** | 15-20 hrs | All Streamer, SmartPin, MODCZ, Clock, etc. |
+
+**Rationale:** The test pattern is trivial (declare constants in DAT, validate against GOLD). This validates ~250+ constant values with minimal test design. High coverage, low cognitive load.
+
+### Wave 3: Foundation Gaps (12-18 hours) → Core language constructs
+
+| Task | Effort | Payoff |
+|------|--------|--------|
+| **VAR Section Tests** | 8-12 hrs | Variable declarations (used everywhere) |
+| **Memory Alignment** | 4-6 hrs | ALIGNW/ALIGNL edge cases |
+
+**Rationale:** VAR sections appear in virtually every Spin2 program. Fixing this gap catches bugs users will hit.
+
+### Wave 4: Systematic Discovery (10-15 hours) → Identifies all remaining gaps
+
+| Task | Effort | Payoff |
+|------|--------|--------|
+| **Language Feature Audit** | 10-15 hrs | Feature-to-release mapping, gap report |
+
+**Rationale:** This produces a prioritized backlog for everything else. Spend time here to avoid wasted effort on already-covered features.
+
+### Wave 5: Targeted Encoding (8-10 hours first) → Biggest encoding bug class
+
+| Task | Effort | Payoff |
+|------|--------|--------|
+| **Immediate (#) form tests** | 8-10 hrs | All #immediate encodings |
+
+**Rationale:** Immediate vs register encoding is the most common source of encoding bugs. Test this dimension first before the full 30-40 hour encoding effort.
+
+### Wave Summary
+
+| Wave | Effort | Cumulative | Coverage Gain |
+|------|--------|------------|---------------|
+| 1. Enable HOLD tests | 4-8 hrs | 4-8 hrs | +11 tests |
+| 2. Built-in constants | 15-20 hrs | 19-28 hrs | +250 constants |
+| 3. VAR + Alignment | 12-18 hrs | 31-46 hrs | Core language |
+| 4. Feature audit | 10-15 hrs | 41-61 hrs | Gap discovery |
+| 5. Immediate encodings | 8-10 hrs | 49-71 hrs | Critical encoding |
+
+**After these 5 waves:** Critical gaps addressed, systematic backlog for remaining work (structures, full encoding coverage, etc.).
+
+---
+
 ## Part 6: Coverage Metrics Goals
 
 ### Current State
