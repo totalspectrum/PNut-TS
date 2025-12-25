@@ -1,0 +1,96 @@
+' PASM2 Instruction Test: LUT (Lookup Table) Operations
+' Tests LUT RAM read/write and configuration instructions
+' LUT RAM is 512 longs shared between COGs
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+lut_addr        long    0
+lut_data        long    $12345678
+result          long    0
+
+' ============================================================================
+' WRLUT - Write to LUT RAM
+' Writes D to LUT RAM at address S
+' ============================================================================
+
+' Write to LUT with register address
+t_wrlut_reg     wrlut   lut_data, lut_addr
+
+' Write to LUT with immediate address
+t_wrlut_imm     wrlut   lut_data, #0
+
+' Write with another immediate address
+t_wrlut_imm2    wrlut   lut_data, #$FF      ' High LUT entry
+
+' ============================================================================
+' RDLUT - Read from LUT RAM
+' Reads LUT RAM at address S into D
+' ============================================================================
+
+' Read from LUT with register address
+t_rdlut_reg     rdlut   result, lut_addr
+
+' Read from LUT with immediate address
+t_rdlut_imm     rdlut   result, #0
+
+' Read with WC (C = MSB of value)
+t_rdlut_wc      rdlut   result, lut_addr    wc
+
+' Read with WZ (Z = value is zero)
+t_rdlut_wz      rdlut   result, lut_addr    wz
+
+' Read with WCZ
+t_rdlut_wcz     rdlut   result, lut_addr    wcz
+
+' ============================================================================
+' SETLUTS - Set LUT Sharing Mode
+' Configures how LUT RAM is shared between COGs
+' ============================================================================
+
+' Set LUT sharing mode from register
+t_setluts_reg   setluts lut_data
+
+' Set LUT sharing mode immediate
+t_setluts_imm   setluts #0                  ' No sharing
+
+' Share modes
+t_setluts_mode1 setluts #%01                ' Share write with +1
+t_setluts_mode2 setluts #%10                ' Share read with -1
+t_setluts_mode3 setluts #%11                ' Share read/write
+
+' ============================================================================
+' Typical usage patterns
+' ============================================================================
+
+' Initialize LUT table
+t_init_lut      mov     lut_addr, #0
+                mov     lut_data, #0
+.init_loop      wrlut   lut_data, lut_addr
+                add     lut_data, #1
+                add     lut_addr, #1
+                cmp     lut_addr, #256      wc
+        if_c    jmp     #.init_loop
+
+' Lookup table access
+t_lookup        mov     lut_addr, result    ' Index into table
+                rdlut   result, lut_addr    ' Get table entry
+
+' Read-modify-write pattern
+t_rmw           rdlut   lut_data, lut_addr  ' Read
+                add     lut_data, #1        ' Modify
+                wrlut   lut_data, lut_addr  ' Write back
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

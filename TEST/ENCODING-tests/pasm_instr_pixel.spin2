@@ -1,0 +1,174 @@
+' PASM2 Instruction Test: Pixel/Color Operations
+' Tests hardware pixel blending and color manipulation instructions
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+pixel1          long    $FF_80_40_20        ' RGBA pixel
+pixel2          long    $80_40_20_10        ' Another pixel
+blend           long    $80                  ' 50% blend factor (0-255)
+result          long    0
+
+' ============================================================================
+' ADDPIX - Add Pixels (saturating)
+' Adds corresponding bytes with saturation at 255
+' ============================================================================
+
+' Add two pixel registers
+t_addpix_reg    addpix  pixel1, pixel2
+
+' Add with immediate
+t_addpix_imm    addpix  pixel1, ##$10101010
+
+' ============================================================================
+' MULPIX - Multiply Pixels
+' Multiplies corresponding bytes (result/256)
+' ============================================================================
+
+' Multiply two pixel registers
+t_mulpix_reg    mulpix  pixel1, pixel2
+
+' Multiply with immediate
+t_mulpix_imm    mulpix  pixel1, ##$80808080
+
+' ============================================================================
+' BLNPIX - Blend Pixels
+' Blends D toward S by factor in each S byte
+' ============================================================================
+
+' Blend two pixels
+t_blnpix_reg    blnpix  pixel1, pixel2
+
+' Blend with immediate
+t_blnpix_imm    blnpix  pixel1, ##$40404040
+
+' ============================================================================
+' MIXPIX - Mix Pixels
+' Mixes D with S using factor from SETPIX
+' ============================================================================
+
+' Set blend factor first, then mix
+t_mixpix_reg    setpix  blend               ' Set blend mode/factor
+                mixpix  pixel1, pixel2      ' Mix pixels
+
+' Mix with immediate source
+t_mixpix_imm    setpix  blend
+                mixpix  pixel1, ##$FF00FF00
+
+' ============================================================================
+' SETPIX - Set Pixel Blend Mode
+' Configures blend mode for MIXPIX
+' ============================================================================
+
+' Set blend factor from register
+t_setpix_reg    setpix  blend
+
+' Set blend factor immediate
+t_setpix_imm    setpix  #$80                ' 50% blend
+
+' ============================================================================
+' MOVBYTS - Move Bytes (shuffle)
+' Rearranges bytes in D according to S pattern
+' ============================================================================
+
+' Shuffle bytes by register pattern
+t_movbyts_reg   movbyts pixel1, pixel2
+
+' Shuffle with immediate pattern
+t_movbyts_imm   movbyts pixel1, #%%3210     ' Reverse byte order
+
+' Common shuffle patterns
+t_movbyts_rev   movbyts pixel1, #%%0123     ' Keep original order
+t_movbyts_dup   movbyts pixel1, #%%0000     ' Duplicate byte 0 to all
+
+' ============================================================================
+' MERGEB - Merge Bytes
+' Merges bytes from D and S in alternating pattern
+' ============================================================================
+
+' Merge bits of bytes in D
+t_mergeb        mergeb  pixel1
+
+' ============================================================================
+' SPLITB - Split Bytes
+' Splits bits into bytes
+' ============================================================================
+
+' Split bits into bytes
+t_splitb        splitb  pixel1
+
+' ============================================================================
+' MERGEW - Merge Words
+' Merge bits of words in D
+' ============================================================================
+
+' Merge words
+t_mergew        mergew  pixel1
+
+' ============================================================================
+' SPLITW - Split Words
+' Split bits into words
+' ============================================================================
+
+' Split words
+t_splitw        splitw  pixel1
+
+' ============================================================================
+' SEUSSF - Pseudo-random (forward)
+' Generates pseudo-random value using SEUSS algorithm
+' ============================================================================
+
+' SEUSS forward
+t_seussf        seussf  pixel1
+
+' ============================================================================
+' SEUSSR - Pseudo-random (reverse)
+' Reverses SEUSS algorithm
+' ============================================================================
+
+' SEUSS reverse
+t_seussr        seussr  pixel1
+
+' ============================================================================
+' RGBSQZ - RGB Squeeze
+' Compresses 8-8-8 RGB to 5-6-5
+' ============================================================================
+
+' Squeeze RGB
+t_rgbsqz        rgbsqz  pixel1
+
+' ============================================================================
+' RGBEXP - RGB Expand
+' Expands 5-6-5 to 8-8-8 RGB
+' ============================================================================
+
+' Expand RGB
+t_rgbexp        rgbexp  pixel1
+
+' ============================================================================
+' Practical patterns
+' ============================================================================
+
+' Alpha blend two pixels at 50%
+t_alpha_blend   setpix  #$80
+                mixpix  pixel1, pixel2
+
+' Brighten a pixel (add white)
+t_brighten      addpix  pixel1, ##$20202020
+
+' Darken a pixel (multiply by factor)
+t_darken        mulpix  pixel1, ##$C0C0C0C0
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

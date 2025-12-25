@@ -1,0 +1,144 @@
+' PASM2 Instruction Test: Counter Operations
+' Tests CT1, CT2, CT3 counter instructions and GETCT
+' These instructions manage the three event counters
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+time_val        long    0
+delay_val       long    1000
+
+' ============================================================================
+' GETCT - Get Counter value
+' Returns the current 32-bit or 64-bit system counter
+' ============================================================================
+
+' Get 32-bit counter value
+t_getct         getct   time_val
+
+' Get counter with WC (sets C if counter MSB changed)
+t_getct_wc      getct   time_val        wc
+
+' ============================================================================
+' ADDCT1 - Add to Counter 1 target
+' Sets CT1 event target to D + S
+' ============================================================================
+
+' Add immediate to counter 1
+t_addct1_imm    addct1  time_val, #100
+
+' Add register to counter 1
+t_addct1_reg    addct1  time_val, delay_val
+
+' ============================================================================
+' ADDCT2 - Add to Counter 2 target
+' Sets CT2 event target to D + S
+' ============================================================================
+
+' Add immediate to counter 2
+t_addct2_imm    addct2  time_val, #200
+
+' Add register to counter 2
+t_addct2_reg    addct2  time_val, delay_val
+
+' ============================================================================
+' ADDCT3 - Add to Counter 3 target
+' Sets CT3 event target to D + S
+' ============================================================================
+
+' Add immediate to counter 3
+t_addct3_imm    addct3  time_val, #300
+
+' Add register to counter 3
+t_addct3_reg    addct3  time_val, delay_val
+
+' ============================================================================
+' POLLCT1 - Poll Counter 1
+' Returns CT1 event status in C flag
+' ============================================================================
+
+' Poll counter 1 with WC
+t_pollct1       pollct1             wc
+
+' ============================================================================
+' POLLCT2 - Poll Counter 2
+' Returns CT2 event status in C flag
+' ============================================================================
+
+' Poll counter 2 with WC
+t_pollct2       pollct2             wc
+
+' ============================================================================
+' POLLCT3 - Poll Counter 3
+' Returns CT3 event status in C flag
+' ============================================================================
+
+' Poll counter 3 with WC
+t_pollct3       pollct3             wc
+
+' ============================================================================
+' WAITCT1 - Wait for Counter 1
+' Waits until CT1 event occurs
+' ============================================================================
+
+' Wait for counter 1
+t_waitct1       waitct1
+
+' ============================================================================
+' WAITCT2 - Wait for Counter 2
+' Waits until CT2 event occurs
+' ============================================================================
+
+' Wait for counter 2
+t_waitct2       waitct2
+
+' ============================================================================
+' WAITCT3 - Wait for Counter 3
+' Waits until CT3 event occurs
+' ============================================================================
+
+' Wait for counter 3
+t_waitct3       waitct3
+
+' ============================================================================
+' SETQ + GETCT - Get 64-bit counter value
+' SETQ before GETCT returns lower 32 bits to Q and upper 32 bits to D
+' ============================================================================
+
+' Get 64-bit counter (low in Q, high in time_val)
+t_getct64       setq    #0
+                getct   time_val
+
+' ============================================================================
+' Typical usage patterns
+' ============================================================================
+
+' Set up periodic timing with CT1
+t_periodic      getct   time_val            ' Get current time
+                addct1  time_val, delay_val ' Set CT1 target
+                waitct1                      ' Wait for target
+                addct1  time_val, delay_val ' Set next target
+
+' Poll-based timing check
+t_poll_check    pollct1             wc      ' Check if CT1 expired
+        if_c    addct1  time_val, delay_val ' If expired, set next
+
+' Multiple counter coordination
+t_multi_ct      getct   time_val
+                addct1  time_val, #100      ' CT1 at +100
+                addct2  time_val, #200      ' CT2 at +200
+                addct3  time_val, #300      ' CT3 at +300
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

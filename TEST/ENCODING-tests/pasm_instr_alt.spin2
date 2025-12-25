@@ -1,0 +1,220 @@
+' PASM2 Instruction Test: ALT* Family (Register Indirection)
+' Tests all 11 ALT* instructions for mnemonic coverage
+' These instructions modify the next instruction's fields in the pipeline
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+array           long    $11111111
+                long    $22222222
+                long    $33333333
+                long    $44444444
+
+index           long    0
+result          long    0
+template        long    0
+
+' ============================================================================
+' ALTI - Alter Instruction (most general form)
+' Substitutes fields from Dest for next instruction's pipelined values
+' ============================================================================
+
+' Syntax 1: ALTI D, {#}S - modify fields per S configuration
+t_alti_ds       alti    template, #%000_000_000_000_000_000
+                nop                         ' Modified instruction
+
+' Syntax 2: ALTI D - execute D as opcode
+t_alti_d        alti    template
+                nop                         ' Placeholder replaced by template
+
+' With immediate source
+t_alti_imm      alti    index, #%111_111
+                add     0, 0                ' D and S fields modified
+
+' ============================================================================
+' ALTD - Alter Destination
+' Modifies next instruction's D field
+' ============================================================================
+
+' Syntax 1: ALTD D, {#}S - D field = (S + D) & $1FF
+t_altd_ds       altd    index, #array
+                mov     0-0, #0             ' Writes to array[index]
+
+' Syntax 2: ALTD D - D field = D[8:0]
+t_altd_d        altd    index
+                mov     0-0, #0             ' D field from index
+
+' With register source
+t_altd_reg      altd    index, template
+                add     0-0, #1             ' Modified destination
+
+' ============================================================================
+' ALTS - Alter Source
+' Modifies next instruction's S field
+' ============================================================================
+
+' Syntax 1: ALTS D, {#}S - S field = (S + D) & $1FF
+t_alts_ds       alts    index, #array
+                mov     result, 0-0         ' Reads from array[index]
+
+' Syntax 2: ALTS D - S field = D[8:0]
+t_alts_d        alts    index
+                mov     result, 0-0         ' S field from index
+
+' With register source
+t_alts_reg      alts    index, template
+                add     result, 0-0         ' Modified source
+
+' ============================================================================
+' ALTR - Alter Result
+' Modifies next instruction's Result address (where result is written)
+' ============================================================================
+
+' Syntax 1: ALTR D, {#}S - Result = (S + D) & $1FF
+t_altr_ds       altr    index, #array
+                add     result, #1          ' Result written to array[index]
+
+' Syntax 2: ALTR D - Result = D[8:0]
+t_altr_d        altr    index
+                add     result, #1          ' Result address from index
+
+' With register source
+t_altr_reg      altr    index, template
+                sub     result, #1          ' Modified result address
+
+' ============================================================================
+' ALTB - Alter Bit (for BITxxx instructions)
+' Modifies next instruction's D field for bit operations
+' ============================================================================
+
+' Syntax 1: ALTB D, {#}S - for bit array access
+t_altb_ds       altb    index, #array
+                bitl    0-0, #0             ' Clear bit in array
+
+' Syntax 2: ALTB D - D[13:5] = register, D[4:0] = bit
+t_altb_d        altb    index
+                bith    0-0, #0             ' Set bit
+
+' With bit test
+t_altb_test     altb    index, #array
+                testb   0-0, #0         wc  ' Test bit
+
+' ============================================================================
+' ALTGN - Alter Get Nibble (for GETNIB/ROLNIB)
+' Modifies next instruction's S and Num for nibble read
+' ============================================================================
+
+' Syntax 1: ALTGN D, {#}S - nibble array access
+t_altgn_ds      altgn   index, #array
+                getnib  result, 0-0, #0     ' Get nibble from array
+
+' Syntax 2: ALTGN D - D[11:3] = register, D[2:0] = nibble
+t_altgn_d       altgn   index
+                getnib  result, 0-0, #0     ' Get nibble
+
+' With ROLNIB
+t_altgn_rol     altgn   index, #array
+                rolnib  result, 0-0, #0     ' Rotate nibble into result
+
+' ============================================================================
+' ALTGB - Alter Get Byte (for GETBYTE/ROLBYTE)
+' Modifies next instruction's S and Num for byte read
+' ============================================================================
+
+' Syntax 1: ALTGB D, {#}S - byte array access
+t_altgb_ds      altgb   index, #array
+                getbyte result, 0-0, #0     ' Get byte from array
+
+' Syntax 2: ALTGB D - D[10:2] = register, D[1:0] = byte
+t_altgb_d       altgb   index
+                getbyte result, 0-0, #0     ' Get byte
+
+' With ROLBYTE
+t_altgb_rol     altgb   index, #array
+                rolbyte result, 0-0, #0     ' Rotate byte into result
+
+' ============================================================================
+' ALTGW - Alter Get Word (for GETWORD/ROLWORD)
+' Modifies next instruction's S and Num for word read
+' ============================================================================
+
+' Syntax 1: ALTGW D, {#}S - word array access
+t_altgw_ds      altgw   index, #array
+                getword result, 0-0, #0     ' Get word from array
+
+' Syntax 2: ALTGW D - D[9:1] = register, D[0] = word
+t_altgw_d       altgw   index
+                getword result, 0-0, #0     ' Get word
+
+' With ROLWORD
+t_altgw_rol     altgw   index, #array
+                rolword result, 0-0, #0     ' Rotate word into result
+
+' ============================================================================
+' ALTSN - Alter Set Nibble (for SETNIB)
+' Modifies next instruction's D and Num for nibble write
+' ============================================================================
+
+' Syntax 1: ALTSN D, {#}S - nibble array write
+t_altsn_ds      altsn   index, #array
+                setnib  0-0, result, #0     ' Set nibble in array
+
+' Syntax 2: ALTSN D - D[11:3] = register, D[2:0] = nibble
+t_altsn_d       altsn   index
+                setnib  0-0, result, #0     ' Set nibble
+
+' ============================================================================
+' ALTSB - Alter Set Byte (for SETBYTE)
+' Modifies next instruction's D and Num for byte write
+' ============================================================================
+
+' Syntax 1: ALTSB D, {#}S - byte array write
+t_altsb_ds      altsb   index, #array
+                setbyte 0-0, result, #0     ' Set byte in array
+
+' Syntax 2: ALTSB D - D[10:2] = register, D[1:0] = byte
+t_altsb_d       altsb   index
+                setbyte 0-0, result, #0     ' Set byte
+
+' ============================================================================
+' ALTSW - Alter Set Word (for SETWORD)
+' Modifies next instruction's D and Num for word write
+' ============================================================================
+
+' Syntax 1: ALTSW D, {#}S - word array write
+t_altsw_ds      altsw   index, #array
+                setword 0-0, result, #0     ' Set word in array
+
+' Syntax 2: ALTSW D - D[9:1] = register, D[0] = word
+t_altsw_d       altsw   index
+                setword 0-0, result, #0     ' Set word
+
+' ============================================================================
+' Combined patterns - practical usage examples
+' ============================================================================
+
+' Array iteration pattern
+t_array_iter    mov     index, #0
+                alts    index, #array
+                mov     result, 0-0         ' Read array[0]
+                add     index, #1
+                alts    index, #array
+                mov     result, 0-0         ' Read array[1]
+
+' Non-destructive operation pattern
+t_nondestr      altr    index, #result
+                add     template, #1        ' Add but store in result, not template
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

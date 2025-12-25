@@ -1,0 +1,234 @@
+' PASM2 Instruction Test: Streamer Operations
+' Tests hardware streamer (DMA) configuration and control instructions
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+str_mode        long    X_RFLONG_32X1_LUT   ' Streamer mode
+str_addr        long    0                   ' Hub address
+str_count       long    100                 ' Transfer count
+str_freq        long    $8000_0000          ' NCO frequency
+result          long    0
+
+' ============================================================================
+' XINIT - Initialize Streamer
+' Starts streamer with mode in D, address/count in S
+' ============================================================================
+
+' Init with register mode and count
+t_xinit_rr      xinit   str_mode, str_count
+
+' Init with immediate mode
+t_xinit_ir      xinit   ##X_RFLONG_32X1_LUT, str_count
+
+' Init with register mode, immediate count
+t_xinit_ri      xinit   str_mode, #100
+
+' Init with both immediate
+t_xinit_ii      xinit   ##X_RFLONG_32X1_LUT, #100
+
+' ============================================================================
+' XZERO - Zero-Initialize Streamer
+' Starts streamer writing zeros
+' ============================================================================
+
+' Zero init with register mode and count
+t_xzero_rr      xzero   str_mode, str_count
+
+' Zero init immediate mode
+t_xzero_ir      xzero   str_mode, str_count
+
+' Zero init register mode, immediate count
+t_xzero_ri      xzero   str_mode, #100
+
+' Zero init both immediate
+t_xzero_ii      xzero   str_mode, #100
+
+' ============================================================================
+' XCONT - Continue Streamer
+' Continues streamer with new parameters
+' ============================================================================
+
+' Continue with register mode and count
+t_xcont_rr      xcont   str_mode, str_count
+
+' Continue immediate mode
+t_xcont_ir      xcont   ##X_RFLONG_32X1_LUT, str_count
+
+' Continue register mode, immediate count
+t_xcont_ri      xcont   str_mode, #100
+
+' Continue both immediate
+t_xcont_ii      xcont   ##X_RFLONG_32X1_LUT, #100
+
+' ============================================================================
+' XSTOP - Stop Streamer
+' Stops the streamer immediately
+' ============================================================================
+
+t_xstop         xstop
+
+' ============================================================================
+' SETXFRQ - Set Streamer Frequency
+' Sets NCO frequency for streamer timing
+' ============================================================================
+
+' Set frequency from register
+t_setxfrq_reg   setxfrq str_freq
+
+' Set frequency immediate
+t_setxfrq_imm   setxfrq ##$4000_0000
+
+' ============================================================================
+' RDFAST - Read Fast (set up fast hub read)
+' Configures FIFO for fast sequential hub reads
+' ============================================================================
+
+' RDFAST with register count and address
+t_rdfast_rr     rdfast  str_count, str_addr
+
+' RDFAST with immediate count
+t_rdfast_ir     rdfast  #100, str_addr
+
+' RDFAST with immediate address
+t_rdfast_ri     rdfast  str_count, ##$1000
+
+' RDFAST both immediate
+t_rdfast_ii     rdfast  #100, ##$1000
+
+' RDFAST with #0 count for wrap mode
+t_rdfast_wrap   rdfast  #0, str_addr
+
+' ============================================================================
+' WRFAST - Write Fast (set up fast hub write)
+' Configures FIFO for fast sequential hub writes
+' ============================================================================
+
+' WRFAST with register count and address
+t_wrfast_rr     wrfast  str_count, str_addr
+
+' WRFAST with immediate count
+t_wrfast_ir     wrfast  #100, str_addr
+
+' WRFAST with immediate address
+t_wrfast_ri     wrfast  str_count, ##$1000
+
+' WRFAST both immediate
+t_wrfast_ii     wrfast  #100, ##$1000
+
+' ============================================================================
+' FBLOCK - FIFO Block
+' Waits for FIFO to complete current block
+' ============================================================================
+
+t_fblock        fblock  str_count, str_addr
+
+' ============================================================================
+' RFBYTE - Read FIFO Byte
+' Reads a byte from FIFO to D
+' ============================================================================
+
+t_rfbyte        rfbyte  result
+
+' With WC
+t_rfbyte_wc     rfbyte  result          wc
+
+' ============================================================================
+' RFWORD - Read FIFO Word
+' ============================================================================
+
+t_rfword        rfword  result
+t_rfword_wc     rfword  result          wc
+
+' ============================================================================
+' RFLONG - Read FIFO Long
+' ============================================================================
+
+t_rflong        rflong  result
+t_rflong_wc     rflong  result          wc
+
+' ============================================================================
+' RFVAR - Read FIFO Variable Length
+' Reads 1-4 bytes based on encoding
+' ============================================================================
+
+t_rfvar         rfvar   result
+t_rfvar_wc      rfvar   result          wc
+
+' ============================================================================
+' RFVARS - Read FIFO Variable Length Signed
+' ============================================================================
+
+t_rfvars        rfvars  result
+t_rfvars_wc     rfvars  result          wc
+
+' ============================================================================
+' WFBYTE - Write FIFO Byte
+' ============================================================================
+
+t_wfbyte        wfbyte  result
+
+' ============================================================================
+' WFWORD - Write FIFO Word
+' ============================================================================
+
+t_wfword        wfword  result
+
+' ============================================================================
+' WFLONG - Write FIFO Long
+' ============================================================================
+
+t_wflong        wflong  result
+
+' ============================================================================
+' GETPTR - Get FIFO Pointer
+' Gets current FIFO hub address
+' ============================================================================
+
+t_getptr        getptr  result
+
+' ============================================================================
+' GETBRK - Get Breakpoint State
+' Gets debug breakpoint status
+' ============================================================================
+
+t_getbrk        getbrk  result      wc
+
+' ============================================================================
+' BRK - Breakpoint
+' Triggers debug breakpoint
+' ============================================================================
+
+t_brk_reg       brk     result
+t_brk_imm       brk     #0
+
+' ============================================================================
+' Typical usage patterns
+' ============================================================================
+
+' Set up streaming from hub to pins
+t_stream_out    setxfrq ##$8000_0000        ' Set NCO frequency
+                xinit   str_mode, str_count ' Start streamer
+
+' Set up fast hub read
+t_fast_read     rdfast  #0, str_addr        ' Set up FIFO
+                rflong  result              ' Read first long
+                rflong  result              ' Read second long
+
+' Stop and restart
+t_restart       xstop                       ' Stop current
+                xinit   str_mode, str_count ' Restart
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

@@ -1,0 +1,306 @@
+' PASM2 Instruction Test: Smart Pin Operations
+' Tests smart pin configuration and I/O instructions
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+pin_num         long    0
+pin_mode        long    P_HIGH_1K5          ' Example smart pin mode
+pin_x           long    0
+pin_y           long    0
+result          long    0
+
+' ============================================================================
+' WRPIN - Write Pin Mode
+' Configures smart pin mode
+' ============================================================================
+
+' Write mode from register to register pin
+t_wrpin_rr      wrpin   pin_mode, pin_num
+
+' Write mode immediate to register pin
+t_wrpin_ir      wrpin   ##P_HIGH_1K5, pin_num
+
+' Write mode register to immediate pin
+t_wrpin_ri      wrpin   pin_mode, #0
+
+' Write mode immediate to immediate pin
+t_wrpin_ii      wrpin   ##P_HIGH_1K5, #0
+
+' ============================================================================
+' WXPIN - Write Pin X Parameter
+' Sets X parameter for smart pin
+' ============================================================================
+
+' Write X from register
+t_wxpin_rr      wxpin   pin_x, pin_num
+
+' Write X immediate value
+t_wxpin_ir      wxpin   #100, pin_num
+
+' Write X to immediate pin
+t_wxpin_ri      wxpin   pin_x, #0
+
+' Write X immediate to immediate pin
+t_wxpin_ii      wxpin   #100, #0
+
+' ============================================================================
+' WYPIN - Write Pin Y Parameter
+' Sets Y parameter for smart pin
+' ============================================================================
+
+' Write Y from register
+t_wypin_rr      wypin   pin_y, pin_num
+
+' Write Y immediate value
+t_wypin_ir      wypin   #50, pin_num
+
+' Write Y to immediate pin
+t_wypin_ri      wypin   pin_y, #0
+
+' Write Y immediate to immediate pin
+t_wypin_ii      wypin   #50, #0
+
+' ============================================================================
+' RDPIN - Read Pin (and acknowledge)
+' Reads smart pin Z value and acknowledges
+' ============================================================================
+
+' Read from register pin
+t_rdpin_reg     rdpin   result, pin_num
+
+' Read from immediate pin
+t_rdpin_imm     rdpin   result, #0
+
+' Read with WC (C = pin IN state)
+t_rdpin_wc      rdpin   result, pin_num wc
+
+' ============================================================================
+' RQPIN - Request Pin (read without acknowledge)
+' Reads smart pin Z value without acknowledge
+' ============================================================================
+
+' Request from register pin
+t_rqpin_reg     rqpin   result, pin_num
+
+' Request from immediate pin
+t_rqpin_imm     rqpin   result, #0
+
+' Request with WC
+t_rqpin_wc      rqpin   result, pin_num wc
+
+' ============================================================================
+' AKPIN - Acknowledge Pin
+' Acknowledges smart pin (clears IN flag)
+' ============================================================================
+
+' Acknowledge register pin
+t_akpin_reg     akpin   pin_num
+
+' Acknowledge immediate pin
+t_akpin_imm     akpin   #0
+
+' ============================================================================
+' FLTL - Float Pin Low
+' Floats pin, output disabled
+' ============================================================================
+
+' Float register pin
+t_fltl_reg      fltl    pin_num
+
+' Float immediate pin
+t_fltl_imm      fltl    #0
+
+' ============================================================================
+' FLTH - Float Pin High
+' Floats pin high (for open-drain)
+' ============================================================================
+
+' Float high register pin
+t_flth_reg      flth    pin_num
+
+' Float high immediate pin
+t_flth_imm      flth    #0
+
+' ============================================================================
+' FLTC - Float Pin per C
+' Float based on C flag
+' ============================================================================
+
+t_fltc_reg      fltc    pin_num
+t_fltc_imm      fltc    #0
+
+' ============================================================================
+' FLTNC - Float Pin per !C
+' ============================================================================
+
+t_fltnc_reg     fltnc   pin_num
+t_fltnc_imm     fltnc   #0
+
+' ============================================================================
+' FLTZ - Float Pin per Z
+' ============================================================================
+
+t_fltz_reg      fltz    pin_num
+t_fltz_imm      fltz    #0
+
+' ============================================================================
+' FLTNZ - Float Pin per !Z
+' ============================================================================
+
+t_fltnz_reg     fltnz   pin_num
+t_fltnz_imm     fltnz   #0
+
+' ============================================================================
+' FLTRND - Float Pin Random
+' ============================================================================
+
+t_fltrnd_reg    fltrnd  pin_num
+t_fltrnd_imm    fltrnd  #0
+
+' ============================================================================
+' FLTNOT - Float Pin Toggle
+' ============================================================================
+
+t_fltnot_reg    fltnot  pin_num
+t_fltnot_imm    fltnot  #0
+
+' ============================================================================
+' DRVL - Drive Pin Low
+' ============================================================================
+
+t_drvl_reg      drvl    pin_num
+t_drvl_imm      drvl    #0
+
+' ============================================================================
+' DRVH - Drive Pin High
+' ============================================================================
+
+t_drvh_reg      drvh    pin_num
+t_drvh_imm      drvh    #0
+
+' ============================================================================
+' DRVC - Drive Pin per C
+' ============================================================================
+
+t_drvc_reg      drvc    pin_num
+t_drvc_imm      drvc    #0
+
+' ============================================================================
+' DRVNC - Drive Pin per !C
+' ============================================================================
+
+t_drvnc_reg     drvnc   pin_num
+t_drvnc_imm     drvnc   #0
+
+' ============================================================================
+' DRVZ - Drive Pin per Z
+' ============================================================================
+
+t_drvz_reg      drvz    pin_num
+t_drvz_imm      drvz    #0
+
+' ============================================================================
+' DRVNZ - Drive Pin per !Z
+' ============================================================================
+
+t_drvnz_reg     drvnz   pin_num
+t_drvnz_imm     drvnz   #0
+
+' ============================================================================
+' DRVRND - Drive Pin Random
+' ============================================================================
+
+t_drvrnd_reg    drvrnd  pin_num
+t_drvrnd_imm    drvrnd  #0
+
+' ============================================================================
+' DRVNOT - Drive Pin Toggle
+' ============================================================================
+
+t_drvnot_reg    drvnot  pin_num
+t_drvnot_imm    drvnot  #0
+
+' ============================================================================
+' OUTL - Output Low (without enabling drive)
+' ============================================================================
+
+t_outl_reg      outl    pin_num
+t_outl_imm      outl    #0
+
+' ============================================================================
+' OUTH - Output High
+' ============================================================================
+
+t_outh_reg      outh    pin_num
+t_outh_imm      outh    #0
+
+' ============================================================================
+' OUTC/OUTNC/OUTZ/OUTNZ/OUTRND/OUTNOT
+' ============================================================================
+
+t_outc_reg      outc    pin_num
+t_outnc_reg     outnc   pin_num
+t_outz_reg      outz    pin_num
+t_outnz_reg     outnz   pin_num
+t_outrnd_reg    outrnd  pin_num
+t_outnot_reg    outnot  pin_num
+
+' ============================================================================
+' DIRL - Direction Input (disable output)
+' ============================================================================
+
+t_dirl_reg      dirl    pin_num
+t_dirl_imm      dirl    #0
+
+' ============================================================================
+' DIRH - Direction Output (enable output)
+' ============================================================================
+
+t_dirh_reg      dirh    pin_num
+t_dirh_imm      dirh    #0
+
+' ============================================================================
+' DIRC/DIRNC/DIRZ/DIRNZ/DIRRND/DIRNOT
+' ============================================================================
+
+t_dirc_reg      dirc    pin_num
+t_dirnc_reg     dirnc   pin_num
+t_dirz_reg      dirz    pin_num
+t_dirnz_reg     dirnz   pin_num
+t_dirrnd_reg    dirrnd  pin_num
+t_dirnot_reg    dirnot  pin_num
+
+' ============================================================================
+' TESTP - Test Pin Input
+' ============================================================================
+
+' Test pin, result in C
+t_testp_wc      testp   pin_num         wc
+
+' Test pin, result in Z
+t_testp_wz      testp   pin_num         wz
+
+' Test immediate pin
+t_testp_imm     testp   #0              wc
+
+' ============================================================================
+' TESTPN - Test Pin Input Inverted
+' ============================================================================
+
+t_testpn_wc     testpn  pin_num         wc
+t_testpn_wz     testpn  pin_num         wz
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+

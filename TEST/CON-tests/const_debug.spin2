@@ -1,0 +1,115 @@
+' Built-in Constants Test: Debug Constants
+' Validates all DEBUG_* display and control constants
+' Each constant is stored in DAT for binary comparison
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Debug Window/Display Type Constants
+' ============================================================================
+
+' Basic display types
+debug_main          long    DEBUG_MAIN
+debug_term          long    DEBUG_TERM
+debug_scope         long    DEBUG_SCOPE
+debug_scope_xy      long    DEBUG_SCOPE_XY
+debug_fft           long    DEBUG_FFT
+debug_spectro       long    DEBUG_SPECTRO
+debug_plot          long    DEBUG_PLOT
+debug_bitmap        long    DEBUG_BITMAP
+debug_midi          long    DEBUG_MIDI
+
+' ============================================================================
+' Debug Color Constants
+' ============================================================================
+
+debug_black         long    DEBUG_BLACK
+debug_white         long    DEBUG_WHITE
+debug_orange        long    DEBUG_ORANGE
+debug_blue          long    DEBUG_BLUE
+debug_green         long    DEBUG_GREEN
+debug_cyan          long    DEBUG_CYAN
+debug_red           long    DEBUG_RED
+debug_magenta       long    DEBUG_MAGENTA
+debug_yellow        long    DEBUG_YELLOW
+debug_gray          long    DEBUG_GRAY
+
+' ============================================================================
+' Debug Display Control Constants
+' ============================================================================
+
+debug_pc_key        long    DEBUG_PC_KEY
+debug_pc_mouse      long    DEBUG_PC_MOUSE
+
+' ============================================================================
+' Debug Scope/FFT Constants
+' ============================================================================
+
+debug_lut1          long    DEBUG_LUT1
+debug_lut2          long    DEBUG_LUT2
+debug_lut4          long    DEBUG_LUT4
+debug_lut8          long    DEBUG_LUT8
+debug_lut16         long    DEBUG_LUT16
+
+' ============================================================================
+' Debug Rate/Trigger Constants
+' ============================================================================
+
+debug_log           long    DEBUG_LOG
+debug_logb          long    DEBUG_LOGB
+debug_trigger       long    DEBUG_TRIGGER
+debug_holdoff       long    DEBUG_HOLDOFF
+
+' ============================================================================
+' Debug Display Format Constants
+' ============================================================================
+
+debug_signed        long    DEBUG_SIGNED
+debug_unsigned      long    DEBUG_UNSIGNED
+debug_hex           long    DEBUG_HEX
+debug_bin           long    DEBUG_BIN
+
+' ============================================================================
+' Debug Bitmap Constants
+' ============================================================================
+
+debug_lut_1bit      long    DEBUG_LUT_1BIT
+debug_lut_2bit      long    DEBUG_LUT_2BIT
+debug_lut_4bit      long    DEBUG_LUT_4BIT
+debug_lut_8bit      long    DEBUG_LUT_8BIT
+debug_rgb8          long    DEBUG_RGB8
+debug_rgb16         long    DEBUG_RGB16
+debug_rgb24         long    DEBUG_RGB24
+
+' ============================================================================
+' Debug Update Constants
+' ============================================================================
+
+debug_sparse        long    DEBUG_SPARSE
+debug_scroll        long    DEBUG_SCROLL
+
+' ============================================================================
+' Debug Position/Size Constants
+' ============================================================================
+
+debug_left          long    DEBUG_LEFT
+debug_right         long    DEBUG_RIGHT
+debug_top           long    DEBUG_TOP
+debug_bottom        long    DEBUG_BOTTOM
+
+' ============================================================================
+' Debug Grid/Axis Constants
+' ============================================================================
+
+debug_gridx         long    DEBUG_GRIDX
+debug_gridy         long    DEBUG_GRIDY
+debug_dotted        long    DEBUG_DOTTED
+
+' ============================================================================
+' End of constants
+' ============================================================================
+

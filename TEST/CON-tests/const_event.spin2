@@ -1,0 +1,44 @@
+' Built-in Constants Test: Event Constants
+' Validates EVENT_* and related interrupt/event constants
+' Each constant stored in DAT for binary comparison
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' Event Selection Constants
+c_event_int         long    EVENT_INT
+c_event_ct1         long    EVENT_CT1
+c_event_ct2         long    EVENT_CT2
+c_event_ct3         long    EVENT_CT3
+c_event_se1         long    EVENT_SE1
+c_event_se2         long    EVENT_SE2
+c_event_se3         long    EVENT_SE3
+c_event_se4         long    EVENT_SE4
+c_event_pat         long    EVENT_PAT
+c_event_fbw         long    EVENT_FBW
+c_event_xmt         long    EVENT_XMT
+c_event_xfi         long    EVENT_XFI
+c_event_xro         long    EVENT_XRO
+c_event_xrl         long    EVENT_XRL
+c_event_atn         long    EVENT_ATN
+c_event_qmt         long    EVENT_QMT
+
+' Interrupt Disable Constant
+c_int_off           long    INT_OFF
+
+' COG Execution Mode Constants
+c_cogexec           long    COGEXEC
+c_hubexec           long    HUBEXEC
+c_cogexec_new       long    COGEXEC_NEW
+c_hubexec_new       long    HUBEXEC_NEW
+c_cogexec_new_pair  long    COGEXEC_NEW_PAIR
+c_hubexec_new_pair  long    HUBEXEC_NEW_PAIR
+
+' NEWCOG Constant
+c_newcog            long    NEWCOG
+
+                ret
+

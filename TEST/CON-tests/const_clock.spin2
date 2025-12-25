@@ -1,0 +1,62 @@
+' Built-in Constants Test: Clock Mode Constants
+' Validates all clock configuration constants match PNut reference values
+' Each constant is stored in DAT for binary comparison
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Clock Source Constants
+' ============================================================================
+
+clk_rcfast          long    CLK_RCFAST
+clk_rcslow          long    CLK_RCSLOW
+
+' ============================================================================
+' Crystal Oscillator Modes
+' ============================================================================
+
+clk_xi              long    CLK_XI
+clk_xtal1           long    CLK_XTAL1
+clk_xtal2           long    CLK_XTAL2
+clk_xtal3           long    CLK_XTAL3
+
+' ============================================================================
+' PLL Multiplier Constants
+' ============================================================================
+
+clk_pll1x           long    CLK_PLL1X
+clk_pll2x           long    CLK_PLL2X
+clk_pll4x           long    CLK_PLL4X
+clk_pll8x           long    CLK_PLL8X
+clk_pll16x          long    CLK_PLL16X
+
+' ============================================================================
+' RCFAST/RCSLOW Base Values (synonyms)
+' ============================================================================
+
+rcfast              long    RCFAST
+rcslow              long    RCSLOW
+
+' ============================================================================
+' Clock Register Field Positions
+' ============================================================================
+
+' Note: These might be implementation-specific
+' Including common clock-related symbolic constants
+
+' ============================================================================
+' HUBSET Constants for Clock Configuration
+' ============================================================================
+
+' Hub configuration modes
+hubset_pll_on       long    %1 << 24            ' PLL enable bit position
+hubset_pll_off      long    0
+
+' ============================================================================
+' End of constants
+' ============================================================================
+

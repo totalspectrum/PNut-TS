@@ -1,0 +1,78 @@
+' Built-in Constants Test: Streamer Constants
+' Validates X_* streamer mode constants
+' Each constant stored in DAT for binary comparison
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' LUT Mode Constants
+c_x_imm_32x1_lut    long    X_IMM_32X1_LUT
+c_x_imm_16x2_lut    long    X_IMM_16X2_LUT
+c_x_imm_8x4_lut     long    X_IMM_8X4_LUT
+c_x_imm_4x8_lut     long    X_IMM_4X8_LUT
+
+' Immediate DAC Output Modes
+c_x_imm_32x1_1dac1  long    X_IMM_32X1_1DAC1
+c_x_imm_16x2_2dac1  long    X_IMM_16X2_2DAC1
+c_x_imm_16x2_1dac2  long    X_IMM_16X2_1DAC2
+c_x_imm_8x4_4dac1   long    X_IMM_8X4_4DAC1
+c_x_imm_8x4_2dac2   long    X_IMM_8X4_2DAC2
+c_x_imm_8x4_1dac4   long    X_IMM_8X4_1DAC4
+c_x_imm_4x8_4dac2   long    X_IMM_4X8_4DAC2
+c_x_imm_4x8_2dac4   long    X_IMM_4X8_2DAC4
+c_x_imm_4x8_1dac8   long    X_IMM_4X8_1DAC8
+c_x_imm_2x16_4dac4  long    X_IMM_2X16_4DAC4
+c_x_imm_2x16_2dac8  long    X_IMM_2X16_2DAC8
+c_x_imm_1x32_4dac8  long    X_IMM_1X32_4DAC8
+
+' RFLONG LUT Modes
+c_x_rflong_32x1_lut long    X_RFLONG_32X1_LUT
+c_x_rflong_16x2_lut long    X_RFLONG_16X2_LUT
+c_x_rflong_8x4_lut  long    X_RFLONG_8X4_LUT
+c_x_rflong_4x8_lut  long    X_RFLONG_4X8_LUT
+
+' RFBYTE DAC Modes
+c_x_rfbyte_1p_1dac1 long    X_RFBYTE_1P_1DAC1
+c_x_rfbyte_2p_2dac1 long    X_RFBYTE_2P_2DAC1
+c_x_rfbyte_2p_1dac2 long    X_RFBYTE_2P_1DAC2
+c_x_rfbyte_4p_4dac1 long    X_RFBYTE_4P_4DAC1
+c_x_rfbyte_4p_2dac2 long    X_RFBYTE_4P_2DAC2
+c_x_rfbyte_4p_1dac4 long    X_RFBYTE_4P_1DAC4
+c_x_rfbyte_8p_4dac2 long    X_RFBYTE_8P_4DAC2
+c_x_rfbyte_8p_2dac4 long    X_RFBYTE_8P_2DAC4
+c_x_rfbyte_8p_1dac8 long    X_RFBYTE_8P_1DAC8
+
+' RFWORD/RFLONG DAC Modes
+c_x_rfword_16p_4dac4 long   X_RFWORD_16P_4DAC4
+c_x_rfword_16p_2dac8 long   X_RFWORD_16P_2DAC8
+c_x_rflong_32p_4dac8 long   X_RFLONG_32P_4DAC8
+
+' Color Modes
+c_x_rfbyte_luma8    long    X_RFBYTE_LUMA8
+c_x_rfbyte_rgbi8    long    X_RFBYTE_RGBI8
+c_x_rfbyte_rgb8     long    X_RFBYTE_RGB8
+c_x_rfword_rgb16    long    X_RFWORD_RGB16
+c_x_rflong_rgb24    long    X_RFLONG_RGB24
+
+' DAC Channel Control
+c_x_dacs_off        long    X_DACS_OFF
+c_x_dacs_0_0_0_0    long    X_DACS_0_0_0_0
+c_x_dacs_x_x_0_0    long    X_DACS_X_X_0_0
+c_x_dacs_0_0_x_x    long    X_DACS_0_0_X_X
+c_x_dacs_x_x_x_0    long    X_DACS_X_X_X_0
+c_x_dacs_x_x_0_x    long    X_DACS_X_X_0_X
+c_x_dacs_x_0_x_x    long    X_DACS_X_0_X_X
+c_x_dacs_0_x_x_x    long    X_DACS_0_X_X_X
+c_x_dacs_0n0_0n0    long    X_DACS_0N0_0N0
+c_x_dacs_x_x_0n0    long    X_DACS_X_X_0N0
+c_x_dacs_0n0_x_x    long    X_DACS_0N0_X_X
+
+' DDS/Goertzel Modes
+c_x_dds_goertzel_sinc1 long X_DDS_GOERTZEL_SINC1
+c_x_dds_goertzel_sinc2 long X_DDS_GOERTZEL_SINC2
+
+                ret
+

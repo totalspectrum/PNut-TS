@@ -1,0 +1,88 @@
+' Built-in Constants Test: MODCZ Operator Constants
+' Validates all _* MODCZ constants match PNut reference values
+' These are the 16 possible C/Z modification operations
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' MODCZ Operation Constants (for C and Z flag modification)
+' Each constant is a 4-bit value specifying how to modify C or Z
+' ============================================================================
+
+' Clear/Set operations
+modcz_clr           long    _CLR            ' Clear flag (0)
+modcz_set           long    _SET            ' Set flag (1)
+
+' Copy flag operations
+modcz_nc            long    _NC             ' Copy !C
+modcz_nz            long    _NZ             ' Copy !Z
+modcz_c             long    _C              ' Copy C
+modcz_z             long    _Z              ' Copy Z
+
+' Logical AND combinations
+modcz_nc_and_nz     long    _NC_AND_NZ      ' !C AND !Z
+modcz_nc_and_z      long    _NC_AND_Z       ' !C AND Z
+modcz_c_and_nz      long    _C_AND_NZ       ' C AND !Z
+modcz_c_and_z       long    _C_AND_Z        ' C AND Z
+
+' Logical OR combinations
+modcz_nc_or_nz      long    _NC_OR_NZ       ' !C OR !Z
+modcz_nc_or_z       long    _NC_OR_Z        ' !C OR Z
+modcz_c_or_nz       long    _C_OR_NZ        ' C OR !Z
+modcz_c_or_z        long    _C_OR_Z         ' C OR Z
+
+' XOR combinations
+modcz_c_eq_z        long    _C_EQ_Z         ' C == Z (XNOR)
+modcz_c_ne_z        long    _C_NE_Z         ' C != Z (XOR)
+
+' ============================================================================
+' MODCZ Instruction Usage Examples (in PASM context)
+' These demonstrate actual encoding in instructions
+' ============================================================================
+
+                org     $100
+
+' Basic MODCZ usage - modify both C and Z
+t_modcz_clr_clr     modcz   _clr, _clr      ' Clear both C and Z
+t_modcz_set_set     modcz   _set, _set      ' Set both C and Z
+t_modcz_c_z         modcz   _c, _z          ' Keep C as C, Z as Z
+t_modcz_nc_nz       modcz   _nc, _nz        ' Invert both flags
+
+' Copy operations
+t_modcz_c_c         modcz   _c, _c          ' No change to either
+t_modcz_z_z         modcz   _z, _z          ' No change to either
+
+' Set one, clear other
+t_modcz_set_clr     modcz   _set, _clr      ' C=1, Z=0
+t_modcz_clr_set     modcz   _clr, _set      ' C=0, Z=1
+
+' AND operations
+t_modcz_nc_and_nz   modcz   _nc_and_nz, _nc_and_nz
+t_modcz_c_and_z     modcz   _c_and_z, _c_and_z
+
+' OR operations
+t_modcz_nc_or_nz    modcz   _nc_or_nz, _nc_or_nz
+t_modcz_c_or_z      modcz   _c_or_z, _c_or_z
+
+' Equality operations
+t_modcz_c_eq_z      modcz   _c_eq_z, _c_eq_z
+t_modcz_c_ne_z      modcz   _c_ne_z, _c_ne_z
+
+' ============================================================================
+' MODCZ with WC/WZ to write flags back
+' ============================================================================
+
+t_modcz_wc          modcz   _set, _clr  wc  ' Write C
+t_modcz_wz          modcz   _clr, _set  wz  ' Write Z
+t_modcz_wcz         modcz   _set, _set  wcz ' Write both
+
+' ============================================================================
+' End of constants
+' ============================================================================
+
+                ret
+

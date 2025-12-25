@@ -132,14 +132,17 @@ This roadmap identifies opportunities to improve PNut-TS compiler test coverage 
 ### HIGH Priority (Before Major Changes)
 
 #### 5. PASM2 Instruction Coverage
-- **Current:** ~60 instructions tested (~17% of 359)
-- **Untested instruction families:**
-  - ALT* family (12 variants): ALTI, ALTD, ALTR, ALTS, ALTB, ALTGN, ALTGB, ALTGW, ALTSN, ALTSB, ALTSW
-  - Counter operations: ADDCT1, ADDCT2, ADDCT3
-  - Pattern operations: BMASK, BLNPIX, ADDPIX
-  - Specialized: AKPIN, ALLOWI, BRK, POLLWAIT variants
-- **Effort:** 20-30 hours for systematic coverage
-- **Approach:** Create test files organized by instruction category
+- **Status:** ✅ **COMPLETED in v1.51.7**
+- **Test files created:** 8 files in `TEST/ENCODING-tests/`
+  - `pasm_instr_alt.spin2` - ALT* family (11 instructions)
+  - `pasm_instr_counter.spin2` - Counter operations (GETCT, ADDCT1/2/3, POLLCT1/2/3, WAITCT1/2/3)
+  - `pasm_instr_cordic.spin2` - CORDIC operations (QMUL, QDIV, QFRAC, QSQRT, QROTATE, QVECTOR, QLOG, QEXP, GETQX, GETQY)
+  - `pasm_instr_pixel.spin2` - Pixel operations (ADDPIX, MULPIX, BLNPIX, MIXPIX, SETPIX, MOVBYTS, MERGEB, SPLITB, MERGEW, SPLITW, SEUSSF, SEUSSR, RGBSQZ, RGBEXP)
+  - `pasm_instr_lut.spin2` - LUT operations (WRLUT, RDLUT, SETLUTS)
+  - `pasm_instr_event.spin2` - Event/polling operations (POLL*/WAIT*, ALLOWI, STALLI, TRGINT1/2/3, NIXINT1/2/3, SETINT1/2/3, SETQ, SETQ2)
+  - `pasm_instr_pin.spin2` - Smart pin operations (WRPIN, WXPIN, WYPIN, RDPIN, RQPIN, AKPIN, FLT*, DRV*, OUT*, DIR*, TESTP, TESTPN)
+  - `pasm_instr_streamer.spin2` - Streamer operations (XINIT, XZERO, XCONT, XSTOP, SETXFRQ, RDFAST, WRFAST, FBLOCK, RF*, WF*, GETPTR, GETBRK, BRK)
+- **Test runner:** `npm run test-encoding`
 
 #### 6. PASM2 Instruction Encoding Coverage
 - **Status:** ✅ **COMPLETED in v1.51.7**
@@ -280,63 +283,17 @@ Each of these is a different encoding even though they're all "MOV". The compile
 
 ---
 
-#### 8. Compiler Built-in Constants Coverage (NEW)
-
-**Key Insight:** PNut-TS defines many built-in constants (Streamer, SmartPin, execution modes, etc.). Each constant's value must exactly match the original PNut compiler.
-
-**Constant Categories:**
-
-| Category | Examples | Count (est.) |
-|----------|----------|--------------|
-| **Streamer constants** | X_PINS, X_WRITE, X_RFBYTE, etc. | ~50+ |
-| **SmartPin constants** | P_HIGH_1K, P_DAC_990R_3V, etc. | ~100+ |
-| **Execution modes** | COGEXEC, HUBEXEC, COGEXEC_NEW, etc. | ~10 |
-| **Clock modes** | CLK_*, RCFAST, RCSLOW, etc. | ~20+ |
-| **Event constants** | EVENT_*, WAIT_*, etc. | ~15 |
-| **Register constants** | PR0-PR7, DIRA, DIRB, etc. | ~30+ |
-| **Debug constants** | DEBUG_*, DISPLAY_* | ~20+ |
-| **MODCZ operators** | _CLR, _NC_AND_NZ, _SET, _Z, _C, etc. | ~16 |
-
-**Testing Strategy:**
-
-1. **Constant validation test files:**
-   - `const_streamer.spin2` - All streamer constants
-   - `const_smartpin.spin2` - All SmartPin mode constants
-   - `const_clock.spin2` - Clock configuration constants
-   - `const_events.spin2` - Event/wait constants
-   - `const_registers.spin2` - Special register constants
-   - `const_debug.spin2` - Debug display constants
-   - `const_exec.spin2` - Execution mode constants
-   - `const_modcz.spin2` - MODCZ operator constants (_CLR, _SET, _Z, _C, etc.)
-
-2. **Validation approach:**
-   - Test file assigns each constant to a DAT location
-   - `.obj.GOLD` contains expected byte values
-   - Binary comparison catches any value mismatches
-
-3. **Example test pattern:**
-   ```spin2
-   DAT
-   ' Streamer constants validation
-   x_pins_val      LONG    X_PINS
-   x_write_val     LONG    X_WRITE
-   x_rfbyte_val    LONG    X_RFBYTE
-   ' ... etc
-   ```
-
-**Priority:**
-
-| Priority | Constant Category | Reason |
-|----------|-------------------|--------|
-| CRITICAL | SmartPin modes | Hardware configuration |
-| CRITICAL | Streamer constants | DMA/video operations |
-| HIGH | Clock modes | System timing |
-| HIGH | Execution modes | COG launch behavior |
-| MEDIUM | Event constants | Interrupt handling |
-| MEDIUM | Debug constants | Debug display |
-
-**Effort Estimate:** 15-20 hours for systematic constant coverage
-**Impact:** Guarantees constant values match reference implementation
+#### 8. Compiler Built-in Constants Coverage
+- **Status:** ✅ **COMPLETED in v1.51.7**
+- **Test files created:** 6 files in `TEST/CON-tests/`
+  - `const_smartpin.spin2` - 87 SmartPin P_* constants (drive modes, input selection, logic ops, ADC/DAC, serial modes)
+  - `const_streamer.spin2` - 65 Streamer X_* constants (LUT modes, DAC outputs, RFBYTE/RFWORD/RFLONG, color modes, DDS)
+  - `const_clock.spin2` - Clock configuration constants (CLK_*, PLL multipliers)
+  - `const_event.spin2` - Event constants (EVENT_*, COGEXEC, HUBEXEC, NEWCOG, INT_OFF)
+  - `const_modcz.spin2` - 16 MODCZ operator constants (_CLR, _SET, _C, _Z, _NC_AND_NZ, etc.)
+  - `const_debug.spin2` - Debug display constants (DEBUG_*)
+- **Test runner:** `npm run test-con`
+- **Validation approach:** Each constant assigned to DAT location, binary comparison validates values match PNut reference
 
 ---
 
@@ -488,10 +445,10 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | Branch/call variant tests | 4-6 hrs | Jump/call encodings | ✅ Done |
 | AUGS/AUGD prefix tests | 4-6 hrs | 32-bit immediate handling | ✅ Done |
 | **Mnemonic Coverage** | | | |
-| ALT* family tests | 6-8 hrs | 12 instructions | Pending |
-| Counter operation tests | 4-6 hrs | ADDCT1-3 | Pending |
-| Pattern operation tests | 4-6 hrs | BMASK, BLNPIX, etc. | Pending |
-| Specialized instruction tests | 6-10 hrs | Remaining gaps | Pending |
+| ALT* family tests | 6-8 hrs | 12 instructions | ✅ Done |
+| Counter operation tests | 4-6 hrs | ADDCT1-3 | ✅ Done |
+| Pattern operation tests | 4-6 hrs | BMASK, BLNPIX, etc. | ✅ Done |
+| Specialized instruction tests | 6-10 hrs | Remaining gaps | ✅ Done |
 
 ### Phase 3: Edge Cases (15-20 hours)
 
@@ -519,13 +476,13 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 
 **Rationale:** These tests already exist with GOLD files. Review and enable them. Zero test creation work, maximum immediate coverage gain.
 
-### Wave 2: Simple Pattern, High Breadth (15-20 hours) → ~250+ constants validated
+### Wave 2: Simple Pattern, High Breadth → ✅ COMPLETED (v1.51.7)
 
-| Task | Effort | Payoff |
-|------|--------|--------|
-| **Built-in Constants Coverage** | 15-20 hrs | All Streamer, SmartPin, MODCZ, Clock, etc. |
+| Task | Effort | Payoff | Status |
+|------|--------|--------|--------|
+| **Built-in Constants Coverage** | 15-20 hrs | All Streamer, SmartPin, MODCZ, Clock, etc. | ✅ Done |
 
-**Rationale:** The test pattern is trivial (declare constants in DAT, validate against GOLD). This validates ~250+ constant values with minimal test design. High coverage, low cognitive load.
+**Result:** 6 test files created in `TEST/CON-tests/`, all passing. Run with `npm run test-con`.
 
 ### Wave 3: Foundation Gaps (12-18 hours) → Core language constructs
 
@@ -561,10 +518,11 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 | Wave | Effort | Cumulative | Coverage Gain | Status |
 |------|--------|------------|---------------|--------|
 | 1. Enable HOLD tests | 4-8 hrs | 4-8 hrs | +11 tests | Pending |
-| 2. Built-in constants | 15-20 hrs | 19-28 hrs | +250 constants | Pending |
+| 2. Built-in constants | 15-20 hrs | 19-28 hrs | +250 constants | ✅ Done |
 | 3. VAR + Alignment | 12-18 hrs | 31-46 hrs | Core language | Pending |
 | 4. Feature audit | 10-15 hrs | 41-61 hrs | Gap discovery | Pending |
 | 5. Encoding coverage | 30-40 hrs | 71-101 hrs | All encoding dims | ✅ Done |
+| 5b. Mnemonic coverage | 20-30 hrs | 91-131 hrs | Instruction families | ✅ Done |
 
 **After these 5 waves:** Critical gaps addressed, systematic backlog for remaining work (structures, mnemonic coverage, etc.).
 
@@ -591,11 +549,12 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 - [x] Symbol name length validation implemented and tested ✅ (v1.51.7)
 - [x] `distillerList.ts` coverage improved ✅ (v1.51.7)
 - [ ] `compiler.ts` branch coverage > 75%
-- [ ] At least 50% of PASM2 instructions have dedicated tests
+- [x] At least 50% of PASM2 instructions have dedicated tests ✅ (v1.51.7)
 - [x] Immediate (#) encoding forms tested for major instruction families ✅ (v1.51.7)
 - [x] WC/WZ/WCZ effect combinations tested systematically ✅ (v1.51.7)
 - [x] PTRx addressing modes have dedicated test coverage ✅ (v1.51.7)
 - [x] Encoding test files organized by dimension (immediate, effects, addressing) ✅ (v1.51.7)
+- [x] Built-in constants (SmartPin, Streamer, Clock, Event, MODCZ, Debug) validated ✅ (v1.51.7)
 
 ---
 

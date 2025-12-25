@@ -1,0 +1,166 @@
+' PASM2 Instruction Test: CORDIC Operations
+' Tests hardware CORDIC math coprocessor instructions
+' CORDIC provides multiply, divide, sqrt, trig, log, and exp
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+val_x           long    1000
+val_y           long    500
+angle           long    $2000           ' 45 degrees in 32-bit angle
+result_x        long    0
+result_y        long    0
+
+' ============================================================================
+' QMUL - Unsigned Multiply (64-bit result)
+' Result: GETQX = low 32 bits, GETQY = high 32 bits
+' ============================================================================
+
+' Multiply two registers
+t_qmul_reg      qmul    val_x, val_y
+
+' Multiply with immediate
+t_qmul_imm      qmul    val_x, #100
+
+' ============================================================================
+' QDIV - Unsigned Divide
+' Result: GETQX = quotient, GETQY = remainder
+' ============================================================================
+
+' Divide two registers
+t_qdiv_reg      qdiv    val_x, val_y
+
+' Divide with immediate
+t_qdiv_imm      qdiv    val_x, #10
+
+' ============================================================================
+' QFRAC - Fractional Divide
+' Result: GETQX = D[31:0] / S[31:0] as 0.32 fraction
+' ============================================================================
+
+' Fractional divide
+t_qfrac_reg     qfrac   val_x, val_y
+
+' Fractional with immediate
+t_qfrac_imm     qfrac   val_x, #100
+
+' ============================================================================
+' QSQRT - Square Root
+' Result: GETQX = sqrt(D[63:32]:S[31:0])
+' ============================================================================
+
+' Square root (64-bit input via SETQ)
+t_qsqrt_reg     qsqrt   val_x, val_y
+
+' Square root with immediate upper bits
+t_qsqrt_imm     qsqrt   val_x, #0
+
+' ============================================================================
+' QROTATE - Rotate Vector
+' Rotates (X, Y) by angle, result in (GETQX, GETQY)
+' ============================================================================
+
+' Rotate vector by angle
+t_qrotate       setq    val_x               ' Set X in Q
+                qrotate val_y, angle        ' Y in D, angle in S
+
+' Rotate with immediate angle
+t_qrotate_imm   setq    val_x
+                qrotate val_y, #$100
+
+' ============================================================================
+' QVECTOR - Convert to Polar (Vector to Angle+Length)
+' Result: GETQX = length, GETQY = angle
+' ============================================================================
+
+' Convert (X, Y) to polar
+t_qvector       setq    val_x               ' Set X in Q
+                qvector val_y, #0           ' Y in D, dummy S
+
+' ============================================================================
+' QLOG - Logarithm (base 2)
+' Result: GETQX = log2(D) as 5.27 fixed point
+' ============================================================================
+
+' Logarithm of register
+t_qlog_reg      qlog    val_x
+
+' ============================================================================
+' QEXP - Exponential (2^x)
+' Result: GETQX = 2^(D as 5.27)
+' ============================================================================
+
+' Exponential of register
+t_qexp_reg      qexp    val_x
+
+' ============================================================================
+' GETQX - Get CORDIC X Result
+' ============================================================================
+
+' Get X result to register
+t_getqx         getqx   result_x
+
+' Get X with WC (C = result overflow/error)
+t_getqx_wc      getqx   result_x        wc
+
+' Get X with WZ (Z = result is zero)
+t_getqx_wz      getqx   result_x        wz
+
+' Get X with WCZ
+t_getqx_wcz     getqx   result_x        wcz
+
+' ============================================================================
+' GETQY - Get CORDIC Y Result
+' ============================================================================
+
+' Get Y result to register
+t_getqy         getqy   result_y
+
+' Get Y with WC
+t_getqy_wc      getqy   result_y        wc
+
+' Get Y with WZ
+t_getqy_wz      getqy   result_y        wz
+
+' Get Y with WCZ
+t_getqy_wcz     getqy   result_y        wcz
+
+' ============================================================================
+' Typical usage patterns
+' ============================================================================
+
+' Complete multiply and get results
+t_mul_complete  qmul    val_x, val_y
+                getqx   result_x            ' Low 32 bits
+                getqy   result_y            ' High 32 bits
+
+' Complete divide and get results
+t_div_complete  qdiv    val_x, val_y
+                getqx   result_x            ' Quotient
+                getqy   result_y            ' Remainder
+
+' Rotate and get new coordinates
+t_rot_complete  setq    val_x
+                qrotate val_y, angle
+                getqx   result_x            ' New X
+                getqy   result_y            ' New Y
+
+' Convert to polar and get results
+t_polar         setq    val_x
+                qvector val_y, #0
+                getqx   result_x            ' Length
+                getqy   result_y            ' Angle
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
