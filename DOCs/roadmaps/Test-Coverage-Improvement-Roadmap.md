@@ -141,7 +141,10 @@ This roadmap identifies opportunities to improve PNut-TS compiler test coverage 
 - **Effort:** 20-30 hours for systematic coverage
 - **Approach:** Create test files organized by instruction category
 
-#### 6. PASM2 Instruction Encoding Coverage (NEW)
+#### 6. PASM2 Instruction Encoding Coverage
+- **Status:** ✅ **COMPLETED in v1.51.7**
+- **Test files created:** 7 files in `TEST/ENCODING-tests/`
+- **Test runner:** `npm run test-encoding`
 
 **Key Insight:** Instruction mnemonic coverage ≠ encoding coverage. Each PASM instruction can have multiple operand forms, and each form produces a different binary encoding. Testing one form per instruction leaves other encodings untested.
 
@@ -184,19 +187,20 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | PTRx addressing | ~40 | ~5 | 35 |
 | Branch variants | ~30 | ~10 | 20 |
 
-**Testing Strategy:**
+**Testing Strategy:** ✅ IMPLEMENTED
 
-1. **Systematic Encoding Test Files**: Create test files organized by encoding dimension
-   - `pasm_encoding_immediate.spin2` - All #immediate forms
-   - `pasm_encoding_wc.spin2` - WC effect variants
-   - `pasm_encoding_wz.spin2` - WZ effect variants
-   - `pasm_encoding_wcz.spin2` - WCZ effect variants
-   - `pasm_encoding_ptr.spin2` - PTRx addressing modes
-   - `pasm_encoding_branch.spin2` - Jump/call variants
+1. **Systematic Encoding Test Files**: Created in `TEST/ENCODING-tests/`
+   - ✅ `pasm_encoding_immediate.spin2` - Register vs #immediate forms (~60 instructions)
+   - ✅ `pasm_encoding_wc.spin2` - WC effect variants
+   - ✅ `pasm_encoding_wz.spin2` - WZ effect variants (including WZ-only: MUL, MULS, SCA, SCAS)
+   - ✅ `pasm_encoding_wcz.spin2` - WCZ combined effects + 40 WCZ-only instructions (BIT*, DIR*, DRV*, FLT*, OUT*)
+   - ✅ `pasm_encoding_ptr.spin2` - PTRx addressing modes (PTRA/PTRB with ++/--, indexing)
+   - ✅ `pasm_encoding_branch.spin2` - Jump/call variants (JMP, CALL, CALLA, CALLB, CALLD, DJ*, TJ*, REP, LOC, SKIP, MODCZ)
+   - ✅ `pasm_encoding_conditional.spin2` - All 16 IF_* condition prefixes
 
-2. **Golden File Validation**: Each test generates `.lst.GOLD` with expected encodings
+2. **Golden File Validation**: Each test has `.lst.GOLD`, `.obj.GOLD`, and `.bin.GOLD`
 
-3. **Binary Comparison**: Compare `.obj.GOLD` to verify actual byte encodings match
+3. **Binary Comparison**: Jest test runner validates all outputs match GOLD files
 
 **Priority Encodings to Test:**
 
@@ -209,8 +213,8 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | MEDIUM | AUGS/AUGD prefixes | 32-bit immediate handling |
 | MEDIUM | REP/REPS loops | Special encoding requirements |
 
-**Effort Estimate:** 30-40 hours for systematic encoding coverage
-**Impact:** Would catch encoding bugs that mnemonic-only testing misses
+**Effort Estimate:** 30-40 hours for systematic encoding coverage → ✅ COMPLETED
+**Impact:** Catches encoding bugs that mnemonic-only testing misses
 
 ---
 
@@ -227,6 +231,7 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | VAR usage | Variable of structure type | `MYSTRUCT instance` |
 | Parameter passing | Structures as parameters | `PUB foo(s MYSTRUCT)` |
 | Return values | Structures as return type | Complex scenarios |
+| **Child object export** | Struct defined in child, used in parent | `child.MYSTRUCT instance` |
 
 **Variant Forms to Test:**
 
@@ -239,6 +244,7 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | **SIZEOF operator** | `SIZEOF(MYSTRUCT)`, `SIZEOF(array)` | Size calculation bugs |
 | **FIELD operation** | Field access, nested fields | Offset/mask errors |
 | **Structure alignment** | ALIGNW, ALIGNL within structures | Padding bugs |
+| **Exported structures** | Struct in child obj, allocated/used in parent | Cross-object symbol resolution bugs |
 
 **Testing Strategy:**
 
@@ -250,6 +256,7 @@ Each of these is a different encoding even though they're all "MOV". The compile
    - `struct_pointers.spin2` - Pointer operations on structures
    - `struct_sizeof.spin2` - Size calculations
    - `struct_field.spin2` - FIELD operator usage
+   - `struct_exported.spin2` + `struct_exported_child.spin2` - Structures exported from child objects
 
 2. **Validation approach:**
    - Compare `.obj.GOLD` for byte-accurate layout
@@ -264,6 +271,7 @@ Each of these is a different encoding even though they're all "MOV". The compile
 | CRITICAL | SIZEOF operator | Used in memory allocation |
 | HIGH | Arrays of structures | Complex stride calculations |
 | HIGH | Pointer operations | Address arithmetic correctness |
+| HIGH | **Exported structures** | Cross-object symbol resolution |
 | MEDIUM | Nested structures | Layout complexity |
 | MEDIUM | FIELD operator | Bit-field operations |
 
@@ -470,19 +478,20 @@ Each of these is a different encoding even though they're all "MOV". The compile
 
 ### Phase 2: Instruction & Encoding Coverage (50-70 hours)
 
-| Task | Effort | Coverage Target |
-|------|--------|-----------------|
-| **Encoding Coverage (NEW)** | | |
-| Immediate (#) form tests | 8-10 hrs | All #immediate encodings |
-| WC/WZ/WCZ effect tests | 6-8 hrs | Flag effect variants |
-| PTRx addressing tests | 4-6 hrs | Pointer mode encodings |
-| Conditional (IF_*) tests | 4-6 hrs | Condition field encodings |
-| AUGS/AUGD prefix tests | 4-6 hrs | 32-bit immediate handling |
-| **Mnemonic Coverage** | | |
-| ALT* family tests | 6-8 hrs | 12 instructions |
-| Counter operation tests | 4-6 hrs | ADDCT1-3 |
-| Pattern operation tests | 4-6 hrs | BMASK, BLNPIX, etc. |
-| Specialized instruction tests | 6-10 hrs | Remaining gaps |
+| Task | Effort | Coverage Target | Status |
+|------|--------|-----------------|--------|
+| **Encoding Coverage** | | | |
+| Immediate (#) form tests | 8-10 hrs | All #immediate encodings | ✅ Done |
+| WC/WZ/WCZ effect tests | 6-8 hrs | Flag effect variants | ✅ Done |
+| PTRx addressing tests | 4-6 hrs | Pointer mode encodings | ✅ Done |
+| Conditional (IF_*) tests | 4-6 hrs | Condition field encodings | ✅ Done |
+| Branch/call variant tests | 4-6 hrs | Jump/call encodings | ✅ Done |
+| AUGS/AUGD prefix tests | 4-6 hrs | 32-bit immediate handling | ✅ Done |
+| **Mnemonic Coverage** | | | |
+| ALT* family tests | 6-8 hrs | 12 instructions | Pending |
+| Counter operation tests | 4-6 hrs | ADDCT1-3 | Pending |
+| Pattern operation tests | 4-6 hrs | BMASK, BLNPIX, etc. | Pending |
+| Specialized instruction tests | 6-10 hrs | Remaining gaps | Pending |
 
 ### Phase 3: Edge Cases (15-20 hours)
 
@@ -535,25 +544,29 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 
 **Rationale:** This produces a prioritized backlog for everything else. Spend time here to avoid wasted effort on already-covered features.
 
-### Wave 5: Targeted Encoding (8-10 hours first) → Biggest encoding bug class
+### Wave 5: Targeted Encoding → ✅ COMPLETED (v1.51.7)
 
-| Task | Effort | Payoff |
-|------|--------|--------|
-| **Immediate (#) form tests** | 8-10 hrs | All #immediate encodings |
+| Task | Effort | Payoff | Status |
+|------|--------|--------|--------|
+| **Immediate (#) form tests** | 8-10 hrs | All #immediate encodings | ✅ Done |
+| **WC/WZ/WCZ effect tests** | 6-8 hrs | Flag effect variants | ✅ Done |
+| **PTRx addressing tests** | 4-6 hrs | Pointer mode encodings | ✅ Done |
+| **Conditional (IF_*) tests** | 4-6 hrs | Condition field encodings | ✅ Done |
+| **Branch/call variants** | 4-6 hrs | Jump/call encodings | ✅ Done |
 
-**Rationale:** Immediate vs register encoding is the most common source of encoding bugs. Test this dimension first before the full 30-40 hour encoding effort.
+**Result:** 7 test files created in `TEST/ENCODING-tests/`, all passing. Run with `npm run test-encoding`.
 
 ### Wave Summary
 
-| Wave | Effort | Cumulative | Coverage Gain |
-|------|--------|------------|---------------|
-| 1. Enable HOLD tests | 4-8 hrs | 4-8 hrs | +11 tests |
-| 2. Built-in constants | 15-20 hrs | 19-28 hrs | +250 constants |
-| 3. VAR + Alignment | 12-18 hrs | 31-46 hrs | Core language |
-| 4. Feature audit | 10-15 hrs | 41-61 hrs | Gap discovery |
-| 5. Immediate encodings | 8-10 hrs | 49-71 hrs | Critical encoding |
+| Wave | Effort | Cumulative | Coverage Gain | Status |
+|------|--------|------------|---------------|--------|
+| 1. Enable HOLD tests | 4-8 hrs | 4-8 hrs | +11 tests | Pending |
+| 2. Built-in constants | 15-20 hrs | 19-28 hrs | +250 constants | Pending |
+| 3. VAR + Alignment | 12-18 hrs | 31-46 hrs | Core language | Pending |
+| 4. Feature audit | 10-15 hrs | 41-61 hrs | Gap discovery | Pending |
+| 5. Encoding coverage | 30-40 hrs | 71-101 hrs | All encoding dims | ✅ Done |
 
-**After these 5 waves:** Critical gaps addressed, systematic backlog for remaining work (structures, full encoding coverage, etc.).
+**After these 5 waves:** Critical gaps addressed, systematic backlog for remaining work (structures, mnemonic coverage, etc.).
 
 ---
 
@@ -579,10 +592,10 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 - [x] `distillerList.ts` coverage improved ✅ (v1.51.7)
 - [ ] `compiler.ts` branch coverage > 75%
 - [ ] At least 50% of PASM2 instructions have dedicated tests
-- [ ] **NEW:** Immediate (#) encoding forms tested for major instruction families
-- [ ] **NEW:** WC/WZ/WCZ effect combinations tested systematically
-- [ ] **NEW:** PTRx addressing modes have dedicated test coverage
-- [ ] **NEW:** Encoding test files organized by dimension (immediate, effects, addressing)
+- [x] Immediate (#) encoding forms tested for major instruction families ✅ (v1.51.7)
+- [x] WC/WZ/WCZ effect combinations tested systematically ✅ (v1.51.7)
+- [x] PTRx addressing modes have dedicated test coverage ✅ (v1.51.7)
+- [x] Encoding test files organized by dimension (immediate, effects, addressing) ✅ (v1.51.7)
 
 ---
 
