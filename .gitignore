@@ -258,11 +258,13 @@ scripts-pkg/cs_fixUploadNames.sh
 /TEST/WUMMI-tests
 *.heapprofile
 
-# Claude Code documentation and Todo MCP data
+# Claude Code local settings and data
 CLAUDE.md
+/.claude/
 .todo-mcp/
 /tasks/archives
 /.claude-todo
+scripts/updClaude
 TEST/MAP-tests/.vscode/settings.json
 /REF-INSTALL
 

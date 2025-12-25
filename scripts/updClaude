@@ -1,8 +1,0 @@
-#!/bin/bash
-
-#(set -x;sudo npm -g install @anthropic-ai/claude-code)
-#(set -x;sudo npm -g install @modelcontextprotocol/server-filesystem)
-#(set -x;sudo npm -g install @openai/codex)
-(set -x;sudo npm -g update @anthropic-ai/claude-code)
-(set -x;sudo npm -g update @modelcontextprotocol/server-filesystem)
-(set -x;sudo npm -g update @openai/codex)

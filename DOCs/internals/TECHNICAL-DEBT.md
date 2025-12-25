@@ -18,6 +18,16 @@ This document tracks known technical debt items in the PNut-TS compiler that nee
 
 **Test Coverage**: `TEST/CON-tests/symbol_length_test.spin2`
 
+### Claude Code Local Settings Tracked in Repository ✅ (v1.51.7)
+
+**Issue**: Local Claude Code settings were committed to the repository
+**Date Identified**: December 2025
+**Date Resolved**: December 2025 (v1.51.7)
+**Priority**: Low
+**Compatibility Impact**: None - development tooling only
+
+**Resolution**: Added `.claude/` and `scripts/updClaude` to `.gitignore` and removed from git tracking. These files remain local but are no longer shared via the repository.
+
 ---
 
 ## Open Items
