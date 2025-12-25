@@ -2,7 +2,7 @@
 
 **Version:** v1.51.7
 **Generated:** December 2025
-**Test Suite:** 348 Spin2/PASM2 source files across 22 test categories
+**Test Suite:** 301 Spin2/PASM2 source files across 21 test categories
 
 ---
 
@@ -11,10 +11,76 @@
 The PNut-TS regression test suite validates compiler compatibility with the original PNut compiler through binary-identical output comparison. Tests cover the complete Spin2 and PASM2 language specification including:
 
 - **2,104 public methods** and **1,179 private methods** exercising Spin2 bytecode generation
-- **57+ unique PASM2 instructions** across encoding and instruction category tests
+- **205 unique PASM2 instructions** (74% of full instruction set)
 - **172 files with DAT blocks** testing assembly code generation
 - **141 files with OBJ blocks** testing multi-object compilation
 - **150 files with DEBUG statements** testing debug display generation
+
+---
+
+## Feature Coverage Analysis
+
+### Coverage Summary
+
+| Feature Category | Tested | Total | Coverage |
+|-----------------|--------|-------|----------|
+| **PASM2 Instructions** | 205 | 276 | **74%** |
+| **PASM2 Operand Forms** | 16 | 31 | **52%** |
+| **Conditional Prefixes (IF_*)** | 65 | 65 | **100%** |
+| **Smart Pin Constants (P_*)** | 116 | 116 | **100%** |
+| **Streamer Constants (X_*)** | 78 | 78 | **100%** |
+| **Event Constants (EVENT_*)** | 16 | 16 | **100%** |
+| **MODCZ Constants (_*)** | 16 | 16 | **100%** |
+| **Spin2 Control Flow** | 17 | 18 | **94%** |
+| **Spin2 Operators** | ~65 | 74 | **~88%** |
+| **Spin2 Built-in Methods** | ~75 | 90 | **~83%** |
+
+### PASM2 Instruction Coverage Details
+
+**Fully Tested Categories:**
+- All ALT instructions (ALTS, ALTD, ALTR, ALTB, ALTI, etc.)
+- All CORDIC instructions (QMUL, QDIV, QFRAC, QSQRT, QROTATE, QVECTOR, etc.)
+- All Smart Pin instructions (WRPIN, WXPIN, WYPIN, RDPIN, AKPIN, etc.)
+- All pin drive/float/direction instructions (DRVL/H/C/NC/Z/NZ/RND/NOT, etc.)
+- All hub memory instructions (RDBYTE, RDWORD, RDLONG, WRBYTE, WRWORD, WRLONG)
+- All branch/call instructions (JMP, CALL, CALLA, CALLB, CALLD, RET, etc.)
+- All counter instructions (GETCT, ADDCT1/2/3, POLLCT1/2/3, WAITCT1/2/3)
+- All event instructions (SETSE1-4, POLLSE1-4, WAITSE1-4)
+
+**Tested Operand Forms:**
+- Register-to-register (D, S)
+- 9-bit immediate (#n)
+- 32-bit immediate (##n with AUGS/AUGD)
+- PTRA/PTRB base addressing
+- PTRA++/PTRA-- post-increment/decrement
+- PTRA[n] indexed addressing
+- WC/WZ/WCZ flag effects
+- PA/PB return address registers
+
+### Spin2 Language Coverage
+
+**Control Flow (94% - 17/18):**
+- All loop forms: REPEAT, REPEAT WHILE, REPEAT UNTIL, REPEAT FROM..TO..STEP
+- All conditionals: IF, ELSEIF, ELSE, IFNOT
+- All case statements: CASE, CASE_FAST, OTHER
+- All flow control: NEXT, QUIT, RETURN, ABORT
+
+**Operators Tested:**
+- All arithmetic: +, -, *, /, //, +/, -/
+- All bitwise: &, |, ^, ~, <<, >>, ~>, SAR, ROL, ROR, REV
+- All comparison: <, >, ==, <>, <=, >=, <#, >#
+- All logical: AND, OR, XOR, NOT, !, !!
+- All floating-point: +., -., *., /., comparisons
+- v51 math: POW, LOG2, EXP2, LOG10, EXP10, LOG, EXP
+
+### Built-in Constant Coverage
+
+**100% Coverage Categories:**
+- **Smart Pin (P_*)**: All 116 pin mode, drive strength, ADC/DAC, and serial constants
+- **Streamer (X_*)**: All 78 LUT mode, DAC output, and color mode constants
+- **Event (EVENT_*)**: All 16 event selection constants
+- **MODCZ (_*)**: All 16 flag modification operation constants
+- **Conditionals (IF_*)**: All 65 conditional execution prefixes and aliases
 
 ---
 
@@ -25,7 +91,6 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 | Category | Files | Purpose |
 |----------|-------|---------|
 | **LARGE-tests** | 91 | Real-world projects validating comprehensive feature interaction |
-| **WUMMI-tests** | 47 | Industrial/production code from external contributors |
 | **OBJ-tests** | 37 | Object inheritance, child objects, and multi-file compilation |
 | **DBG-tests** | 27 | DEBUG statement processing and display types |
 | **COV-tests** | 24 | Targeted code path coverage tests |
@@ -54,7 +119,7 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 | **VAR** | 125 (36%) | Variable declarations, arrays, alignment |
 | **DAT** | 172 (49%) | Data declarations and inline PASM assembly |
 | **OBJ** | 141 (41%) | Child object instantiation and method calls |
-| **PUB** | 348 (100%) | Public method definitions |
+| **PUB** | 301 (100%) | Public method definitions |
 | **PRI** | 211 (61%) | Private method definitions |
 
 ### Spin2 Control Structures
@@ -307,15 +372,6 @@ Production-quality code from various sources:
 - File system access
 - Network protocols
 
-### WUMMI-tests (47 files)
-
-Industrial/embedded system code including:
-- CAN bus communication
-- RS-485 industrial protocols
-- Display buffer management
-- Real-time control systems
-- Configuration management
-
 ---
 
 ## Test Methodology
@@ -341,11 +397,11 @@ Exception tests compare:
 
 | Metric | Value |
 |--------|-------|
-| Total Test Files | 348 |
-| Test Categories | 22 |
+| Total Test Files | 301 |
+| Test Categories | 21 |
 | PUB Methods Tested | 2,104 |
 | PRI Methods Tested | 1,179 |
-| PASM Instructions | 57+ |
+| PASM Instructions | 205 (74%) |
 | Built-in Constants | 200+ |
 | Files with Debug | 150 |
 | Files with Objects | 141 |
