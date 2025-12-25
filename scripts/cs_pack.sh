@@ -20,7 +20,7 @@ mkdir -p win/win-arm64
 (set -x;cp -p _dist/* win/win-arm64)
 # prepare Linux x64
 mkdir -p linux/linux-x64
-(set -x;cp -p p2-pnut-ts-linux-arm64 linux/linux-x64/pnut_ts)
+(set -x;cp -p p2-pnut-ts-linux-x64 linux/linux-x64/pnut_ts)
 (set -x;cp -p _dist/* linux/linux-x64)
 # prepare Linux arm64
 mkdir -p linux/linux-arm64
