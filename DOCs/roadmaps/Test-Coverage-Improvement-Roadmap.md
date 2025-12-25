@@ -4,10 +4,13 @@
 
 This roadmap identifies opportunities to improve PNut-TS compiler test coverage based on analysis of both test file coverage (what language features are tested) and code coverage (what compiler code is executed during tests).
 
-**Current Overall Coverage (v1.51.x):**
-- Statements: **88.1%** (22,261/25,267)
-- Branches: **84.06%** (3,212/3,821)
-- Functions: **86.8%** (750/864)
+**Current Overall Coverage (v1.51.7 - December 2025):**
+- Statements: **85.3%** (22,759/26,680)
+- Branches: **83.88%** (3,291/3,923)
+- Functions: **83.54%** (792/948)
+- Lines: **85.3%** (22,759/26,680)
+
+**Note:** Coverage percentages decreased from v1.51.6 due to new code additions (mapGenerator.ts, additional error handling) that haven't yet been fully tested. The absolute number of covered lines increased.
 
 **Key Finding:** While overall coverage is good, there are specific gaps in both test file coverage and code coverage that represent risk areas.
 
@@ -15,44 +18,58 @@ This roadmap identifies opportunities to improve PNut-TS compiler test coverage 
 
 ## Part 1: Code Coverage Analysis (from Jest/Istanbul)
 
-### Coverage by Class (Sorted by Risk)
+### Coverage by Class (Sorted by Risk) - Updated December 2025
 
-#### Critical Gaps (< 70% coverage)
+#### Critical Gaps (< 50% statements or functions)
 
 | File | Statements | Branches | Functions | Risk Assessment |
 |------|------------|----------|-----------|-----------------|
+| `mapGenerator.ts` | **15.28%** | 66.66% | **8.33%** | **NEW** - Map file generation untested |
 | `regression.ts` | 18.38% | 90% | 44.44% | Low risk - test infrastructure only |
-| `distillerList.ts` | **56.14%** | 100% | **13.33%** | **HIGH RISK** - object deduplication |
+| `dumpUtils.ts` | 18.51% | 100% | **0%** | Low risk - debug dump utilities |
 
-#### Moderate Gaps (70-80% coverage)
+#### Function Coverage Concerns (statements ok, functions low)
+
+| File | Statements | Branches | Functions | Concern |
+|------|------------|----------|-----------|---------|
+| `pnut-ts.ts` | 73.36% | 58.2% | **33.33%** | Entry point - many code paths untested |
+| `objInstanceInfo.ts` | 74.52% | 100% | **33.33%** | Object instance tracking |
+| `objectSymbolStore.ts` | 88.05% | 100% | **42.85%** | Symbol storage functions unused |
+| `textLine.ts` | 90% | 100% | **44.44%** | Text line helper functions |
+| `parseUtils.ts` | 95.57% | 94.11% | **59.09%** | Many helper functions unused |
+
+#### Moderate Gaps (60-80% coverage)
 
 | File | Statements | Branches | Functions | Risk Assessment |
 |------|------------|----------|-----------|-----------------|
-| `debugData.ts` | 76.15% | 88% | 62.5% | Medium - debug output generation |
+| `files.ts` | 67.81% | **40.62%** | 75% | File location edge cases |
+| `debugData.ts` | 76.15% | 88% | 62.5% | Debug output generation |
+| `childObjectsImage.ts` | 77% | 77.35% | 86.66% | Child object handling |
 
 #### Branch Coverage Concerns (statements ok, branches low)
 
 | File | Statements | Branches | Functions | Concern |
 |------|------------|----------|-----------|---------|
-| `compiler.ts` | 87.2% | **60.71%** | 83.33% | Edge cases in compilation flow |
+| `pnut-ts.ts` | 73.36% | **58.2%** | 33.33% | Command-line option paths |
+| `compiler.ts` | 84.89% | **69.49%** | 81.81% | Edge cases in compilation flow |
 | `blockStack.ts` | 88.23% | **70.37%** | 90.47% | Stack edge cases |
-| `spin2Parser.ts` | 83.85% | **76.08%** | 88.46% | Parser branch conditions |
+| `spin2Parser.ts` | 84.47% | **76.55%** | 90% | Parser branch conditions |
 | `objectStructures.ts` | 82.87% | **77.5%** | 78.12% | Structure handling paths |
-| `spinFiles.ts` | 86.51% | **78.84%** | 78.94% | File handling edge cases |
 
 #### Well-Covered Classes (> 85%)
 
 | File | Statements | Notes |
 |------|------------|-------|
 | `types.ts` | **100%** | Perfect coverage |
-| `parseUtils.ts` | 95.57% | Core parsing utilities |
+| `objectDistiller.ts` | **95.93%** | Excellent - object deduplication |
+| `parseUtils.ts` | 95.57% | Core parsing utilities (but 59% functions) |
 | `objectSymbols.ts` | 95.38% | Symbol management |
-| `symbolTable.ts` | 95.12% | Symbol table |
+| `symbolTable.ts` | 94.11% | Symbol table |
 | `externalFiles.ts` | 94.61% | External file handling |
 | `numberStack.ts` | 94.44% | Numeric operations |
-| `spinResolver.ts` | **90.59%** | **Core compiler - well tested!** |
+| `spinResolver.ts` | **90.27%** | **Core compiler - well tested!** |
 | `spinElement.ts` | 90.72% | Element handling |
-| `spinElementizer.ts` | 89.29% | Tokenization |
+| `distillerList.ts` | **81.54%** | ✅ Improved from 56.14% in v1.51.6 |
 
 ---
 
@@ -530,17 +547,19 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 
 ## Part 6: Coverage Metrics Goals
 
-### Current State
+### Current State (v1.51.7 - December 2025)
 
 | Metric | Current | Goal |
 |--------|---------|------|
-| Overall Statements | 88.1% | 92%+ |
-| Overall Branches | 84.06% | 88%+ |
-| Overall Functions | 86.8% | 90%+ |
-| `spinResolver.ts` | 90.59% | Maintain |
-| `distillerList.ts` | 56.14% | 80%+ |
-| `compiler.ts` branches | 60.71% | 80%+ |
-| Test files | 307 | 380+ |
+| Overall Statements | 85.3% | 90%+ |
+| Overall Branches | 83.88% | 88%+ |
+| Overall Functions | 83.54% | 88%+ |
+| `spinResolver.ts` | 90.27% | Maintain |
+| `distillerList.ts` | 81.54% ✅ | Achieved! (was 56.14%) |
+| `mapGenerator.ts` | 15.28% | 70%+ |
+| `pnut-ts.ts` | 73.36% | 80%+ |
+| `compiler.ts` branches | 69.49% | 80%+ |
+| Test files | 307+ | 380+ |
 
 ### Success Criteria
 
@@ -587,6 +606,98 @@ coverage_pasmonly_001.spin2
 debug_test_002_c1.spin2
 ... (and more)
 ```
+
+---
+
+## Part 7: v1.51.8 Coverage Improvement Wishlist
+
+Based on the December 2025 coverage analysis, these are priority items for the next release:
+
+### HIGH Priority - New Feature Coverage
+
+#### 1. Map Generator Testing (`mapGenerator.ts`)
+- **Current:** 15.28% statements, 8.33% functions (2/24 functions)
+- **Problem:** The new `-m/--map` feature has almost no test coverage
+- **Action:** Create dedicated tests exercising map file generation
+- **Test files needed:**
+  - `map_single_object.spin2` - Simple single-object map
+  - `map_multi_object.spin2` - Multi-object hierarchy map
+  - `map_with_debug.spin2` - Map with debug sections
+- **Effort:** 6-8 hours
+- **Impact:** Ensure new feature works correctly before users rely on it
+
+#### 2. Entry Point Coverage (`pnut-ts.ts`)
+- **Current:** 73.36% statements, 58.2% branches, 33.33% functions (3/9)
+- **Problem:** Many command-line option combinations untested
+- **Action:** Create tests that exercise different CLI paths
+- **Focus areas:**
+  - Flash file generation (-F option)
+  - Object-only output (-O option)
+  - Quiet/verbose modes (-q/-v)
+  - Error handling paths
+- **Effort:** 4-6 hours
+- **Impact:** Catch CLI bugs before users hit them
+
+### MEDIUM Priority - Function Coverage Gaps
+
+#### 3. Object Symbol Store (`objectSymbolStore.ts`)
+- **Current:** 88.05% statements, 42.85% functions (3/7 functions)
+- **Problem:** 4 functions never called during tests
+- **Action:** Identify which functions are unused and either:
+  - Add tests that exercise them, OR
+  - Remove dead code if truly unused
+- **Effort:** 2-3 hours
+
+#### 4. Child Objects Image (`childObjectsImage.ts`)
+- **Current:** 77% statements, 77.35% branches
+- **Problem:** Multi-object scenarios not fully tested
+- **Action:** Add tests with deeper object hierarchies
+- **Effort:** 4-6 hours
+
+#### 5. Files.ts Branch Coverage
+- **Current:** 67.81% statements, 40.62% branches (13/32)
+- **Problem:** File location fallback paths untested
+- **Action:** Test include path resolution edge cases:
+  - Absolute paths
+  - Relative paths from different directories
+  - Missing file scenarios
+  - Library path fallbacks
+- **Effort:** 3-4 hours
+
+### LOW Priority - Infrastructure/Debug Code
+
+#### 6. Regression.ts
+- **Current:** 18.38% statements
+- **Assessment:** This is test infrastructure, not production code
+- **Action:** Document as intentionally low coverage (test code testing itself is circular)
+
+#### 7. DumpUtils.ts
+- **Current:** 18.51% statements, 0% functions
+- **Assessment:** Debug dump utilities, rarely used
+- **Action:** Either remove if unused, or document as debug-only code
+
+### Coverage Improvement Goals for v1.51.8
+
+| Metric | Current (v1.51.7) | Target (v1.51.8) |
+|--------|-------------------|------------------|
+| Overall Statements | 85.3% | 87%+ |
+| Overall Branches | 83.88% | 85%+ |
+| Overall Functions | 83.54% | 86%+ |
+| `mapGenerator.ts` | 15.28% | 70%+ |
+| `pnut-ts.ts` | 73.36% | 80%+ |
+| `files.ts` branches | 40.62% | 65%+ |
+
+### Quick Wins for v1.51.8
+
+| Task | Effort | Impact |
+|------|--------|--------|
+| Add map generator tests | 6-8 hrs | Major - new feature coverage |
+| Add CLI option tests | 4-6 hrs | Medium - entry point coverage |
+| Review objectSymbolStore unused functions | 2-3 hrs | Small - code cleanup |
+| Add file resolution edge case tests | 3-4 hrs | Medium - files.ts branches |
+
+**Total Quick Wins Effort:** 15-21 hours
+**Expected Coverage Improvement:** +2-3% overall, specific files improved significantly
 
 ---
 
