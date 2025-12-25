@@ -107,13 +107,14 @@ jobs:
             cp CHANGELOG.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || true
 
             # Copy binary with correct name and create compatibility alias
+            # Note: pkg produces files named "p2-pnut-ts-*" based on package.json name
             if [[ "$platform" == win-* ]]; then
               # Windows: copy as pnut-ts.exe (primary) and pnut_ts.exe (compat copy)
-              cp "pkgs/pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe"
+              cp "pkgs/p2-pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe"
               cp "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts.exe"
             else
               # Unix: copy as pnut-ts (primary) and symlink pnut_ts -> pnut-ts (compat)
-              cp "pkgs/pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
+              cp "pkgs/p2-pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
               chmod +x "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
               ln -sf pnut-ts "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
             fi
