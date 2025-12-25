@@ -1,0 +1,36 @@
+' pasm_instr_wait_poll.spin2 - Tests WAIT* instructions for event waiting
+' Tests: WAITATN, WAITFBW, WAITINT, WAITPAT, WAITXFI, WAITXMT, WAITXRL, WAITXRO
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Some working registers
+reg1    LONG    0
+reg2    LONG    0
+
+        ' === Wait for ATN (attention) ===
+        WAITATN                 ' Wait for attention event
+
+        ' === Wait for FIFO buffer wrap ===
+        WAITFBW                 ' Wait for FIFO buffer wrap
+
+        ' === Wait for interrupt ===
+        WAITINT                 ' Wait for interrupt
+
+        ' === Wait for pattern match ===
+        WAITPAT                 ' Wait for pattern match
+
+        ' === Wait for streamer events ===
+        WAITXFI                 ' Wait for streamer finished input
+        WAITXMT                 ' Wait for streamer empty
+        WAITXRL                 ' Wait for streamer reload
+        WAITXRO                 ' Wait for streamer rollover
+
+        ' End marker
+        RET
+
+        FIT     $1F0

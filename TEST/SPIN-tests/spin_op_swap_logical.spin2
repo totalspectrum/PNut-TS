@@ -1,0 +1,108 @@
+' spin_op_swap_logical.spin2 - Tests swap operator and symbol-form logical operators
+' Tests: var\value (swap), && || ^^ !! (logical operators)
+
+VAR
+  LONG  results[20]
+  LONG  arr[4]
+
+PUB go() | a, b, c, r
+
+  ' === SWAP OPERATOR var\value ===
+  ' The backslash operator swaps var with value, returns old value
+
+  ' Basic swap - a gets value, returns old a
+  a := 100
+  r := a\200             ' a becomes 200, r gets old a (100)
+  results[0] := a        ' Should be 200
+  results[1] := r        ' Should be 100 (old a)
+
+  ' Swap using another variable
+  a := $12345678
+  b := $AABBCCDD
+  r := a\b               ' a becomes b, r gets old a
+  results[2] := a        ' Should be $AABBCCDD
+  results[3] := r        ' Should be $12345678 (old a)
+
+  ' Swap with zero
+  a := $FFFFFFFF
+  r := a\0               ' a becomes 0, r gets old a
+  results[4] := a        ' Should be 0
+  results[5] := r        ' Should be $FFFFFFFF
+
+  ' === LOGICAL AND && ===
+
+  a := 1
+  b := 1
+  r := a && b            ' TRUE && TRUE = TRUE
+  results[6] := r
+
+  a := 1
+  b := 0
+  r := a && b            ' TRUE && FALSE = FALSE
+  results[7] := r
+
+  a := 0
+  b := 0
+  r := a && b            ' FALSE && FALSE = FALSE
+  results[8] := r
+
+  ' Non-boolean values
+  a := 5
+  b := 10
+  r := a && b            ' Non-zero && Non-zero = TRUE
+  results[9] := r
+
+  ' === LOGICAL OR || ===
+
+  a := 0
+  b := 0
+  r := a || b            ' FALSE || FALSE = FALSE
+  results[10] := r
+
+  a := 1
+  b := 0
+  r := a || b            ' TRUE || FALSE = TRUE
+  results[11] := r
+
+  a := 0
+  b := 1
+  r := a || b            ' FALSE || TRUE = TRUE
+  results[12] := r
+
+  ' === LOGICAL XOR ^^ ===
+
+  a := 1
+  b := 1
+  r := a ^^ b            ' TRUE ^^ TRUE = FALSE
+  results[13] := r
+
+  a := 1
+  b := 0
+  r := a ^^ b            ' TRUE ^^ FALSE = TRUE
+  results[14] := r
+
+  a := 0
+  b := 0
+  r := a ^^ b            ' FALSE ^^ FALSE = FALSE
+  results[15] := r
+
+  ' === LOGICAL NOT !! ===
+
+  a := 0
+  r := !!a               ' NOT FALSE = TRUE
+  results[16] := r
+
+  a := 1
+  r := !!a               ' NOT TRUE = FALSE
+  results[17] := r
+
+  a := 100
+  r := !!a               ' NOT non-zero = FALSE
+  results[18] := r
+
+  ' Combined expressions
+  a := 1
+  b := 0
+  c := 1
+  r := (a && c) || b     ' (TRUE && TRUE) || FALSE = TRUE
+  results[19] := r

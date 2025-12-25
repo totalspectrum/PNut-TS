@@ -1,0 +1,96 @@
+' pasm_instr_signed_mux.spin2 - Tests signed operations and mux instructions
+' Tests: ADDS, SUBS, CMPS, FGE, FGES, FLE, FLES, MULS
+' Tests: MUXC, MUXNC, MUXNZ, MUXZ, MUXQ, MUXNIBS, MUXNITS
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+val1    LONG    -100            ' Negative value
+val2    LONG    50              ' Positive value
+s_dst   LONG    0
+s_mask  LONG    $FF00FF00
+bits    LONG    $12345678
+
+        ' === ADDS - Signed addition ===
+        MOV     s_dst, val1
+        ADDS    s_dst, val2     ' -100 + 50 = -50
+        ADDS    s_dst, val2 WC  ' With carry flag
+
+        ' === SUBS - Signed subtraction ===
+        MOV     s_dst, val2
+        SUBS    s_dst, val1     ' 50 - (-100) = 150
+        SUBS    s_dst, val2 WC  ' With carry flag
+
+        ' === CMPS - Signed comparison ===
+        CMPS    val1, val2  WCZ ' Compare -100 to 50
+
+        ' === FGE - Force greater or equal ===
+        MOV     s_dst, val1
+        FGE     s_dst, #0       ' Force >= 0
+
+        ' === FGES - Force greater or equal (signed) ===
+        MOV     s_dst, val1
+        FGES    s_dst, val2     ' Force >= val2
+
+        ' === FLE - Force less or equal ===
+        MOV     s_dst, val2
+        FLE     s_dst, #0       ' Force <= 0
+
+        ' === FLES - Force less or equal (signed) ===
+        MOV     s_dst, val2
+        FLES    s_dst, val1     ' Force <= val1
+
+        ' === MULS - Signed multiply ===
+        MOV     s_dst, val1
+        MULS    s_dst, val2 WZ  ' Signed multiply
+
+        ' === MUX instructions ===
+        MOV     s_dst, #0
+
+        ' MUXC - Mux based on C flag
+        MODCZ   _SET, 0     WC  ' Set carry
+        MUXC    s_dst, s_mask   ' Set bits where mask=1
+
+        MODCZ   _CLR, 0     WC  ' Clear carry
+        MUXC    s_dst, s_mask   ' Clear bits where mask=1
+
+        ' MUXNC - Mux based on NOT C flag
+        MODCZ   _SET, 0     WC  ' Set C
+        MUXNC   s_dst, s_mask   ' Clear bits (C is set, so NC is false)
+
+        MODCZ   _CLR, 0     WC  ' Clear C
+        MUXNC   s_dst, s_mask   ' Set bits (C is clear, so NC is true)
+
+        ' MUXZ - Mux based on Z flag
+        MODCZ   0, _SET     WZ  ' Set zero flag
+        MUXZ    s_dst, s_mask   ' Set bits where mask=1
+
+        MODCZ   0, _CLR     WZ  ' Clear zero flag
+        MUXZ    s_dst, s_mask   ' Clear bits
+
+        ' MUXNZ - Mux based on NOT Z flag
+        MODCZ   0, _SET     WZ  ' Set Z
+        MUXNZ   s_dst, s_mask   ' Clear bits
+
+        MODCZ   0, _CLR     WZ  ' Clear Z
+        MUXNZ   s_dst, s_mask   ' Set bits
+
+        ' MUXQ - Mux based on Q flag
+        MUXQ    s_dst, s_mask   ' Mux with Q flag
+
+        ' MUXNIBS - Mux nibbles
+        MOV     s_dst, #0
+        MUXNIBS s_dst, bits     ' Mux nibbles based on flags
+
+        ' MUXNITS - Mux bit pairs
+        MOV     s_dst, #0
+        MUXNITS s_dst, bits     ' Mux bit pairs based on flags
+
+        RET
+
+        FIT     $1F0

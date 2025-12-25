@@ -1,0 +1,77 @@
+' pasm_instr_rotate_test.spin2 - Tests rotate-through-carry and test instructions
+' Tests: RCL, RCR, RCZL, RCZR, SAL
+' Tests: TESTB, TESTBN, TESTN, CMPM, CMPR, CMPSUB
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+r_val   LONG    $12345678
+r_dst   LONG    0
+r_mask  LONG    $FF00FF00
+r_bitnum LONG   7
+
+        ' === RCL - Rotate left through carry ===
+        MOV     r_dst, r_val
+        MODCZ   _set, _clr  wc
+        RCL     r_dst, #1
+        RCL     r_dst, #4       wc
+
+        ' === RCR - Rotate right through carry ===
+        MOV     r_dst, r_val
+        MODCZ   _set, _clr  wc
+        RCR     r_dst, #1
+        RCR     r_dst, #4       wc
+
+        ' === RCZL - Rotate C and Z left ===
+        MOV     r_dst, r_val
+        MODCZ   _set, _set  wcz
+        RCZL    r_dst
+        RCZL    r_dst           wcz
+
+        ' === RCZR - Rotate C and Z right ===
+        MOV     r_dst, r_val
+        MODCZ   _set, _set  wcz
+        RCZR    r_dst
+        RCZR    r_dst           wcz
+
+        ' === SAL - Shift arithmetic left ===
+        MOV     r_dst, r_val
+        SAL     r_dst, #1
+        SAL     r_dst, #4       wc
+
+        ' === TESTB - Test bit ===
+        TESTB   r_val, #0       wc
+        TESTB   r_val, #7       wz
+        TESTB   r_val, #15      andc
+        TESTB   r_val, r_bitnum orc
+
+        ' === TESTBN - Test bit NOT ===
+        TESTBN  r_val, #0       wc
+        TESTBN  r_val, #7       wz
+        TESTBN  r_val, #31      andz
+
+        ' === TESTN - Test NOT (ANDN) ===
+        TESTN   r_val, r_mask   wc
+        TESTN   r_val, r_mask   wz
+        TESTN   r_val, r_mask   wcz
+
+        ' === CMPM - Compare with mask ===
+        CMPM    r_val, r_mask   wcz
+
+        ' === CMPR - Compare reversed ===
+        CMPR    r_val, r_mask   wcz
+
+        ' === CMPSUB - Compare and subtract ===
+        MOV     r_dst, #100
+        CMPSUB  r_dst, #30      wcz
+        CMPSUB  r_dst, #30      wcz
+        CMPSUB  r_dst, #50      wcz
+
+        RET
+
+        FIT     $1F0

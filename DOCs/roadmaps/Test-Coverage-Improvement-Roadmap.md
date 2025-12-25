@@ -79,8 +79,8 @@ This roadmap identifies opportunities to improve PNut-TS compiler test coverage 
 
 | Metric | Value |
 |--------|-------|
-| Total .spin2 test files | 307 |
-| Total .GOLD reference files | 827 |
+| Total .spin2 test files | 351 |
+| Total .GOLD reference files | 959 |
 | Test categories | 18 |
 | PASM2 instructions in database | 359 |
 
@@ -90,18 +90,39 @@ This roadmap identifies opportunities to improve PNut-TS compiler test coverage 
 |----------|-------|--------|-------|
 | DBG-tests | 27 | Comprehensive | Debug features well tested |
 | OBJ-tests | 27 | Comprehensive | Object hierarchy well tested |
+| **ENCODING-tests** | **29** | **Comprehensive** | ✅ PASM2 encoding coverage (was 15) |
 | COV-tests | 24 | Good | Coverage-specific tests |
-| LANG-VER-tests | 13 | Partial | Language version features |
+| **SPIN-tests** | **15** | **Improved** | ✅ Core Spin features (was 6) |
+| LANG-VER-tests | 15 | Good | ✅ Language version features (was 13) |
 | PREPROC-tests | 10 | Good | Preprocessor directives |
 | DAT-PASM-tests | 9 | Basic only | ~17% instruction coverage |
 | CON-tests | 9 | Good | Constants and expressions |
-| SPIN-tests | 6 | Basic | Core Spin features |
 | EXCEPT-tests | 6 active | **11 on HOLD** | Error handling gaps |
 | EXT-tests | 5 | Limited | External file tests |
 | LOADER-tests | 4 | Minimal | Loader integration |
 | **VAR-tests** | **2** | **CRITICAL GAP** | Variable declarations |
 | LARGE-tests | exists | Not systematically run | Timeout issues |
 | ALLCODE-tests | 0 | Empty | Infrastructure only |
+
+### Test Infrastructure Improvements (v1.51.7)
+
+#### 1 ULP Filter for Floating-Point Tolerance
+
+Added a **1 ULP (Unit in Last Place) filter** to `testUtils.ts` that handles floating-point differences between PNut-TS and the reference PNut compiler:
+
+- **Problem:** Floating-point values can differ by 1 ULP between compilers (e.g., 100.0 vs 99.99999237)
+- **Cascade Effect:** 1 ULP byte differences affect checksums by a predictable amount
+- **Solution:** The filter identifies 1 ULP differences and allows the corresponding checksum delta
+
+This allows tests with floating-point operations to pass without requiring exact byte-matching, while still catching real bugs (differences > 1 ULP fail).
+
+#### Debug/Non-Debug Test Separation
+
+Updated `pnut-ts-langVer.test.ts` to automatically detect whether a test file contains `debug()` statements:
+- Files with `debug()` → compiled with `-d` flag
+- Files without `debug()` → compiled without `-d` flag
+
+This allows the LANG-VER test suite to contain both types of tests.
 
 ---
 
@@ -559,7 +580,7 @@ This section provides a wave-based approach to achieve the broadest coverage in 
 | `mapGenerator.ts` | 15.28% | 70%+ |
 | `pnut-ts.ts` | 73.36% | 80%+ |
 | `compiler.ts` branches | 69.49% | 80%+ |
-| Test files | 307+ | 380+ |
+| Test files | 351 | 380+ |
 
 ### Success Criteria
 

@@ -1,0 +1,111 @@
+' pasm_instr_misc.spin2 - Tests miscellaneous PASM2 instructions
+' Tests: COGBRK, CRCBIT, CRCNIB, DECMOD, INCMOD
+' Tests: GETXACC, GETSCP, SETSCP, MOVBYTS, SETCFRQ, SETCI, SETCMOD
+' Tests: SETDACS, SETPAT, SETPIV, SPLITB, SPLITW, STALLI
+' Tests: WMLONG, WRC, WRNC, WRNZ, WRZ, XORO32
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+m_data  LONG    $12345678
+crc     LONG    $FFFFFFFF
+counter LONG    0
+addr    LONG    0
+result  LONG    0
+m_mask  LONG    $FF00FF00
+
+        ' === COGBRK - Set breakpoint ===
+        COGBRK  #0              ' Set breakpoint 0
+        COGBRK  #7              ' Set breakpoint 7
+
+        ' === CRC Instructions ===
+        MOV     crc, ##$FFFFFFFF
+        MOV     m_data, ##$12345678
+
+        ' CRCBIT - CRC calculation with one bit
+        CRCBIT  crc, m_data     ' Add one bit to CRC
+
+        ' CRCNIB - CRC calculation with one nibble
+        CRCNIB  crc, m_data     ' Add one nibble to CRC
+
+        ' === DECMOD/INCMOD - Modular increment/decrement ===
+        MOV     counter, #5
+        DECMOD  counter, #9     ' Decrement with wrap at 9
+        INCMOD  counter, #9     ' Increment with wrap at 9
+        DECMOD  counter, #9 WC  ' With carry flag
+        INCMOD  counter, #9 WC  ' With carry flag
+
+        ' === GETXACC - Get CORDIC accumulator ===
+        GETXACC result          ' Get XACC into result
+
+        ' === GETSCP/SETSCP - Scope/Debug ===
+        GETSCP  result          ' Get scope data
+        SETSCP  m_data          ' Set scope configuration
+
+        ' === MOVBYTS - Move bytes with shuffle ===
+        MOV     result, m_data
+        MOVBYTS result, #%%3210 ' Shuffle bytes: original order
+        MOVBYTS result, #%%0123 ' Shuffle bytes: reversed
+
+        ' === SETCFRQ - Set colorspace frequency ===
+        SETCFRQ m_data          ' Set colorspace frequency
+
+        ' === SETCI - Set colorspace immediate ===
+        SETCI   m_data          ' Set colorspace immediate
+
+        ' === SETCMOD - Set colorspace mode ===
+        SETCMOD #0              ' Set colorspace mode 0
+        SETCMOD m_data          ' Set colorspace mode from register
+
+        ' === SETDACS - Set DACs ===
+        MOV     m_data, ##$11223344
+        SETDACS m_data          ' Set all 4 DAC channels
+
+        ' === SETPAT - Set pattern for WAITPAT ===
+        MOV     m_data, ##$FF00FF00
+        MOV     m_mask, ##$FFFFFFFF
+        SETPAT  m_mask, m_data  ' Set pattern (mask, match)
+
+        ' === SETPIV - Set pivot for pattern ===
+        SETPIV  m_data          ' Set pivot value
+
+        ' === SPLITB - Split bytes ===
+        MOV     result, ##$12345678
+        SPLITB  result          ' Split even/odd bytes
+
+        ' === SPLITW - Split words ===
+        MOV     result, ##$12345678
+        SPLITW  result          ' Split even/odd words
+
+        ' === STALLI - Stall interrupt ===
+        STALLI                  ' Stall interrupt servicing
+
+        ' === WMLONG - Write masked long to hub ===
+        MOV     addr, ##$1000
+        MOV     m_data, ##$AABBCCDD
+        MOV     result, ##$0000FF00
+        WMLONG  m_data, addr    ' Write masked long
+
+        ' === WRC/WRNC/WRNZ/WRZ - Write flag to register bit ===
+        MOV     result, #0
+
+        MODCZ   _SET, 0     WC  ' Set C
+        WRC     result          ' Write C flag to bit 0
+        WRNC    result          ' Write NOT C to bit 0
+
+        MODCZ   0, _SET     WZ  ' Set Z
+        WRZ     result          ' Write Z flag to bit 0
+        WRNZ    result          ' Write NOT Z to bit 0
+
+        ' === XORO32 - XOR with random 32-bit value ===
+        MOV     result, #0
+        XORO32  result          ' XOR with random value
+
+        RET
+
+        FIT     $1F0

@@ -1,0 +1,99 @@
+{Spin2_v51}
+' spin_builtin_math_v51.spin2 - Tests v51 floating-point math operators
+' Tests: POW, LOG2, EXP2, LOG10, EXP10, LOG, EXP
+
+VAR
+  LONG  results[24]
+
+PUB go() | r, a, b
+
+  ' === POW - Power operator (base pow exponent) ===
+
+  r := 2.0 POW 3.0        ' 2^3 = 8.0
+  results[0] := r
+
+  r := 10.0 POW 2.0       ' 10^2 = 100.0
+  results[1] := r
+
+  r := 2.0 POW 0.0        ' x^0 = 1.0
+  results[2] := r
+
+  r := 2.0 POW -1.0       ' 2^-1 = 0.5
+  results[3] := r
+
+  ' POW with variables
+  a := 3.0
+  b := 4.0
+  r := a POW b            ' 3^4 = 81.0
+  results[4] := r
+
+  ' === LOG2 - Base 2 logarithm ===
+
+  r := LOG2 8.0           ' log2(8) = 3.0
+  results[5] := r
+
+  r := LOG2 16.0          ' log2(16) = 4.0
+  results[6] := r
+
+  r := LOG2 1.0           ' log2(1) = 0.0
+  results[7] := r
+
+  ' === EXP2 - 2^x ===
+
+  r := EXP2 3.0           ' 2^3 = 8.0
+  results[8] := r
+
+  r := EXP2 4.0           ' 2^4 = 16.0
+  results[9] := r
+
+  r := EXP2 0.0           ' 2^0 = 1.0
+  results[10] := r
+
+  ' === LOG10 - Base 10 logarithm ===
+
+  r := LOG10 100.0        ' log10(100) = 2.0
+  results[11] := r
+
+  r := LOG10 1000.0       ' log10(1000) = 3.0
+  results[12] := r
+
+  r := LOG10 1.0          ' log10(1) = 0.0
+  results[13] := r
+
+  ' === EXP10 - 10^x ===
+
+  r := EXP10 2.0          ' 10^2 = 100.0
+  results[14] := r
+
+  r := EXP10 3.0          ' 10^3 = 1000.0
+  results[15] := r
+
+  r := EXP10 0.0          ' 10^0 = 1.0
+  results[16] := r
+
+  ' === LOG - Natural logarithm (ln) ===
+
+  r := LOG 2.718282       ' ln(e) ~= 1.0
+  results[17] := r
+
+  r := LOG 1.0            ' ln(1) = 0.0
+  results[18] := r
+
+  r := LOG 10.0           ' ln(10) ~= 2.303
+  results[19] := r
+
+  ' === EXP - e^x ===
+
+  r := EXP 1.0            ' e^1 = e ~= 2.718
+  results[20] := r
+
+  r := EXP 0.0            ' e^0 = 1.0
+  results[21] := r
+
+  r := EXP 2.0            ' e^2 ~= 7.389
+  results[22] := r
+
+  ' Combined expression
+  a := 4.0
+  r := EXP2 (LOG2 a)      ' Should be a (4.0)
+  results[23] := r

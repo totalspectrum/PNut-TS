@@ -1,0 +1,90 @@
+' spin_builtin_cordic.spin2 - Tests CORDIC math built-in methods
+' Tests: POLXY, XYPOL, ROTXY
+
+VAR
+  LONG  results[20]
+
+PUB go() | x, y, angle, radius, nx, ny
+
+  ' === POLXY - Polar to Cartesian conversion ===
+  ' Converts (angle, radius) to (x, y)
+  ' Angle is in units of $0001_0000 = 360 degrees
+
+  ' 0 degrees, radius 1000 -> (1000, 0)
+  angle := 0
+  radius := 1000
+  x, y := POLXY(angle, radius)
+  results[0] := x
+  results[1] := y
+
+  ' 90 degrees ($4000_0000), radius 1000 -> (0, 1000)
+  angle := $4000_0000
+  radius := 1000
+  x, y := POLXY(angle, radius)
+  results[2] := x
+  results[3] := y
+
+  ' 180 degrees ($8000_0000), radius 1000 -> (-1000, 0)
+  angle := $8000_0000
+  radius := 1000
+  x, y := POLXY(angle, radius)
+  results[4] := x
+  results[5] := y
+
+  ' 45 degrees ($2000_0000), radius 1414 -> (~1000, ~1000)
+  angle := $2000_0000
+  radius := 1414
+  x, y := POLXY(angle, radius)
+  results[6] := x
+  results[7] := y
+
+  ' === XYPOL - Cartesian to Polar conversion ===
+  ' Converts (x, y) to (angle, radius)
+
+  ' (1000, 0) -> 0 degrees, radius 1000
+  x := 1000
+  y := 0
+  angle, radius := XYPOL(x, y)
+  results[8] := angle
+  results[9] := radius
+
+  ' (0, 1000) -> 90 degrees, radius 1000
+  x := 0
+  y := 1000
+  angle, radius := XYPOL(x, y)
+  results[10] := angle
+  results[11] := radius
+
+  ' (1000, 1000) -> 45 degrees, radius ~1414
+  x := 1000
+  y := 1000
+  angle, radius := XYPOL(x, y)
+  results[12] := angle
+  results[13] := radius
+
+  ' === ROTXY - Rotate XY coordinates ===
+  ' Rotates point (x, y) by angle
+
+  ' Rotate (1000, 0) by 90 degrees -> (0, 1000)
+  x := 1000
+  y := 0
+  angle := $4000_0000   ' 90 degrees
+  nx, ny := ROTXY(x, y, angle)
+  results[14] := nx
+  results[15] := ny
+
+  ' Rotate (1000, 0) by 180 degrees -> (-1000, 0)
+  x := 1000
+  y := 0
+  angle := $8000_0000   ' 180 degrees
+  nx, ny := ROTXY(x, y, angle)
+  results[16] := nx
+  results[17] := ny
+
+  ' Rotate (707, 707) by 45 degrees
+  x := 707
+  y := 707
+  angle := $2000_0000   ' 45 degrees
+  nx, ny := ROTXY(x, y, angle)
+  results[18] := nx
+  results[19] := ny

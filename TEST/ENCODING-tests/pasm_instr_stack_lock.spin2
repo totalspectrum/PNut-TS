@@ -1,0 +1,54 @@
+' pasm_instr_stack_lock.spin2 - Tests stack and lock instructions
+' Tests: POP, PUSH
+' Tests: LOCKNEW, LOCKREL, LOCKRET, LOCKTRY
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+reg1    LONG    0
+reg2    LONG    0
+lockid  LONG    0
+
+        ' === PUSH - Push value to stack ===
+        MOV     reg1, #100
+        PUSH    reg1            ' Push reg1 value to stack
+
+        MOV     reg1, #200
+        PUSH    reg1            ' Push another value
+
+        ' === POP - Pop value from stack ===
+        POP     reg2            ' Pop into reg2 (gets 200)
+        POP     reg2            ' Pop into reg2 (gets 100)
+
+        ' Push immediate values
+        PUSH    #$55
+        PUSH    #$AA
+        POP     reg1
+        POP     reg2
+
+        ' === LOCKNEW - Acquire a new lock ===
+        LOCKNEW lockid      WC  ' Get new lock, C=1 if none available
+
+        ' === LOCKTRY - Try to acquire lock ===
+        LOCKTRY lockid      WC  ' Try lock, C=1 if acquired
+
+        ' === LOCKREL - Release lock ===
+        LOCKREL lockid          ' Release the lock
+
+        ' === LOCKRET - Return lock to pool ===
+        LOCKRET lockid          ' Return lock to available pool
+
+        ' Multiple lock operations
+        LOCKNEW reg1        WC  ' Get another lock
+        LOCKTRY reg1        WC  ' Try it
+        LOCKREL reg1            ' Release
+        LOCKRET reg1            ' Return
+
+        RET
+
+        FIT     $1F0

@@ -1,0 +1,84 @@
+' pasm_encoding_ptr_pre.spin2 - Tests PTR pre-increment/decrement operand forms
+' Tests: ++PTRA, --PTRA, ++PTRB, --PTRB
+' Tests: ++PTRA[n], --PTRA[n], ++PTRB[n], --PTRB[n]
+' These modify the pointer BEFORE use (unlike post-increment PTRA++)
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+temp    LONG    0
+dest    LONG    0
+
+        ' Set up pointers to hub addresses
+        MOV     PTRA, ##$1000
+        MOV     PTRB, ##$2000
+
+        ' === ++PTRA - Pre-increment PTRA by 1 long (4 bytes) ===
+        RDLONG  temp, ++PTRA            ' Increment PTRA first, then read
+        WRLONG  temp, ++PTRA            ' Increment PTRA first, then write
+
+        ' === --PTRA - Pre-decrement PTRA by 1 long ===
+        RDLONG  temp, --PTRA            ' Decrement PTRA first, then read
+        WRLONG  temp, --PTRA            ' Decrement PTRA first, then write
+
+        ' === ++PTRB - Pre-increment PTRB by 1 long ===
+        RDLONG  temp, ++PTRB            ' Increment PTRB first, then read
+        WRLONG  temp, ++PTRB            ' Increment PTRB first, then write
+
+        ' === --PTRB - Pre-decrement PTRB by 1 long ===
+        RDLONG  temp, --PTRB            ' Decrement PTRB first, then read
+        WRLONG  temp, --PTRB            ' Decrement PTRB first, then write
+
+        ' === ++PTRA[n] - Pre-increment with index ===
+        MOV     PTRA, ##$1000
+        RDLONG  temp, ++PTRA[1]         ' Increment by 1, then read
+        RDLONG  temp, ++PTRA[4]         ' Increment by 4, then read
+        RDLONG  temp, ++PTRA[16]        ' Increment by 16, then read
+
+        ' === --PTRA[n] - Pre-decrement with index ===
+        MOV     PTRA, ##$1100
+        RDLONG  temp, --PTRA[1]         ' Decrement by 1, then read
+        RDLONG  temp, --PTRA[4]         ' Decrement by 4, then read
+        RDLONG  temp, --PTRA[16]        ' Decrement by 16, then read
+
+        ' === ++PTRB[n] - Pre-increment with index ===
+        MOV     PTRB, ##$2000
+        RDLONG  temp, ++PTRB[1]         ' Increment by 1, then read
+        RDLONG  temp, ++PTRB[4]         ' Increment by 4, then read
+        RDLONG  temp, ++PTRB[8]         ' Increment by 8, then read
+
+        ' === --PTRB[n] - Pre-decrement with index ===
+        MOV     PTRB, ##$2100
+        RDLONG  temp, --PTRB[1]         ' Decrement by 1, then read
+        RDLONG  temp, --PTRB[4]         ' Decrement by 4, then read
+        RDLONG  temp, --PTRB[8]         ' Decrement by 8, then read
+
+        ' === Word and Byte access with pre-increment ===
+        MOV     PTRA, ##$3000
+        RDWORD  temp, ++PTRA            ' Pre-increment, read word
+        RDBYTE  temp, ++PTRA            ' Pre-increment, read byte
+        WRWORD  temp, ++PTRA            ' Pre-increment, write word
+        WRBYTE  temp, ++PTRA            ' Pre-increment, write byte
+
+        ' === Word and Byte access with pre-decrement ===
+        MOV     PTRA, ##$3100
+        RDWORD  temp, --PTRA            ' Pre-decrement, read word
+        RDBYTE  temp, --PTRA            ' Pre-decrement, read byte
+        WRWORD  temp, --PTRA            ' Pre-decrement, write word
+        WRBYTE  temp, --PTRA            ' Pre-decrement, write byte
+
+        ' === Compare encoding with post-increment ===
+        MOV     PTRA, ##$4000
+        RDLONG  temp, PTRA++            ' Post-increment (for comparison)
+        RDLONG  temp, ++PTRA            ' Pre-increment (different encoding)
+        RDLONG  temp, PTRA--            ' Post-decrement (for comparison)
+        RDLONG  temp, --PTRA            ' Pre-decrement (different encoding)
+
+        RET
+
+        FIT     $1F0

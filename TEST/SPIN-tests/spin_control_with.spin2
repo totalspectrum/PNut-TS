@@ -1,0 +1,62 @@
+' spin_control_with.spin2 - Tests REPEAT WITH construct
+' This tests the missing Spin2 control flow feature: REPEAT n WITH variable
+
+CON
+  ARRAY_SIZE = 10
+
+VAR
+  LONG  results[ARRAY_SIZE]
+  LONG  sum
+  LONG  product
+
+PUB go() | i, j, temp
+
+  ' Basic REPEAT WITH - i gets values 0 to 9
+  sum := 0
+  REPEAT 10 WITH i
+    sum += i
+
+  ' REPEAT WITH using constant
+  REPEAT ARRAY_SIZE WITH i
+    results[i] := i * 2
+
+  ' Nested REPEAT WITH loops
+  sum := 0
+  REPEAT 5 WITH i
+    REPEAT 4 WITH j
+      sum += i * j
+
+  ' REPEAT WITH combined with expressions
+  product := 1
+  REPEAT 6 WITH i
+    IF i > 0
+      product *= i
+
+  ' REPEAT WITH in array initialization
+  REPEAT ARRAY_SIZE WITH i
+    results[i] := i * i
+
+  ' REPEAT WITH with local variable operations
+  temp := 100
+  REPEAT 8 WITH i
+    temp -= i
+    results[i] := temp
+
+  ' REPEAT WITH zero iterations (edge case)
+  sum := 999
+  REPEAT 0 WITH i
+    sum := 0  ' Should not execute
+
+  ' REPEAT WITH single iteration
+  sum := 0
+  REPEAT 1 WITH i
+    sum := i + 100
+
+  ' Complex expression with WITH variable
+  REPEAT 5 WITH i
+    results[i] := (i << 2) | (i & 3)
+
+  ' REPEAT WITH followed by regular REPEAT
+  REPEAT 3 WITH i
+    REPEAT 2
+      results[i] += 1

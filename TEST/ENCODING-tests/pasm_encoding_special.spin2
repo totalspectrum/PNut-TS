@@ -1,0 +1,100 @@
+' pasm_encoding_special.spin2 - Tests special operand encoding forms
+' Tests: Register expressions (D+1, S-4, reg+offset)
+' Tests: PA/PB as call/jump targets
+' Tests: Extended REP block forms
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers - contiguous block for register expressions
+base_reg LONG   $11111111
+reg1    LONG    $22222222
+reg2    LONG    $33333333
+reg3    LONG    $44444444
+temp    LONG    0
+count   LONG    0
+
+        ' === Register Expressions with offsets ===
+        MOV     temp, base_reg+0
+        MOV     temp, base_reg+1
+        MOV     temp, base_reg+2
+        MOV     temp, base_reg+3
+
+        ' S+offset form in source position
+        ADD     temp, base_reg+1
+        SUB     temp, base_reg+2
+        XOR     temp, base_reg+3
+
+        ' Both D and S with offsets
+        MOV     base_reg+0, base_reg+3
+        ADD     base_reg+1, base_reg+2
+
+        ' === PA/PB as call targets ===
+        MOV     PA, #sub1
+        MOV     PB, #sub2
+
+        CALLA   #sub1
+        CALLB   #sub2
+
+        ' Call using PA/PB register values
+        MOV     PA, #sub1
+        CALLA   PA
+
+        MOV     PB, #sub2
+        CALLB   PB
+
+        ' === REP block forms ===
+        MOV     count, #10
+        REP     #4, count
+        ADD     temp, #1
+        SUB     reg1, #1
+        XOR     reg2, reg3
+        NOP
+
+        ' REP with immediate count
+        REP     #3, #5
+        ADD     temp, #1
+        ADD     temp, #2
+        ADD     temp, #3
+
+        ' REP with @end marker
+        MOV     count, #8
+        REP     @.lend, count
+        ADD     temp, #1
+        MOV     reg1, temp
+.lend
+
+        ' Sequential REPs
+        REP     #2, #3
+        NOP
+        NOP
+
+        REP     #1, #10
+        ADD     temp, #1
+
+        ' === ALTI for indirect register access ===
+        MOV     temp, #base_reg
+        ALTI    temp, #%000_000000
+        MOV     reg1, 0-0
+
+        ' === Flag effects ===
+        ADD     temp, #$1FF     wcz
+        MOV     temp, reg1      wc
+        MOV     temp, reg2      wz
+        MOV     temp, reg3      wcz
+
+        JMP     #done
+
+sub1    NOP
+        RETA
+
+sub2    NOP
+        RETB
+
+done    RET
+
+        FIT     $1F0

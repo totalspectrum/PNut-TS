@@ -1,0 +1,71 @@
+' pasm_instr_jump.spin2 - Tests J* jump-on-event instructions
+' Tests: JATN, JCT1-3, JFBW, JINT, and negated forms JN*
+' Also: JSE1-4, JXFI, JXMT, JXRL, JXRO and their negated forms
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Jump targets
+target1 NOP
+target2 NOP
+target3 NOP
+
+        ' === Jump on ATN (attention) ===
+        JATN    #target1        ' Jump if ATN event
+        JNATN   #target2        ' Jump if NOT ATN event
+
+        ' === Jump on counter events ===
+        JCT1    #target1        ' Jump if CT1 event
+        JCT2    #target2        ' Jump if CT2 event
+        JCT3    #target3        ' Jump if CT3 event
+
+        JNCT1   #target1        ' Jump if NOT CT1 event
+        JNCT2   #target2        ' Jump if NOT CT2 event
+        JNCT3   #target3        ' Jump if NOT CT3 event
+
+        ' === Jump on FIFO buffer wrap ===
+        JFBW    #target1        ' Jump if FIFO buffer wrapped
+        JNFBW   #target2        ' Jump if NOT FIFO buffer wrapped
+
+        ' === Jump on interrupt ===
+        JINT    #target1        ' Jump if interrupt pending
+        JNINT   #target2        ' Jump if NOT interrupt pending
+
+        ' === Jump on pattern match ===
+        JPAT    #target1        ' Jump if pattern matched
+        JNPAT   #target2        ' Jump if NOT pattern matched
+
+        ' === Jump on QMT (CORDIC queue empty) ===
+        JQMT    #target1        ' Jump if CORDIC queue empty
+        JNQMT   #target2        ' Jump if NOT CORDIC queue empty
+
+        ' === Jump on smart pin events SE1-4 ===
+        JSE1    #target1        ' Jump if SE1 event
+        JSE2    #target2        ' Jump if SE2 event
+        JSE3    #target3        ' Jump if SE3 event
+        JSE4    #target1        ' Jump if SE4 event
+
+        JNSE1   #target1        ' Jump if NOT SE1 event
+        JNSE2   #target2        ' Jump if NOT SE2 event
+        JNSE3   #target3        ' Jump if NOT SE3 event
+        JNSE4   #target1        ' Jump if NOT SE4 event
+
+        ' === Jump on streamer events ===
+        JXFI    #target1        ' Jump if XFI (streamer finished input)
+        JXMT    #target2        ' Jump if XMT (streamer empty)
+        JXRL    #target3        ' Jump if XRL (streamer reload)
+        JXRO    #target1        ' Jump if XRO (streamer rollover)
+
+        JNXFI   #target1        ' Jump if NOT XFI
+        JNXMT   #target2        ' Jump if NOT XMT
+        JNXRL   #target3        ' Jump if NOT XRL
+        JNXRO   #target1        ' Jump if NOT XRO
+
+        ' End marker
+        RET
+
+        FIT     $1F0

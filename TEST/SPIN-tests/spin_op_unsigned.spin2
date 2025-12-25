@@ -1,0 +1,91 @@
+' spin_op_unsigned.spin2 - Tests unsigned comparison and math operators
+' Tests: +< +<= +> +>= +/ +// <=>
+
+VAR
+  LONG  results[20]
+
+PUB go() | a, b, r, i
+
+  ' Unsigned comparisons - critical when high bit is set
+  a := $FFFFFFFF  ' -1 signed, but max unsigned
+  b := 1
+
+  ' +< unsigned less than
+  r := a +< b           ' FALSE: $FFFFFFFF is NOT less than 1 unsigned
+  results[0] := r
+
+  r := b +< a           ' TRUE: 1 is less than $FFFFFFFF unsigned
+  results[1] := r
+
+  ' +<= unsigned less or equal
+  r := a +<= b          ' FALSE
+  results[2] := r
+
+  r := b +<= a          ' TRUE
+  results[3] := r
+
+  r := a +<= a          ' TRUE (equal)
+  results[4] := r
+
+  ' +> unsigned greater than
+  r := a +> b           ' TRUE: $FFFFFFFF > 1 unsigned
+  results[5] := r
+
+  r := b +> a           ' FALSE
+  results[6] := r
+
+  ' +>= unsigned greater or equal
+  r := a +>= b          ' TRUE
+  results[7] := r
+
+  r := b +>= a          ' FALSE
+  results[8] := r
+
+  r := a +>= a          ' TRUE (equal)
+  results[9] := r
+
+  ' Unsigned division +/
+  a := $80000000        ' Large positive unsigned, negative signed
+  b := 2
+  r := a +/ b           ' Should be $40000000
+  results[10] := r
+
+  a := 100
+  b := 7
+  r := a +/ b           ' 14
+  results[11] := r
+
+  ' Unsigned modulo +//
+  a := $80000000
+  b := 3
+  r := a +// b          ' Unsigned remainder
+  results[12] := r
+
+  a := 100
+  b := 7
+  r := a +// b          ' 2
+  results[13] := r
+
+  ' Three-way comparison <=>
+  a := 10
+  b := 20
+  r := a <=> b          ' -1 (a < b)
+  results[14] := r
+
+  r := b <=> a          ' 1 (b > a)
+  results[15] := r
+
+  r := a <=> a          ' 0 (equal)
+  results[16] := r
+
+  ' Edge cases
+  a := 0
+  b := 0
+  r := a +< b           ' FALSE
+  results[17] := r
+
+  r := a +<= b          ' TRUE
+  results[18] := r
+
+  r := a <=> b          ' 0
+  results[19] := r

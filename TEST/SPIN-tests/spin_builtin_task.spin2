@@ -1,0 +1,65 @@
+{Spin2_v47}
+' spin_builtin_task.spin2 - Tests v47+ task management built-in methods
+' Tests: TASKID, TASKNEXT, TASKCHK, TASKHALT, TASKCONT, TASKSTOP
+
+VAR
+  LONG  results[10]
+  LONG  stack[64]
+
+PUB go() | tid, status
+
+  ' === TASKID - Get current task ID ===
+  tid := TASKID()
+  results[0] := tid     ' Current task ID (usually 0 for main)
+
+  ' === TASKNEXT - Yield to next task ===
+  ' TASKNEXT does not return a value - it yields execution
+  TASKNEXT()            ' Yield to next task (returns to this task)
+
+  ' === TASKCHK - Check task status ===
+  ' Returns: 0=free, 1=running, 2=halted
+  status := TASKCHK(tid)
+  results[1] := status  ' Should indicate running (1)
+
+  ' Check status of likely unused task
+  status := TASKCHK(7)
+  results[2] := status  ' Should be 0 (free)
+
+  ' === More TASKID usage ===
+  tid := TASKID()
+  results[3] := tid
+
+  ' Verify task is valid
+  status := TASKCHK(tid)
+  results[4] := status
+
+  ' === TASKHALT - Halt a task ===
+  ' Would halt specified task (commented to avoid halting self)
+  ' TASKHALT(other_task_id)
+
+  ' === TASKCONT - Continue a halted task ===
+  ' Would resume a halted task
+  ' TASKCONT(halted_task_id)
+
+  ' === TASKSTOP - Stop a task ===
+  ' Would stop specified task
+  ' TASKSTOP(task_to_stop)
+
+  ' Store final task state
+  results[5] := TASKID()
+  results[6] := TASKCHK(0)
+
+  ' Multiple yields
+  TASKNEXT()
+  TASKNEXT()
+  TASKNEXT()
+
+  results[7] := TASKID()
+
+PRI worker_task() | i
+  ' Example worker task for task management testing
+  REPEAT
+    i++
+    TASKNEXT()
+    IF i > 1000
+      QUIT

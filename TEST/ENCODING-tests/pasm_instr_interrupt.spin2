@@ -1,0 +1,110 @@
+' pasm_instr_interrupt.spin2 - Tests interrupt-related instructions
+' Tests: RESI0, RESI1, RESI2, RESI3 - Resume from interrupt
+' Tests: RETI0, RETI1, RETI2, RETI3 - Return from interrupt
+' Tests: RETA, RETB - Return via PA/PB
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Set up PA and PB with return addresses
+        MOV     PA, #main_loop
+        MOV     PB, #alt_return
+
+        JMP     #skip_isrs
+
+        ' === Interrupt Service Routines (for encoding test) ===
+
+        ' ISR for INT0
+isr0
+        NOP                     ' Placeholder for ISR work
+        RESI0                   ' Resume from ISR0 (doesn't return)
+
+        ' ISR for INT1
+isr1
+        NOP
+        RESI1                   ' Resume from ISR1
+
+        ' ISR for INT2
+isr2
+        NOP
+        RESI2                   ' Resume from ISR2
+
+        ' ISR for INT3
+isr3
+        NOP
+        RESI3                   ' Resume from ISR3
+
+        ' === Alternative ISRs using RETI ===
+
+isr0_reti
+        NOP
+        RETI0                   ' Return from ISR0
+
+isr1_reti
+        NOP
+        RETI1                   ' Return from ISR1
+
+isr2_reti
+        NOP
+        RETI2                   ' Return from ISR2
+
+isr3_reti
+        NOP
+        RETI3                   ' Return from ISR3
+
+        ' === Return point targets ===
+alt_return
+        NOP
+        JMP     #main_loop
+
+skip_isrs
+        ' === Test RETA - Return via PA ===
+        ' RETA returns to address in PA register
+        ' In real code, this would be used after a CALLA
+        ' Just testing encoding here
+        NOP
+        ' RETA                  ' Would jump to PA - skip for test
+
+        ' === Test RETB - Return via PB ===
+        ' RETB returns to address in PB register
+        ' In real code, this would be used after a CALLB
+        NOP
+        ' RETB                  ' Would jump to PB - skip for test
+
+main_loop
+        ' Main code demonstrating RETA and RETB in subroutine context
+        CALLA   #sub_a          ' Call subroutine using PA
+        CALLB   #sub_b          ' Call subroutine using PB
+
+        JMP     #main_loop
+
+        ' === Subroutine using RETA ===
+sub_a
+        NOP                     ' Subroutine work
+        RETA                    ' Return via PA
+
+        ' === Subroutine using RETB ===
+sub_b
+        NOP                     ' Subroutine work
+        RETB                    ' Return via PB
+
+        ' === All interrupt instructions in one place for encoding ===
+encoding_test
+        RESI0
+        RESI1
+        RESI2
+        RESI3
+        RETI0
+        RETI1
+        RETI2
+        RETI3
+        RETA
+        RETB
+
+        RET
+
+        FIT     $1F0

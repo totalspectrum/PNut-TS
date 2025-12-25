@@ -1,0 +1,99 @@
+{Spin2_v45}
+' spin_builtin_swap.spin2 - Tests v44+ data manipulation built-in methods
+' Tests: BYTESWAP, WORDSWAP, LONGSWAP, BYTECOMP, WORDCOMP, LONGCOMP
+
+VAR
+  LONG  results[20]
+  LONG  buf1[4]
+  LONG  buf2[4]
+
+PUB go() | r
+
+  ' === BYTESWAP - Swap bytes between two memory areas ===
+  ' byteswap(@src, @dst, count)
+
+  buf1[0] := $12345678
+  buf2[0] := $AABBCCDD
+  BYTESWAP(@buf1, @buf2, 4)    ' Swap 4 bytes
+  results[0] := buf1[0]
+  results[1] := buf2[0]
+
+  ' Swap back
+  BYTESWAP(@buf1, @buf2, 4)
+  results[2] := buf1[0]
+  results[3] := buf2[0]
+
+  ' === WORDSWAP - Swap words between two memory areas ===
+  ' wordswap(@src, @dst, count)
+
+  buf1[0] := $11112222
+  buf2[0] := $33334444
+  WORDSWAP(@buf1, @buf2, 2)    ' Swap 2 words (4 bytes)
+  results[4] := buf1[0]
+  results[5] := buf2[0]
+
+  ' === LONGSWAP - Swap longs between two memory areas ===
+  ' longswap(@src, @dst, count)
+
+  buf1[0] := $DEADBEEF
+  buf2[0] := $CAFEBABE
+  LONGSWAP(@buf1, @buf2, 1)    ' Swap 1 long
+  results[6] := buf1[0]
+  results[7] := buf2[0]
+
+  ' Multiple longs
+  buf1[0] := $11111111
+  buf1[1] := $22222222
+  buf2[0] := $33333333
+  buf2[1] := $44444444
+  LONGSWAP(@buf1, @buf2, 2)    ' Swap 2 longs
+  results[8] := buf1[0]
+  results[9] := buf1[1]
+  results[10] := buf2[0]
+  results[11] := buf2[1]
+
+  ' === BYTECOMP - Compare bytes between two memory areas ===
+  ' Returns 0 if equal, non-zero if different
+
+  buf1[0] := $12345678
+  buf2[0] := $12345678
+  r := BYTECOMP(@buf1, @buf2, 4)   ' Should be 0 (equal)
+  results[12] := r
+
+  buf2[0] := $12345679
+  r := BYTECOMP(@buf1, @buf2, 4)   ' Should be non-zero (different)
+  results[13] := r
+
+  ' === WORDCOMP - Compare words between two memory areas ===
+
+  buf1[0] := $AABBCCDD
+  buf2[0] := $AABBCCDD
+  r := WORDCOMP(@buf1, @buf2, 2)   ' Should be 0 (equal)
+  results[14] := r
+
+  buf2[0] := $AABBCCDE
+  r := WORDCOMP(@buf1, @buf2, 2)   ' Should be non-zero
+  results[15] := r
+
+  ' === LONGCOMP - Compare longs between two memory areas ===
+
+  buf1[0] := $FFFFFFFF
+  buf2[0] := $FFFFFFFF
+  r := LONGCOMP(@buf1, @buf2, 1)   ' Should be 0 (equal)
+  results[16] := r
+
+  buf2[0] := $FFFFFFFE
+  r := LONGCOMP(@buf1, @buf2, 1)   ' Should be non-zero
+  results[17] := r
+
+  ' Compare multiple longs
+  buf1[0] := $11111111
+  buf1[1] := $22222222
+  buf2[0] := $11111111
+  buf2[1] := $22222222
+  r := LONGCOMP(@buf1, @buf2, 2)   ' Should be 0
+  results[18] := r
+
+  buf2[1] := $22222223
+  r := LONGCOMP(@buf1, @buf2, 2)   ' Should be non-zero
+  results[19] := r

@@ -1,0 +1,70 @@
+' pasm_encoding_augs_chain.spin2 - Tests AUGS/AUGD chained augment prefixes
+' Tests: ## syntax for source augmentation (AUGS prefix)
+' Tests: Full 32-bit immediate values via augmentation
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+temp    LONG    0
+addr    LONG    0
+result  LONG    0
+
+        ' === Basic AUGS - Source augmentation (## syntax) ===
+        MOV     temp, ##$12345678
+        MOV     temp, ##$FFFFFFFF
+        MOV     temp, ##$00000000
+        MOV     temp, ##$DEADBEEF
+        MOV     temp, ##$80000000
+        MOV     temp, ##$00000001
+
+        ' === AUGS with various instructions ===
+        ADD     temp, ##$10000000
+        SUB     temp, ##$20000000
+        AND     temp, ##$FF00FF00
+        OR      temp, ##$00FF00FF
+        XOR     temp, ##$AAAAAAAA
+
+        ' === AUGS for hub addresses ===
+        MOV     addr, ##$1000
+        RDLONG  temp, ##$2000
+        WRLONG  temp, ##$3000
+
+        ' === AUGS for large offsets ===
+        MOV     addr, ##$00010000
+        MOV     addr, ##$00100000
+        MOV     addr, ##$01000000
+        MOV     addr, ##$10000000
+
+        ' === Multiple AUGS in sequence ===
+        MOV     temp, ##$11111111
+        MOV     result, ##$22222222
+        ADD     temp, ##$33333333
+        SUB     result, ##$44444444
+
+        ' === Conditional execution with augmented immediates ===
+        MOV     temp, ##$FFFFFFFF
+        CMP     temp, ##$FFFFFFFF   wz
+        CMP     temp, ##$00000000   wc
+        CMPS    temp, ##$80000000   wc
+
+        ' === Multiple augments for different value ranges ===
+        MOV     temp, ##%10101010_10101010_10101010_10101010
+        MOV     temp, ##%01010101_01010101_01010101_01010101
+        MOV     temp, ##%11110000_11110000_11110000_11110000
+        MOV     temp, ##%00001111_00001111_00001111_00001111
+
+        ' === Edge cases ===
+        MOV     temp, ##511
+        MOV     temp, ##512
+        MOV     temp, ##$1FF
+        MOV     temp, ##$200
+        MOV     temp, ##$7FFFFFFF
+
+        RET
+
+        FIT     $1F0

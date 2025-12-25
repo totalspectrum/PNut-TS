@@ -1,0 +1,91 @@
+' spin_op_float_cmp.spin2 - Tests floating-point comparison operators
+' Tests: <. <=. >. >=. ==. <>.
+
+VAR
+  LONG  results[24]
+
+PUB go() | r
+
+  ' === FLOAT LESS THAN <. ===
+
+  r := 1.0 <. 2.0       ' TRUE
+  results[0] := r
+
+  r := 2.0 <. 1.0       ' FALSE
+  results[1] := r
+
+  r := 1.0 <. 1.0       ' FALSE (equal)
+  results[2] := r
+
+  r := -1.0 <. 1.0      ' TRUE (negative < positive)
+  results[3] := r
+
+  ' === FLOAT LESS OR EQUAL <=. ===
+
+  r := 1.0 <=. 2.0      ' TRUE
+  results[4] := r
+
+  r := 2.0 <=. 1.0      ' FALSE
+  results[5] := r
+
+  r := 1.0 <=. 1.0      ' TRUE (equal)
+  results[6] := r
+
+  r := -0.5 <=. 0.5     ' TRUE
+  results[7] := r
+
+  ' === FLOAT GREATER THAN >. ===
+
+  r := 2.0 >. 1.0       ' TRUE
+  results[8] := r
+
+  r := 1.0 >. 2.0       ' FALSE
+  results[9] := r
+
+  r := 1.0 >. 1.0       ' FALSE (equal)
+  results[10] := r
+
+  r := 1.0 >. -1.0      ' TRUE
+  results[11] := r
+
+  ' === FLOAT GREATER OR EQUAL >=. ===
+
+  r := 2.0 >=. 1.0      ' TRUE
+  results[12] := r
+
+  r := 1.0 >=. 2.0      ' FALSE
+  results[13] := r
+
+  r := 1.0 >=. 1.0      ' TRUE (equal)
+  results[14] := r
+
+  r := 0.0 >=. -0.0     ' TRUE
+  results[15] := r
+
+  ' === FLOAT EQUAL ==. ===
+
+  r := 1.0 ==. 1.0      ' TRUE
+  results[16] := r
+
+  r := 1.0 ==. 2.0      ' FALSE
+  results[17] := r
+
+  r := 0.0 ==. 0.0      ' TRUE
+  results[18] := r
+
+  r := 3.14159 ==. 3.14159  ' TRUE
+  results[19] := r
+
+  ' === FLOAT NOT EQUAL <>. ===
+
+  r := 1.0 <>. 2.0      ' TRUE
+  results[20] := r
+
+  r := 1.0 <>. 1.0      ' FALSE
+  results[21] := r
+
+  r := -1.0 <>. 1.0     ' TRUE
+  results[22] := r
+
+  r := 0.0 <>. 0.0      ' FALSE
+  results[23] := r

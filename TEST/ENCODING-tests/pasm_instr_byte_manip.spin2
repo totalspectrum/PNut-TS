@@ -1,0 +1,72 @@
+' pasm_instr_byte_manip.spin2 - Tests byte/nibble/word field manipulation
+' Tests: GETBYTE, GETNIB, GETWORD, SETBYTE, SETNIB, SETWORD, ROLBYTE, ROLNIB, ROLWORD
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers
+src     LONG    $12345678
+dst     LONG    0
+val     LONG    $AA
+
+        ' === GETBYTE - Extract byte from long ===
+        GETBYTE dst, src, #0    ' Get byte 0 ($78)
+        GETBYTE dst, src, #1    ' Get byte 1 ($56)
+        GETBYTE dst, src, #2    ' Get byte 2 ($34)
+        GETBYTE dst, src, #3    ' Get byte 3 ($12)
+
+        ' === GETNIB - Extract nibble from long ===
+        GETNIB  dst, src, #0    ' Get nibble 0 ($8)
+        GETNIB  dst, src, #1    ' Get nibble 1 ($7)
+        GETNIB  dst, src, #4    ' Get nibble 4 ($4)
+        GETNIB  dst, src, #7    ' Get nibble 7 ($1)
+
+        ' === GETWORD - Extract word from long ===
+        GETWORD dst, src, #0    ' Get word 0 ($5678)
+        GETWORD dst, src, #1    ' Get word 1 ($1234)
+
+        ' === SETBYTE - Insert byte into long ===
+        MOV     dst, #0
+        SETBYTE dst, val, #0    ' Set byte 0
+        SETBYTE dst, val, #1    ' Set byte 1
+        SETBYTE dst, val, #2    ' Set byte 2
+        SETBYTE dst, val, #3    ' Set byte 3
+
+        ' === SETNIB - Insert nibble into long ===
+        MOV     dst, #0
+        MOV     val, #$F
+        SETNIB  dst, val, #0    ' Set nibble 0
+        SETNIB  dst, val, #3    ' Set nibble 3
+        SETNIB  dst, val, #7    ' Set nibble 7
+
+        ' === SETWORD - Insert word into long ===
+        MOV     dst, #0
+        MOV     val, ##$ABCD
+        SETWORD dst, val, #0    ' Set word 0
+        SETWORD dst, val, #1    ' Set word 1
+
+        ' === ROLBYTE - Rotate bytes within long ===
+        MOV     dst, src
+        ROLBYTE dst, dst, #0    ' Rotate bytes by 0
+        ROLBYTE dst, dst, #1    ' Rotate bytes by 1
+        ROLBYTE dst, dst, #2    ' Rotate bytes by 2
+        ROLBYTE dst, dst, #3    ' Rotate bytes by 3
+
+        ' === ROLNIB - Rotate nibbles within long ===
+        MOV     dst, src
+        ROLNIB  dst, dst, #0    ' Rotate nibbles by 0
+        ROLNIB  dst, dst, #1    ' Rotate nibbles by 1
+        ROLNIB  dst, dst, #4    ' Rotate nibbles by 4
+
+        ' === ROLWORD - Rotate words within long ===
+        MOV     dst, src
+        ROLWORD dst, dst, #0    ' Rotate words by 0
+        ROLWORD dst, dst, #1    ' Rotate words by 1
+
+        RET
+
+        FIT     $1F0

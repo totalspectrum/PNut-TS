@@ -1,0 +1,80 @@
+' pasm_instr_cond_math.spin2 - Tests extended precision and conditional math
+' Tests: ADDSX, ADDX, SUBSX, SUBX, CMPSX, CMPX
+' Tests: SUMC, SUMNC, SUMNZ, SUMZ
+
+PUB go()
+  COGINIT(0, @test_code, 0)
+
+DAT
+        ORG     0
+
+test_code
+        ' Working registers for 64-bit math
+lo1     LONG    $FFFFFFFF       ' Low 32 bits of first number
+hi1     LONG    $00000001       ' High 32 bits of first number
+lo2     LONG    $00000001       ' Low 32 bits of second number
+hi2     LONG    $00000000       ' High 32 bits of second number
+reslo   LONG    0
+reshi   LONG    0
+
+        ' === Extended addition (64-bit) ===
+        ' Add lo1+lo2, then hi1+hi2 with carry
+
+        MOV     reslo, lo1
+        ADD     reslo, lo2  WC  ' Add low words, save carry
+        MOV     reshi, hi1
+        ADDX    reshi, hi2      ' Add high words with carry
+
+        ' === ADDSX - Add with sign extension and carry ===
+        MOV     reslo, lo1
+        ADDS    reslo, lo2  WC  ' Signed add, save carry
+        MOV     reshi, hi1
+        ADDSX   reshi, hi2      ' Signed add with carry extension
+
+        ' === Extended subtraction (64-bit) ===
+        MOV     reslo, lo1
+        SUB     reslo, lo2  WC  ' Subtract low words, save borrow
+        MOV     reshi, hi1
+        SUBX    reshi, hi2      ' Subtract high words with borrow
+
+        ' === SUBSX - Subtract with sign extension and borrow ===
+        MOV     reslo, lo1
+        SUBS    reslo, lo2  WC  ' Signed subtract, save borrow
+        MOV     reshi, hi1
+        SUBSX   reshi, hi2      ' Signed subtract with borrow extension
+
+        ' === Extended comparison (64-bit) ===
+        CMP     lo1, lo2    WC  ' Compare low words
+        CMPX    hi1, hi2    WC  ' Compare high words with carry
+
+        ' === CMPSX - Compare with sign extension ===
+        CMPS    lo1, lo2    WC  ' Signed compare low
+        CMPSX   hi1, hi2    WC  ' Signed compare high with extension
+
+        ' === Conditional sum instructions ===
+        MOV     reslo, #0
+
+        ' SUMC - Add if C is set
+        MODCZ   _SET, 0     WC  ' Set carry
+        SUMC    reslo, #10      ' Add 10 if C set
+
+        ' SUMNC - Add if C is clear
+        MODCZ   _CLR, 0     WC  ' Clear carry
+        SUMNC   reslo, #20      ' Add 20 if C clear
+
+        ' SUMNZ - Add if Z is clear (non-zero)
+        MODCZ   0, _CLR     WZ  ' Clear zero flag
+        SUMNZ   reslo, #30      ' Add 30 if not zero
+
+        ' SUMZ - Add if Z is set
+        MODCZ   0, _SET     WZ  ' Set zero flag
+        SUMZ    reslo, #40      ' Add 40 if zero
+
+        ' Combined operations with WCZ
+        MOV     reslo, lo1
+        ADD     reslo, lo2  WCZ
+        ADDX    reshi, hi2  WCZ
+
+        RET
+
+        FIT     $1F0
