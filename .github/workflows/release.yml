@@ -207,6 +207,18 @@ jobs:
           echo "Contents:"
           find packages -type f
 
+      - name: Restore executable permissions
+        run: |
+          # GitHub Actions artifacts don't preserve Unix permissions
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          for arch in x64 arm64; do
+            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut-ts"
+            if [ -f "$BINARY" ]; then
+              chmod +x "$BINARY"
+              echo "Set executable: $BINARY"
+            fi
+          done
+
       - name: Import signing certificate
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
