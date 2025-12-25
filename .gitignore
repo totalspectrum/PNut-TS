@@ -268,15 +268,9 @@ scripts/updClaude
 TEST/MAP-tests/.vscode/settings.json
 /REF-INSTALL
 
-# macOS packaging - ignore generated files and signing scripts (contain identity info)
-scripts-pkg-macos/*.icns
-scripts-pkg-macos/*.png
-scripts-pkg-macos/pnut-ts-macos-*/
-scripts-pkg-macos/*.dmg
-scripts-pkg-macos/dmg-staging-*/
-scripts-pkg-macos/SIGN-*.command
-scripts-pkg-macos/NOTARIZE-*.command
-scripts-pkg-macos/CREATE-*.command
+# Local packaging scripts (not versioned - used for manual builds)
+scripts-pkg-macos/
+scripts-pkg/
 TEST/LANG-VER-tests/Spin2_v50_step.elemOLD
 TEST/SHORT/tablesTESTs/p2com.LST
 REF/p2com.LST
