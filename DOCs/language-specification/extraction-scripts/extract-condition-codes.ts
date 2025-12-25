@@ -211,7 +211,7 @@ function buildConditionCodeDatabase(): ConditionCodeDatabase {
 
     // Create the primary symbol (first alias or derived from base name)
     const primarySymbol = aliases.find(a => a.startsWith('IF_')) ||
-                         baseName.toUpperCase().replace('IF_', 'IF_');
+                         baseName.toUpperCase();
 
     const conditionCode: ConditionCode = {
       name: baseName,

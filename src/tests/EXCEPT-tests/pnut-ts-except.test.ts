@@ -131,7 +131,7 @@ describe('PNut_ts detects .spin2 exceptions w/debug() correctly', () => {
       }
 
       // Write stderr output immediately after compilation (for exception tests)
-      if (stderrOutput.length > 0 && goldenErroutFSpec && fileExists(goldenErroutFSpec)) {
+      if (stderrOutput.length > 0 && fileExists(goldenErroutFSpec)) {
         fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
       }
 
@@ -329,7 +329,7 @@ describe('PNut_ts detects .spin2 exceptions w/o debug() correctly', () => {
       }
 
       // Write stderr output immediately after compilation (for exception tests)
-      if (stderrOutput.length > 0 && goldenErroutFSpec && fileExists(goldenErroutFSpec)) {
+      if (stderrOutput.length > 0 && fileExists(goldenErroutFSpec)) {
         fs.writeFileSync(errorFSpec, stderrOutput.join('\n'));
       }
 

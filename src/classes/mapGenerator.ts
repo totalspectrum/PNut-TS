@@ -137,7 +137,7 @@ export class MapGenerator {
   }
 
   private emitHierarchyNode(instance: ObjInstanceInfo, allInstances: ObjInstanceInfo[], indent: string, isLast: boolean): void {
-    const prefix = indent.length > 2 ? (isLast ? '+-- ' : '+-- ') : '';
+    const prefix = indent.length > 2 ? (isLast ? '\\-- ' : '+-- ') : '';
     const instanceDisplay = instance.parentIndex === -1 ? instance.sourceFileBaseName : `${instance.instanceName} : ${instance.sourceFileBaseName}`;
 
     // Build info string
