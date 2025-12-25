@@ -647,13 +647,6 @@ jobs:
             fi
           done
 
-      - name: Upload macOS DMGs
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages-dmg
-          path: pnut-ts-macos-*.dmg
-          retention-days: 5
-
       - name: Upload macOS ZIPs
         uses: actions/upload-artifact@v4
         with:
@@ -675,12 +668,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: packages-zip
-          path: release/
-
-      - name: Download DMG packages
-        uses: actions/download-artifact@v4
-        with:
-          name: packages-dmg
           path: release/
 
       - name: Download macOS ZIP packages
@@ -727,6 +714,61 @@ jobs:
             echo "RELEASE_NAME=PNut-TS v${TAG_VERSION}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Generate release body
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          TAG="${{ github.ref_name }}"
+
+          # Extract changelog section for this version
+          CHANGELOG_CONTENT=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/N;/^\n$/d')
+
+          # Generate release body file
+          cat > release_body.md << RELEASE_EOF
+          ## PNut-TS ${TAG}
+
+          Propeller 2 Spin2/PASM2 Compiler - TypeScript Implementation
+
+          ---
+
+          ### Downloads
+
+          | Platform | Architecture | Download |
+          |----------|--------------|----------|
+          | **macOS** | Apple Silicon (M1/M2/M3) | \`pnut-ts-macos-arm64-${VERSION}.zip\` |
+          | **macOS** | Intel x64 | \`pnut-ts-macos-x64-${VERSION}.zip\` |
+          | **Windows** | x64 | \`pnut-ts-win-x64-${VERSION}.zip\` |
+          | **Windows** | ARM64 | \`pnut-ts-win-arm64-${VERSION}.zip\` |
+          | **Linux** | x64 | \`pnut-ts-linux-x64-${VERSION}.zip\` |
+          | **Linux** | ARM64 | \`pnut-ts-linux-arm64-${VERSION}.zip\` |
+
+          ---
+
+          ### Installing
+
+          Installation varies by operating system. Recommendations for installation of a version / or Update to the latest version can be found at the following pages:
+
+          - [Install/Update RPi/Linux](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-RPi.md#installing-pnut-ts-on-rpilinux)
+          - [Install/Update macOS](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-macOS.md#installing-pnut-ts-on-macos)
+          - [Install/Update Windows](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-win.md#installing-pnut-ts-on-windows)
+
+          ---
+
+          ### What's New in This Release
+
+          ${CHANGELOG_CONTENT}
+
+          See [CHANGELOG.md](https://github.com/ironsheep/PNut-TS/blob/main/CHANGELOG.md) for complete history.
+
+          ---
+
+          ### Checksums
+
+          See \`checksums.txt\` for SHA256 checksums of all files.
+          RELEASE_EOF
+
+          echo "Generated release body:"
+          cat release_body.md
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -735,53 +777,4 @@ jobs:
           prerelease: ${{ steps.release_type.outputs.IS_PRERELEASE == 'true' }}
           files: |
             release/*
-          body: |
-            ## PNut-TS ${{ github.ref_name }}
-
-            Propeller 2 Spin2/PASM2 Compiler - TypeScript Implementation
-
-            ---
-
-            ### Downloads
-
-            | Platform | Architecture | DMG Installer | ZIP Archive |
-            |----------|--------------|---------------|-------------|
-            | **macOS** | Apple Silicon (M1/M2/M3) | `pnut-ts-macos-arm64-${{ steps.version.outputs.VERSION }}.dmg` | `pnut-ts-macos-arm64-${{ steps.version.outputs.VERSION }}.zip` |
-            | **macOS** | Intel x64 | `pnut-ts-macos-x64-${{ steps.version.outputs.VERSION }}.dmg` | `pnut-ts-macos-x64-${{ steps.version.outputs.VERSION }}.zip` |
-
-            | Platform | Architecture | Download |
-            |----------|--------------|----------|
-            | **Windows** | x64 | `pnut-ts-win-x64-${{ steps.version.outputs.VERSION }}.zip` |
-            | **Windows** | ARM64 | `pnut-ts-win-arm64-${{ steps.version.outputs.VERSION }}.zip` |
-            | **Linux** | x64 | `pnut-ts-linux-x64-${{ steps.version.outputs.VERSION }}.zip` |
-            | **Linux** | ARM64 | `pnut-ts-linux-arm64-${{ steps.version.outputs.VERSION }}.zip` |
-
-            ---
-
-            ### Installation
-
-            **macOS (DMG):**
-            1. Download the appropriate DMG file
-            2. Open the DMG
-            3. Drag `pnut_ts` folder to Applications
-            4. Run from terminal: `/Applications/pnut_ts/pnut-ts --help`
-
-            **Windows/Linux (ZIP):**
-            1. Download the appropriate ZIP file
-            2. Extract to desired location
-            3. Add to PATH or run directly: `./pnut_ts/pnut-ts --help`
-
-            > **Note:** Both `pnut-ts` (primary) and `pnut_ts` (compatibility alias) are included.
-            > Use either name - they are equivalent.
-
-            ---
-
-            ### Checksums
-
-            See `checksums.txt` for SHA256 checksums of all files.
-
-            ---
-
-            ### What's New
-
-            See [CHANGELOG.md](https://github.com/ironsheep/PNut-TS/blob/main/CHANGELOG.md) for details.
+          body_path: release_body.md
