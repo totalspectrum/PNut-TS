@@ -261,18 +261,31 @@ export class SpinDocument {
 
   public setIncludePath(includeDir: string): void {
     this.logMessage(`CODE: setIncludePath(${includeDir})`);
-    // is inc-folder
-    if (!this.dirName.endsWith(includeDir)) {
-      const newIncludePath: string = path.join(this.dirName, includeDir);
-      if (dirExists(newIncludePath)) {
-        this.incFolders.push(newIncludePath);
-        //this.logMessage(`CODE: IncludePath(${newIncludePath}) exists!`);
-        this.logMessage(`CODE: Processing includes from [${newIncludePath}]`);
-      } else {
-        this.logMessage(`CODE: ERROR: failed locate incFolder [${newIncludePath}]`);
-      }
+    // Determine the actual include path
+    // Priority: 1) absolute path, 2) relative to cwd (as-is), 3) relative to source file
+    let newIncludePath: string;
+    if (path.isAbsolute(includeDir)) {
+      // Absolute path - use directly
+      newIncludePath = includeDir;
+    } else if (dirExists(includeDir)) {
+      // Relative path that exists from current working directory - use as-is
+      newIncludePath = includeDir;
     } else {
+      // Try relative to source file's directory
+      newIncludePath = path.join(this.dirName, includeDir);
+    }
+
+    // Skip if already the source directory
+    if (this.dirName.endsWith(includeDir)) {
       this.logMessage(`CODE: INFO: skip add of INC, IS our current dir inc=[${includeDir}], curr=[${this.dirName}]`);
+      return;
+    }
+
+    if (dirExists(newIncludePath)) {
+      this.incFolders.push(newIncludePath);
+      this.logMessage(`CODE: Processing includes from [${newIncludePath}]`);
+    } else {
+      this.logMessage(`CODE: ERROR: failed locate incFolder [${newIncludePath}]`);
     }
   }
 
@@ -611,10 +624,12 @@ export class SpinDocument {
               // get parsed content from spinDoc inserting into current content after / -or / in-place-of this line
               insertTextLines = incSpinDocument.allPreprocessedLines;
             } else {
-              this.reportError(`File [${filename}] not found!`, lineIdx, 0);
+              // Fatal error - include file not found
+              throw new Error(`${this.fileSpec}:${lineIdx + 1}:error:File [${filename}] not found in #include (m630)`);
             }
           } else {
-            this.reportError(`Filename missing from #include statement!`, lineIdx, 0);
+            // Fatal error - malformed #include statement
+            throw new Error(`${this.fileSpec}:${lineIdx + 1}:error:Filename missing from #include statement (m631)`);
           }
         } else if (/^\s*#pragma\s+/i.test(currLine)) {
           // handle #pragma {comand} {symbol}

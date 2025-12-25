@@ -123,7 +123,16 @@ Includes a file. The contents of the file are placed in the compilation just as 
 #include "bar"
 ```
 
-Included files are searched for in the same directory as the file that contains the `#include`. Or, alternatively, in an include directory provided by the compilation `-I <dir>` clause on the command line. If one or more include directories are specified, then they will be searched first.
+Included files are searched in the following order:
+
+1. **Include directories** specified via `-I <dir>` on the command line (searched first if provided)
+2. **The source file's directory** (the directory containing the file with the `#include`)
+
+The `-I` option accepts both absolute and relative paths:
+- **Absolute paths**: `/home/user/libs/spin2` - used as-is
+- **Relative paths**: `libs/includes` - resolved relative to the current working directory first, then relative to the source file's directory if not found
+
+If the included file cannot be found in any of the search locations, compilation stops with an error.
 
 NOTE: if the .spin2 suffix is not present on the filename provide in the include statement it will be appended to the name given before opening the file.  Meaning all included files will only be .spin2 files.  If any suffix is provided that is not .spin2 this will generate an error and stop the compile.
 

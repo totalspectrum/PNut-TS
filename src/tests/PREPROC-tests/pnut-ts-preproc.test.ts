@@ -99,13 +99,13 @@ describe('PNut_ts preprocesses files correctly', () => {
 
       // compile our file generating output files
       // build our compile argument linst
-      let conditionalArgs: string[] = basename === 'include' ? ['-I', 'inc'] : [];
+      let conditionalArgs: string[] = basename === 'include' ? ['-I', path.join(testDirPath, 'inc')] : [];
       if (basename === 'condCodeElse') {
         conditionalArgs = ['-D', 'CLOCK_300MHZ'];
       } else if (basename === 'condNestCodeCmdLn') {
         conditionalArgs = ['-D', 'USE_PSRAM8', '-U', 'USE_PSRAM16'];
       } else if (basename === 'include') {
-        conditionalArgs = ['-I', 'inc', '--pass', 'preprocess'];
+        conditionalArgs = ['-I', path.join(testDirPath, 'inc'), '--pass', 'preprocess'];
       }
 
       const testArguments: string[] = ['node', 'pnut-ts.js', '-v', '-l', '-i', '--regression', 'preproc', '--', `${file}`];

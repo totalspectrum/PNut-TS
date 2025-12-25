@@ -26,6 +26,8 @@ Work to appear in upcoming releases:
 
 ### Fixed
 - **Error Codes**: All duplicate compiler error messages now have unique error codes for easier troubleshooting and support
+- **BUGFIX**: Fixed `-I` include path handling - paths relative to current working directory now work correctly (previously only paths relative to source file worked)
+- **BUGFIX**: Missing `#include` files now properly stop compilation with a standard-format error message instead of silently continuing
 
 ## [1.51.6] 2025-09-30
 

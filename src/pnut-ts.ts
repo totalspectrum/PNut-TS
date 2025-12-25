@@ -491,7 +491,18 @@ export class PNutInTypeScript {
     if (filename !== undefined && filename.length > 0) {
       this.context.logger.verboseMsg(`Working with file [${filename}]`);
       // and load our .spin2 top-level file
-      this.spinDocument = new SpinDocument(this.context, filename);
+      try {
+        this.spinDocument = new SpinDocument(this.context, filename);
+      } catch (error) {
+        // Handle preprocessor errors (e.g., missing include files)
+        if (error instanceof Error) {
+          this.context.logger.errorMsg(error.message);
+        } else {
+          this.context.logger.errorMsg(`Preprocessing failed: ${error}`);
+        }
+        this.shouldAbort = true;
+        return Promise.resolve(-1);
+      }
       if (this.spinDocument === undefined || !this.spinDocument.validFile) {
         this.context.logger.errorMsg(`File [${filename}] does not exist or is not a .spin2 file!`);
         this.shouldAbort = true;
