@@ -1722,7 +1722,7 @@ export class SpinResolver {
                   this.hubOrg += dataLength;
                   if (this.hubOrg > this.hubOrgLimit) {
                     // [error_hael]
-                    throw new Error('Hub address exceeds limit (m370)');
+                    throw new Error('Hub address exceeds limit (m371)');
                   }
                 } else {
                   // in COG mode
@@ -3097,14 +3097,14 @@ export class SpinResolver {
             this.hubOrg++;
             if (this.hubOrg > this.hubOrgLimit) {
               // [error_hael]
-              throw new Error('Hub address exceeds limit (m370)');
+              throw new Error('Hub address exceeds limit (m372)');
             }
           } else {
             // in COG mode
             this.cogOrg++;
             if (this.cogOrg > this.cogOrgLimit) {
               // [error_cael]
-              throw new Error('Cog address exceeds limit (m112)');
+              throw new Error('Cog address exceeds limit (m113)');
             }
           }
         }
@@ -4756,7 +4756,7 @@ export class SpinResolver {
               // ensure we have room for new structure
               if (this.objectStructureSet.haveMaxStructures) {
                 // [error_loxdsde]
-                throw new Error(`Limit of ${ObjectStructures.MAX_STRUCTURES} data structure definitions exceeded`);
+                throw new Error(`Limit of ${ObjectStructures.MAX_STRUCTURES} data structure definitions exceeded (m621)`);
               }
               const structId: number = this.objectStructureSet.enterStructureAsNew(structRcdBytes);
               const newObjConSymbol: iSymbol = { name: objectsSymbolName, type: actualType, value: BigInt(structId) };
@@ -5108,7 +5108,7 @@ export class SpinResolver {
               const symbolName: string = getSourceSymbol(this.context, this.currElement); // PNut backup_symbol
               if (this.objectStructureSet.haveMaxStructures) {
                 // [error_loxdsde]
-                throw new Error(`Limit of ${ObjectStructures.MAX_STRUCTURES} data structure definitions exceeded`);
+                throw new Error(`Limit of ${ObjectStructures.MAX_STRUCTURES} data structure definitions exceeded (m622)`);
               }
               // record new structure definition
               const rcdId = this.buildStructureRecord();
@@ -11080,7 +11080,7 @@ private checkDec(): boolean {
           } else {
             if (b == 0n) {
               // [error_dbz]
-              throw new Error(`Divide by zero (m140)`);
+              throw new Error(`Divide by zero (m145)`);
             }
             a = (this.signExtendFrom32Bit(a) / this.signExtendFrom32Bit(b)) & mask32Bit;
           }

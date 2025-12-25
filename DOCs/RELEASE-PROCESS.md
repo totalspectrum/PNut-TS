@@ -106,25 +106,26 @@ This produces:
 
 ## Error Code Convention
 
-Error codes follow the pattern `(mXXX)` where:
+Error codes follow the pattern `(mGGI)` where:
 - `m` prefix indicates "message"
-- `XXX` is a unique 2-4 digit number
+- `GG` is a 2-digit group ID (01-99) identifying a group of duplicate error messages
+- `I` is a 1-digit instance ID (1-9) identifying which occurrence within the group
 
-**Allocation Ranges:**
-| Range | Category |
-|-------|----------|
-| m001-m099 | Data/byte operations |
-| m100-m199 | Register/address errors |
-| m200-m299 | Symbol/constant errors |
-| m300-m399 | Syntax errors (brackets, escapes) |
-| m400-m499 | Structure/pointer errors |
-| m500-m599 | String/selector errors |
-| m600-m699 | Variable/assignment errors |
+**Example:** If the message "Expected end of line" appears 3 times in the code:
+- First occurrence: `(m011)` - group 01, instance 1
+- Second occurrence: `(m012)` - group 01, instance 2
+- Third occurrence: `(m013)` - group 01, instance 3
 
-When adding new error codes:
-1. Find the appropriate range for the error type
-2. Use the next available number in that range
-3. If a message appears multiple times, each occurrence needs a unique code
+**Numbering Rules:**
+1. Each unique duplicate message text gets the next available group number (01, 02, 03...)
+2. Within each group, instances are numbered 1 through N
+3. Single-occurrence messages don't need error codes (no duplicates to distinguish)
+4. Maximum 9 instances per group (if more needed, split into logical subgroups)
+
+**When adding new error codes:**
+1. Run `npm run audit-errors` to find duplicate messages without codes
+2. Assign the next available group number to each new duplicate message group
+3. Number each instance within the group (1, 2, 3...)
 
 ---
 

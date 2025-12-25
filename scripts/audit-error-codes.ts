@@ -46,6 +46,10 @@ function extractErrors(filePath: string): ErrorInfo[] {
   const codeRegex = /\(m(\d+)\)/;
 
   lines.forEach((line, index) => {
+    // Skip commented-out lines
+    if (line.trim().startsWith('//')) {
+      return;
+    }
     let match;
     while ((match = errorRegex.exec(line)) !== null) {
       const message = match[1];
