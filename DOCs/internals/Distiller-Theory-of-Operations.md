@@ -19,99 +19,136 @@ The **Object Distiller** is a sophisticated binary optimization system in the PN
 
 ## Architecture Overview
 
-### Current Implementation Status
-The distiller is **partially extracted** with dual implementations:
+### Clean Implementation
 
-1. **Legacy Array-Based System** (`distiller[]` + `distillPtr`):
-   - Original implementation using flat integer arrays
-   - Marked with FIXME comments for removal
-   - Still used for core optimization algorithms
+The distiller is fully extracted into a dedicated `ObjectDistiller` class with supporting data structures:
 
-2. **New Object-Oriented System** (`DistillerList` + `DistillerRecord`):
-   - Structured implementation with proper classes
-   - Better encapsulation and type safety
-   - Currently used for logging and parallel data tracking
+```typescript
+// src/classes/objectDistiller.ts
+export class ObjectDistiller {
+  private context: Context;
+  private distillerList: DistillerList;
+
+  public distillObjects(objImage: ObjectImage): number;
+}
+
+// src/classes/distillerList.ts
+export class DistillerRecord { ... }
+export class DistillerList { ... }
+```
 
 ### Key Components
-```typescript
-// Legacy system (to be removed)
-private distillPtr: number = 0;          // Array index pointer
-private distiller: number[] = [];        // Flat integer array
 
-// New system (target implementation)
-private distillerList: DistillerList;    // Object-oriented container
-```
+| Component | File | Purpose |
+|-----------|------|---------|
+| `ObjectDistiller` | `objectDistiller.ts` | Main distillation algorithm |
+| `DistillerList` | `distillerList.ts` | Collection of records with search/update methods |
+| `DistillerRecord` | `distillerList.ts` | Individual object metadata |
 
 ## Distiller Record Structure
 
 ### Record Format
-Each object in the distiller is represented by a structured record:
+Each object in the distiller is represented by a `DistillerRecord`:
 
+```typescript
+class DistillerRecord {
+  objectId: number;        // Unique identifier for this object
+  objectOffset: number;    // Byte offset in the object image
+  subObjectCount: number;  // Number of child objects
+  methodCount: number;     // Number of PUB/PRI methods
+  objectSize: number;      // Total size in bytes
+  subObjectIds: number[];  // Child object references (bit 31 = completion flag)
+}
 ```
-Record Layout (5+ integers):
+
+### Data Layout Visualization
+```
+Record Structure:
 ┌─────────────────────────────────────────────────────────────┐
-│ 0: Object ID        (unique identifier)                    │
-│ 1: Object Offset    (position in binary image)             │
-│ 2: Sub-Object Count (number of child objects)              │
-│ 3: Method Count     (number of PUB/PRI methods)            │
-│ 4: Object Size      (size in bytes)                        │
-│ 5+: Sub-Object IDs  (child object references)              │
+│ objectId:        Unique identifier                          │
+│ objectOffset:    Position in binary image                   │
+│ subObjectCount:  Number of child objects                    │
+│ methodCount:     Number of PUB/PRI methods                  │
+│ objectSize:      Size in bytes                              │
+│ subObjectIds[]:  Child object references (0x80000000 flag)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Data Types and Encoding
-- **Object ID**: Unique identifier with MSB flag (0x80000000) for processed status
-- **Object Offset**: Byte offset within the binary image
-- **Counts**: Simple integer counts for validation
-- **Size**: Object size in bytes (used for binary comparison)
-- **Sub-Object IDs**: Array of child object references with completion flags
-
 ## Distiller Process Flow
 
-### Phase 1: Build (`distill_build()`)
+### Entry Point
+
+The distiller is invoked from `SpinResolver.distill_obj_blocks()`:
+
+```typescript
+private distill_obj_blocks() {
+  const bytesRemoved = this.objectDistiller.distillObjects(this.objImage);
+  this.distilledBytes = bytesRemoved;
+}
+```
+
+### Five-Phase Algorithm
+
+The main `distillObjects()` method orchestrates five phases:
+
+```typescript
+public distillObjects(objImage: ObjectImage): number {
+  const startingOffset = objImage.offset;
+
+  this.distillerList.clear();
+  this.buildObjectTree(objImage, 0, 0, 1);           // Phase 1
+  this.scrubObjectOffsets(objImage);                  // Phase 2
+
+  let wasEliminated: boolean;
+  do {
+    wasEliminated = this.eliminateRedundantObjects(objImage);  // Phase 3
+  } while (wasEliminated);
+
+  this.rebuildOptimizedImage(objImage);               // Phase 4
+  this.reconnectReferences(objImage, 0);              // Phase 5
+
+  return startingOffset - objImage.offset;            // bytes saved
+}
+```
+
+### Phase 1: Build (`buildObjectTree()`)
 **Purpose**: Recursively analyze object tree and create distiller records
 
 ```
 Process Flow:
 1. Start with root object (ID=0, offset=0)
 2. For each object:
-   ├── Create distiller record with metadata
-   ├── Identify sub-objects from object table
-   ├── Recursively process each sub-object
-   └── Assign unique sub-object IDs
+   ├── Count sub-objects (longs without bit 31 set)
+   ├── Count methods (longs with bit 31 set)
+   ├── Read object size from terminating long
+   ├── Create DistillerRecord with collected metadata
+   └── Recursively process each sub-object
 3. Build complete object dependency tree
 ```
 
-**Key Operations**:
-- Recursive tree traversal of object hierarchy
-- Object metadata extraction (size, method count, sub-objects)
-- Unique ID assignment for tracking
-- Record storage in both legacy array and new DistillerList
-
-### Phase 2: Scrub (`distill_scrub()`)
+### Phase 2: Scrub (`scrubObjectOffsets()`)
 **Purpose**: Prepare objects for comparison by normalizing sub-object offsets
 
-```
-Process Flow:
-1. For each object record:
-   ├── Read object offset and sub-object count
-   ├── Clear all sub-object offset fields (set to 0)
-   └── Enable binary comparison of object content
-2. "Damage" object IDs to prepare for elimination
+```typescript
+private scrubObjectOffsets(objImage: ObjectImage): void {
+  for (const [, record] of this.distillerList.records()) {
+    for (let subObjIndex = 0; subObjIndex < record.subObjectCount; subObjIndex++) {
+      // Clear sub-object offsets to facilitate later comparison
+      objImage.replaceLong(0, record.objectOffset + subObjIndex * 8);
+    }
+  }
+}
 ```
 
-**Key Operations**:
-- **Offset Zeroing**: `objImage.replaceLong(0, objectOffset + subObjIndex * 8)`
-- **Normalization**: Makes objects with identical code appear identical
-- **Preparation**: Enables byte-for-byte comparison in next phase
+This zeroes out sub-object offset fields, making objects with identical code appear identical for binary comparison.
 
-### Phase 3: Eliminate (`distill_eliminate()`)
+### Phase 3: Eliminate (`eliminateRedundantObjects()`)
 **Purpose**: Identify and remove redundant objects through iterative comparison
 
 ```
 Elimination Algorithm:
 1. For each object record:
-   ├── Check if all sub-objects are processed (MSB set)
+   ├── Check if all sub-objects are processed (bit 31 set)
    ├── If ready, search for identical objects:
    │   ├── Compare object sizes
    │   ├── Compare sub-object counts
@@ -119,164 +156,114 @@ Elimination Algorithm:
    │   └── Perform binary content comparison
    ├── If match found:
    │   ├── Update all references to point to kept object
-   │   ├── Remove redundant object record
-   │   └── Mark as eliminated
-   └── Repeat until no more eliminations possible
+   │   ├── Remove redundant record
+   │   └── Return true (triggers another iteration)
+   └── Continue until no matches found
 ```
 
-**Key Operations**:
-- **Dependency Checking**: Objects only eliminated when sub-objects are processed
-- **Multi-Level Comparison**: Size → Structure → Content verification
-- **Reference Updating**: All pointers redirected to remaining object
-- **Iterative Process**: Continues until no more eliminations possible
+**Equivalence Check**:
+```typescript
+private areRecordsEquivalent(objImage, record1, record2): boolean {
+  // 1. Object sizes must match
+  if (record1.objectSize !== record2.objectSize) return false;
 
-### Phase 4: Rebuild (`distill_rebuild()`)
+  // 2. Sub-object counts must match
+  if (record1.subObjectCount !== record2.subObjectCount) return false;
+
+  // 3. Sub-object IDs must match
+  for (let i = 0; i < record1.subObjectCount; i++) {
+    if (record1.subObjectIds[i] !== record2.subObjectIds[i]) return false;
+  }
+
+  // 4. Binary content must match
+  const sizeInLongs = (record1.objectSize + 3) >> 2;
+  for (let i = 0; i < sizeInLongs; i++) {
+    if (objImage.readLong(record1.objectOffset + i * 4) !==
+        objImage.readLong(record2.objectOffset + i * 4)) return false;
+  }
+
+  return true;
+}
+```
+
+### Phase 4: Rebuild (`rebuildOptimizedImage()`)
 **Purpose**: Reconstruct optimized binary image without eliminated objects
 
 ```
 Rebuild Process:
-1. Create new temporary ObjectImage
-2. For each remaining object record:
-   ├── Copy object binary data to new location
-   ├── Update record offset to new position
-   └── Maintain object alignment requirements
-3. Replace original objImage with optimized version
+1. Create temporary ObjectImage
+2. For each remaining record:
+   ├── Copy object binary data to new position
+   ├── Update record offset to new location
+   └── Maintain object alignment
+3. Replace original objImage content with compacted version
 ```
 
-**Key Operations**:
-- **Binary Compaction**: Copies only non-eliminated objects
-- **Offset Updates**: Records track new positions
-- **Memory Optimization**: Removes gaps left by eliminated objects
-
-### Phase 5: Reconnect (`distill_reconnect()`)
+### Phase 5: Reconnect (`reconnectReferences()`)
 **Purpose**: Fix up all sub-object references to point to new locations
 
 ```
 Reconnection Process:
 1. For each object with sub-objects:
    ├── For each sub-object reference:
-   │   ├── Find target object's new offset
+   │   ├── Find target object's record by ID
    │   ├── Calculate relative offset from parent
-   │   └── Update parent's sub-object pointer
+   │   └── Write relative offset to parent's sub-object slot
    └── Recursively process sub-objects
 ```
 
-**Key Operations**:
-- **Reference Resolution**: Maps old IDs to new offsets
-- **Relative Addressing**: Converts absolute to relative offsets
-- **Recursive Fixing**: Handles nested object relationships
+## DistillerList API
 
-## Optimization Techniques
+The `DistillerList` class provides collection management:
 
-### 1. Binary Content Comparison
-The distiller performs byte-for-byte comparison of object content:
-```typescript
-// Binary comparison after offset scrubbing
-for (let byteIndex = 0; byteIndex < objectSize; byteIndex += 4) {
-  const matchLong = objImage.readLong(matchOffset + byteIndex);
-  const searchLong = objImage.readLong(searchOffset + byteIndex);
-  if (matchLong !== searchLong) {
-    return false; // Objects differ
-  }
-}
-```
-
-### 2. Dependency-Based Elimination
-Objects are only eliminated when their dependencies are resolved:
-```typescript
-// Check if all sub-objects are processed (MSB set)
-let areAllSubObjectsCompleted = true;
-for (let index = 0; index < subObjectCount; index++) {
-  const subObjectId = distiller[recordOffset + 5 + index];
-  if ((subObjectId & 0x80000000) == 0) {
-    areAllSubObjectsCompleted = false;
-  }
-}
-```
-
-### 3. Structural Validation
-Multi-level validation ensures objects are truly identical:
-1. **Size Check**: Objects must be identical in size
-2. **Structure Check**: Same number and types of sub-objects
-3. **Content Check**: Byte-for-byte binary comparison
-4. **Reference Check**: Sub-object relationships must match
+| Method | Purpose |
+|--------|---------|
+| `addrecord(record)` | Add a new DistillerRecord |
+| `getRecordAt(index)` | Get record by index |
+| `removeRecordAt(index)` | Remove record at index |
+| `findRecordIndexByObjectId(id)` | Find record by object ID (masks bit 31) |
+| `replaceSubObjectId(oldId, newId)` | Bulk update all sub-object references |
+| `records()` | Generator for iteration with index |
+| `forEach(callback)` | Iteration helper |
 
 ## Integration Points
 
 ### In Compilation Pipeline
-The distiller runs late in the compilation process:
 ```
 Compilation Flow:
 ├── Symbol Resolution
 ├── Code Generation
 ├── Object Assembly
 ├── Object Integration
-├── Distiller Optimization  ← **Distiller runs here**
+├── Distiller Optimization  ← ObjectDistiller.distillObjects()
 └── Final Binary Output
 ```
 
 ### Location in Code
-- **Entry Point**: `distill_obj_blocks()` in `src/classes/spinResolver.ts:4879`
-- **Phase Integration**: Called after `compile_obj_blocks()` in compile sequence
-- **Logging**: Controlled by `--log distiller` command-line option
+- **SpinResolver**: `src/classes/spinResolver.ts` - Invokes distiller
+- **ObjectDistiller**: `src/classes/objectDistiller.ts` - Algorithm implementation
+- **DistillerList**: `src/classes/distillerList.ts` - Data structures
 
-## Current State and Extraction Opportunities
-
-### Dual Implementation Issue
-The distiller currently maintains two parallel implementations:
-
-1. **Legacy Array System** (lines 303-304):
-   ```typescript
-   private distillPtr: number = 0;        // FIXME: remove after extraction
-   private distiller: number[] = [];      // FIXME: remove after extraction
-   ```
-
-2. **New Object System** (line 305):
-   ```typescript
-   private distillerList: DistillerList;  // Target implementation
-   ```
-
-### Extraction Opportunities
-
-#### Phase 1: Complete Data Migration
-**Current State**: New `DistillerRecord` objects are created and stored in `DistillerList` (line 5097), but algorithms still use legacy arrays.
-
-**Extraction Goal**: Replace all legacy array access with `DistillerList` methods.
-
-#### Phase 2: Algorithm Refactoring
-**Target Methods for Extraction**:
-- `distill_scrub()` - Object offset normalization
-- `distill_eliminate()` - Redundancy detection and removal
-- `distill_rebuild()` - Binary image reconstruction
-- `distill_reconnect()` - Reference fixup
-
-#### Phase 3: Clean Interface Design
-**Proposed Structure**:
+### Logging
+Controlled by `--log distiller` command-line option:
 ```typescript
-export class ObjectDistiller {
-  private records: DistillerRecord[] = [];
-
-  public buildObjectTree(objImage: ObjectImage): void
-  public eliminateRedundantObjects(): number
-  public rebuildOptimizedImage(): ObjectImage
-  public reconnectReferences(): void
+private logMessage(message: string): void {
+  if (this.isLogging) {
+    this.context.logger.logMessage(message);
+  }
 }
 ```
-
-### Benefits of Complete Extraction
-1. **Code Clarity**: Remove FIXME comments and legacy code
-2. **Type Safety**: Replace integer arrays with typed objects
-3. **Maintainability**: Cleaner separation of concerns
-4. **Testability**: Isolated distiller logic easier to unit test
-5. **Extensibility**: New optimization strategies easier to implement
 
 ## Performance Characteristics
 
 ### Time Complexity
-- **Build Phase**: O(n) where n = number of objects
-- **Elimination Phase**: O(n²) for object comparison
-- **Rebuild Phase**: O(n) for binary reconstruction
-- **Reconnect Phase**: O(n×m) where m = average sub-objects per object
+| Phase | Complexity | Notes |
+|-------|------------|-------|
+| Build | O(n) | n = number of objects |
+| Scrub | O(n×m) | m = average sub-objects |
+| Eliminate | O(n²) | Object comparison loop |
+| Rebuild | O(n) | Single pass copy |
+| Reconnect | O(n×m) | Recursive reference fixup |
 
 ### Space Complexity
 - **Record Storage**: O(n) for object metadata
@@ -289,40 +276,37 @@ The distiller typically achieves:
 - **Proportional memory savings** at runtime
 - **No performance penalty** - identical runtime behavior
 
-## Error Handling and Limits
+## Error Handling
 
-### Overflow Protection
+### Internal Validation
 ```typescript
-if (this.distillPtr >= this.distiller_limit) {
-  throw new Error(`Object distiller overflow (more than ${this.distiller_limit} entries)`);
+// In reconnectReferences()
+const matchIndex = this.distillerList.findRecordIndexByObjectId(subObjId);
+if (matchIndex < 0) {
+  throw new Error(`ERROR[INTERNAL] failed to locate Object Id ${subObjId} in list`);
 }
 ```
 
-### Integrity Validation
-- **Reference Validation**: Ensures all sub-object references are valid
-- **Size Validation**: Verifies object sizes match actual binary content
-- **Completion Checking**: Confirms all dependencies resolved before elimination
+## Map Generation Integration
 
-## Debugging and Logging
+The distiller exposes its record list for map file generation:
 
-### Debug Capabilities
-The distiller provides comprehensive logging via `--log distiller`:
-- Record creation and management
-- Elimination decisions and rationale
-- Binary comparison details
-- Reference fixup operations
-
-### Log Integration
 ```typescript
-private logMessageDistill(message: string): void {
-  if (this.isLoggingDistill) {
-    this.context.logger.logMessage(message);
-  }
+public get records(): DistillerList {
+  return this.distillerList;
 }
 ```
+
+This allows the map generator to access object metadata (IDs, offsets, sizes) for memory map output.
 
 ## Conclusion
 
-The Object Distiller represents a sophisticated link-time optimization system that significantly reduces binary size through intelligent duplicate elimination. While partially extracted, completing the migration to the object-oriented `DistillerList` system would improve code maintainability and provide a foundation for additional optimizations.
+The Object Distiller provides sophisticated link-time optimization for PNut-TS compiled binaries. The clean class-based architecture with `ObjectDistiller`, `DistillerList`, and `DistillerRecord` enables:
 
-The distiller's multi-phase approach ensures both correctness and optimal size reduction, making it a critical component for memory-constrained P2 microcontroller applications. Understanding its operation is essential for both compiler maintenance and potential enhancements to the optimization capabilities.
+1. **Clear Separation of Concerns**: Algorithm logic in ObjectDistiller, data management in DistillerList
+2. **Type Safety**: Typed classes instead of integer arrays
+3. **Maintainability**: Self-documenting method names and structure
+4. **Testability**: Isolated components easier to unit test
+5. **Extensibility**: New optimization strategies easy to implement
+
+The five-phase approach ensures both correctness and optimal size reduction, making it a critical component for memory-constrained P2 microcontroller applications.
