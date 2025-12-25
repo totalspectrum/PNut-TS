@@ -1,0 +1,6 @@
+{
+  "displayName": "Spin2 ENCODING suite of tests",
+  "roots": ["<rootDir>/../dist/tests/ENCODING-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}

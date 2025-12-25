@@ -1,0 +1,194 @@
+' PASM2 Encoding Test: WC (Write Carry) Effect
+' Tests instructions with the WC effect modifier
+' Only includes instructions that actually support WC
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Math Instructions with WC (that support it)
+' ============================================================================
+
+' ADD with carry out
+t_add_wc        add     $10, $20        wc  ' C = carry out of addition
+
+' SUB with borrow out
+t_sub_wc        sub     $10, $20        wc  ' C = borrow out of subtraction
+
+' CMP with carry (unsigned compare)
+t_cmp_wc        cmp     $10, $20        wc  ' C = (D < S) unsigned
+
+' CMPS with carry (signed compare)
+t_cmps_wc       cmps    $10, $20        wc  ' C = (D < S) signed
+
+' AND with parity
+t_and_wc        and     $10, $20        wc  ' C = parity of result
+
+' OR with parity
+t_or_wc         or      $10, $20        wc  ' C = parity of result
+
+' XOR with parity
+t_xor_wc        xor     $10, $20        wc  ' C = parity of result
+
+' TEST with parity (non-destructive AND)
+t_test_wc       test    $10, $20        wc  ' C = parity of (D AND S)
+
+' TESTN with parity (non-destructive AND NOT)
+t_testn_wc      testn   $10, $20        wc  ' C = parity of (D AND NOT S)
+
+' MOV - copies MSB to C
+t_mov_wc        mov     $10, $20        wc  ' C = MSB of source
+
+' NEG with overflow
+t_neg_wc        neg     $10, $20        wc  ' C = S was $80000000
+
+' NOT - parity of result
+t_not_wc        not     $10, $20        wc  ' C = parity of result
+
+' ABS with sign
+t_abs_wc        abs     $10, $20        wc  ' C = S was negative
+
+' ANDN with parity
+t_andn_wc       andn    $10, $20        wc  ' C = parity of result
+
+' ============================================================================
+' Shift Instructions with WC (carry out)
+' ============================================================================
+
+' SHL - bit shifted out goes to C
+t_shl_wc        shl     $10, #1         wc  ' C = MSB shifted out
+
+' SHR - bit shifted out goes to C
+t_shr_wc        shr     $10, #1         wc  ' C = LSB shifted out
+
+' SAR - bit shifted out goes to C
+t_sar_wc        sar     $10, #1         wc  ' C = LSB shifted out
+
+' ROL - bit shifted out goes to C
+t_rol_wc        rol     $10, #1         wc  ' C = MSB rotated out
+
+' ROR - bit shifted out goes to C
+t_ror_wc        ror     $10, #1         wc  ' C = LSB rotated out
+
+' RCL - rotate through carry
+t_rcl_wc        rcl     $10, #1         wc  ' C = MSB, old C shifts in
+
+' RCR - rotate through carry
+t_rcr_wc        rcr     $10, #1         wc  ' C = LSB, old C shifts in
+
+' ============================================================================
+' Bit Manipulation with WC (that support it)
+' ============================================================================
+
+' ZEROX - C gets the bit being tested
+t_zerox_wc      zerox   $10, #7         wc  ' C = bit 7 of D
+
+' SIGNX - C gets the sign bit
+t_signx_wc      signx   $10, #15        wc  ' C = bit 15 of D
+
+' ENCOD - C set if D was zero
+t_encod_wc      encod   $10, $20        wc  ' C = (S == 0)
+
+' ============================================================================
+' Compare Instructions with WC
+' ============================================================================
+
+' CMPR - reverse compare
+t_cmpr_wc       cmpr    $10, $20        wc  ' C = (S < D) unsigned
+
+' CMPM - magnitude compare
+t_cmpm_wc       cmpm    $10, $20        wc  ' C based on magnitude
+
+' CMPX - extended compare
+t_cmpx_wc       cmpx    $10, $20        wc  ' C = extended borrow
+
+' CMPSX - signed extended compare
+t_cmpsx_wc      cmpsx   $10, $20        wc  ' C = extended signed borrow
+
+' ============================================================================
+' Extended Arithmetic with WC
+' ============================================================================
+
+' ADDX - extended add
+t_addx_wc       addx    $10, $20        wc  ' C = carry out
+
+' SUBX - extended subtract
+t_subx_wc       subx    $10, $20        wc  ' C = borrow out
+
+' ADDS - signed add
+t_adds_wc       adds    $10, $20        wc  ' C = signed overflow
+
+' SUBS - signed subtract
+t_subs_wc       subs    $10, $20        wc  ' C = signed overflow
+
+' ADDSX - signed extended add
+t_addsx_wc      addsx   $10, $20        wc  ' C = signed overflow
+
+' SUBSX - signed extended subtract
+t_subsx_wc      subsx   $10, $20        wc  ' C = signed overflow
+
+' ============================================================================
+' SUMC/SUMNC/SUMZ/SUMNZ with WC
+' ============================================================================
+
+t_sumc_wc       sumc    $10, $20        wc  ' Sum based on C, with new C
+t_sumnc_wc      sumnc   $10, $20        wc  ' Sum based on !C, with new C
+t_sumz_wc       sumz    $10, $20        wc  ' Sum based on Z, with new C
+t_sumnz_wc      sumnz   $10, $20        wc  ' Sum based on !Z, with new C
+
+' ============================================================================
+' Min/Max with WC
+' ============================================================================
+
+' FGE - force greater or equal
+t_fge_wc        fge     $10, $20        wc  ' C = D was less than S
+
+' FLE - force less or equal
+t_fle_wc        fle     $10, $20        wc  ' C = D was greater than S
+
+' FGES - signed force greater or equal
+t_fges_wc       fges    $10, $20        wc  ' C = D was less than S (signed)
+
+' FLES - signed force less or equal
+t_fles_wc       fles    $10, $20        wc  ' C = D was greater than S (signed)
+
+' ============================================================================
+' TESTB - Bit Testing with WC
+' ============================================================================
+
+' TESTB - test bit, result to C
+t_testb_wc      testb   $10, #0         wc  ' C = bit 0 of D
+t_testb1_wc     testb   $10, #15        wc  ' C = bit 15 of D
+t_testb2_wc     testb   $10, #31        wc  ' C = bit 31 of D
+
+' TESTBN - test bit NOT, result to C
+t_testbn_wc     testbn  $10, #0         wc  ' C = NOT bit 0 of D
+t_testbn1_wc    testbn  $10, #15        wc  ' C = NOT bit 15 of D
+t_testbn2_wc    testbn  $10, #31        wc  ' C = NOT bit 31 of D
+
+' ============================================================================
+' MUX Instructions with WC
+' ============================================================================
+
+t_muxc_wc       muxc    $10, $20        wc  ' Mux based on C
+t_muxnc_wc      muxnc   $10, $20        wc  ' Mux based on !C
+t_muxz_wc       muxz    $10, $20        wc  ' Mux based on Z
+t_muxnz_wc      muxnz   $10, $20        wc  ' Mux based on !Z
+
+' Note: GETBYTE, GETWORD, GETNIB, SETBYTE, SETWORD, SETNIB,
+' ROLBYTE, ROLWORD, ROLNIB, and MOVBYTS do not support WC/WZ effects
+
+' ============================================================================
+' GETCT with WC
+' ============================================================================
+
+t_getct_wc      getct   $10             wc  ' C = MSB of counter
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret

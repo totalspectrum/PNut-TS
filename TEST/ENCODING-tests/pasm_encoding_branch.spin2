@@ -1,0 +1,273 @@
+' PASM2 Encoding Test: Branch and Call Instructions
+' Tests various jump, call, and return instruction encodings
+' Includes relative, absolute, and register-indirect forms
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' JMP - Unconditional Jump
+' ============================================================================
+
+' Relative jump (immediate address)
+t_jmp_rel       jmp     #jmp_target1        ' Relative jump forward
+jmp_target1     nop
+                jmp     #jmp_target1        ' Relative jump backward
+
+' Register-indirect jump
+t_jmp_reg       jmp     $10                 ' Jump to address in register
+
+' ============================================================================
+' CALL - Call Subroutine
+' ============================================================================
+
+' Relative call (immediate address)
+t_call_rel      call    #sub1               ' Call with return address in PA
+
+' Register-indirect call
+t_call_reg      call    $10                 ' Call address in register
+
+' ============================================================================
+' CALLA/CALLB - Call with Return in PA/PB
+' ============================================================================
+
+t_calla_rel     calla   #sub2               ' Call, return in PA
+t_callb_rel     callb   #sub2               ' Call, return in PB
+
+t_calla_reg     calla   $10                 ' Call via register, return in PA
+t_callb_reg     callb   $10                 ' Call via register, return in PB
+
+' ============================================================================
+' CALLD - Call with Return in Destination Register
+' ============================================================================
+
+t_calld_rel     calld   $1E, #sub3          ' Call, return in $1E
+t_calld_reg     calld   $1E, $10            ' Call via register, return in $1E
+t_calld_ptra    calld   ptra, #sub3         ' Return address to PTRA
+t_calld_ptrb    calld   ptrb, #sub3         ' Return address to PTRB
+
+' ============================================================================
+' RET - Return from Subroutine
+' ============================================================================
+
+sub1            ret                         ' Return from PA
+sub2            ret                         ' Standard return
+sub3            ret                         ' Return
+
+' RETA/RETB - Return via PA/PB
+t_reta          reta                        ' Return via PA
+t_retb          retb                        ' Return via PB
+
+' ============================================================================
+' RETI0-RETI3 - Return from Interrupt
+' ============================================================================
+
+t_reti0         reti0                       ' Return from INT0
+t_reti1         reti1                       ' Return from INT1
+t_reti2         reti2                       ' Return from INT2
+t_reti3         reti3                       ' Return from INT3
+
+' ============================================================================
+' DJNZ - Decrement and Jump if Not Zero
+' ============================================================================
+
+' Relative form
+t_djnz_rel      djnz    $10, #djnz_loop     ' Loop with relative target
+djnz_loop       nop
+
+' Register form
+t_djnz_reg      djnz    $10, $20            ' Loop with address in register
+
+' ============================================================================
+' DJZ - Decrement and Jump if Zero (opposite of DJNZ)
+' ============================================================================
+
+t_djz_rel       djz     $10, #djz_tgt
+djz_tgt         nop
+
+' ============================================================================
+' TJNZ - Test and Jump if Not Zero
+' ============================================================================
+
+t_tjnz_rel      tjnz    $10, #tjnz_loop     ' Test, jump if not zero
+tjnz_loop       nop
+
+t_tjnz_reg      tjnz    $10, $20            ' Register target
+
+' ============================================================================
+' TJZ - Test and Jump if Zero
+' ============================================================================
+
+t_tjz_rel       tjz     $10, #tjz_loop      ' Test, jump if zero
+tjz_loop        nop
+
+t_tjz_reg       tjz     $10, $20            ' Register target
+
+' ============================================================================
+' TJNS - Test and Jump if Not Signed (positive)
+' ============================================================================
+
+t_tjns_rel      tjns    $10, #tjns_tgt
+tjns_tgt        nop
+
+' ============================================================================
+' TJS - Test and Jump if Signed (negative)
+' ============================================================================
+
+t_tjs_rel       tjs     $10, #tjs_tgt
+tjs_tgt         nop
+
+' ============================================================================
+' TJF - Test and Jump if False (based on previous test)
+' ============================================================================
+
+t_tjf_rel       tjf     $10, #tjf_tgt
+tjf_tgt         nop
+
+' Note: TJT and TJNT don't exist in PASM2 (use TJF/TJNF or IF_* conditions)
+
+' ============================================================================
+' TJNF - Test and Jump if Not False
+' ============================================================================
+
+t_tjnf_rel      tjnf    $10, #tjnf_tgt
+tjnf_tgt        nop
+
+' ============================================================================
+' TJV - Test and Jump if Overflow
+' ============================================================================
+
+t_tjv_rel       tjv     $10, #tjv_tgt
+tjv_tgt         nop
+
+' ============================================================================
+' IJNZ - Increment and Jump if Not Zero
+' ============================================================================
+
+t_ijnz_rel      ijnz    $10, #ijnz_loop
+ijnz_loop       nop
+
+' ============================================================================
+' IJZ - Increment and Jump if Zero
+' ============================================================================
+
+t_ijz_rel       ijz     $10, #ijz_tgt
+ijz_tgt         nop
+
+' ============================================================================
+' REP - Repeat Block
+' ============================================================================
+
+' Repeat with immediate count
+t_rep_imm       rep     #rep_end, #10       ' Repeat next instructions 10 times
+                nop
+                nop
+rep_end
+
+' Repeat with register count
+t_rep_reg       rep     #rep_end2, $10      ' Repeat count in register
+                nop
+rep_end2
+
+' Single instruction repeat
+t_rep_1         rep     @.rep1_e, #5        ' Repeat single instruction
+                add     $10, #1
+.rep1_e
+
+' ============================================================================
+' LOC - Load Address
+' ============================================================================
+
+' LOC with PA/PB/PTRA/PTRB destinations
+t_loc_pa        loc     pa, #\loc_addr      ' Load address to PA
+t_loc_pb        loc     pb, #\loc_addr      ' Load address to PB
+t_loc_ptra      loc     ptra, #\loc_addr    ' Load address to PTRA
+t_loc_ptrb      loc     ptrb, #\loc_addr    ' Load address to PTRB
+
+loc_addr        long    0
+
+' ============================================================================
+' AUGS/AUGD - Augment for 32-bit operations
+' ============================================================================
+
+' AUGS is implicitly generated for ## immediates
+t_augs_impl     mov     $10, ##$12345678    ' Generates AUGS prefix
+
+' Note: AUGD is for extended destination addressing, syntax is different
+
+' ============================================================================
+' SKIP/SKIPF - Skip Instructions
+' ============================================================================
+
+t_skip          skip    #%1010              ' Skip pattern
+                nop                         ' Skipped
+                nop                         ' Not skipped
+                nop                         ' Skipped
+                nop                         ' Not skipped
+
+t_skipf         skipf   #%1100              ' Skip pattern (fast)
+                nop
+                nop
+                nop
+                nop
+
+' ============================================================================
+' EXECF - Execute Fast
+' ============================================================================
+
+t_execf         execf   $10                 ' Execute from D
+
+' ============================================================================
+' Branch with Effects (WC/WZ) - Register mode only
+' ============================================================================
+
+' JMP with WC (register mode only - immediate mode doesn't support effects)
+t_jmp_wc        jmp     $10             wc  ' Jump via register with WC
+
+' CALL with WC (register mode)
+t_call_wc       call    $10             wc  ' Call via register with WC
+
+
+' ============================================================================
+' MODCZ - Modify C and Z flags
+' ============================================================================
+
+t_modcz_clr     modcz   _clr, _clr          ' Clear both C and Z
+t_modcz_set     modcz   _set, _set          ' Set both C and Z
+t_modcz_c_z     modcz   _c, _z              ' Copy C to C, Z to Z
+t_modcz_nc_nz   modcz   _nc, _nz            ' Copy !C and !Z
+t_modcz_mix     modcz   _set, _clr          ' Set C, clear Z
+t_modcz_mix2    modcz   _clr, _set          ' Clear C, set Z
+
+' ============================================================================
+' POLLCT1/2/3 WAITCT1/2/3 - Counter Wait/Poll
+' ============================================================================
+
+t_pollct1       pollct1             wc      ' Poll counter 1
+t_pollct2       pollct2             wc      ' Poll counter 2
+t_pollct3       pollct3             wc      ' Poll counter 3
+
+t_waitct1       waitct1                     ' Wait for counter 1
+t_waitct2       waitct2                     ' Wait for counter 2
+t_waitct3       waitct3                     ' Wait for counter 3
+
+' ============================================================================
+' JMPREL - Relative Jump via Table
+' ============================================================================
+
+t_jmprel        jmprel  $10                 ' Jump relative by D
+
+' ============================================================================
+' JNINT/JPAT/JNPAT/JFBW/JXMT/etc. - Specialized Jumps (if available)
+' ============================================================================
+
+' These are conditional jumps based on specific conditions
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret

@@ -32,6 +32,7 @@
     "help": "npm run build && dist/pnut-ts.js --help",
     "test-full": "npm run build && jest -c jest-config/jest-full-config.json",
     "test-datpasm": "npm run build && jest -c jest-config/jest-datpasm-only-config.json",
+    "test-encoding": "npm run build && jest -c jest-config/jest-encoding-only-config.json",
     "test-dbg": "npm run build && jest -c jest-config/jest-dbg-only-config.json",
     "test-ext": "npm run build && jest -c jest-config/jest-ext-only-config.json",
     "test-con": "npm run build && jest -c jest-config/jest-con-only-config.json",

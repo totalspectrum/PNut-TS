@@ -1,0 +1,171 @@
+' PASM2 Encoding Test: PTRx Addressing Modes
+' Tests PTRA and PTRB pointer-based addressing with various modifiers
+' Includes pre/post increment/decrement and indexed addressing
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' RDLONG - Read Long from Hub (All PTRx variants)
+' ============================================================================
+
+' Basic PTRA addressing
+t_rdl_ptra      rdlong  $10, ptra           ' Read from PTRA
+t_rdl_ptrb      rdlong  $10, ptrb           ' Read from PTRB
+
+' PTRA with post-increment
+t_rdl_ptra_pp1  rdlong  $10, ptra++         ' Post-increment by 4 (long size)
+t_rdl_ptra_pp2  rdlong  $10, ptra[1]        ' Indexed by 1 long (4 bytes)
+t_rdl_ptra_pp4  rdlong  $10, ptra[4]        ' Indexed by 4 longs
+
+' PTRA with pre-increment
+t_rdl_pptra1    rdlong  $10, ++ptra         ' Pre-increment by 4
+
+' PTRA with post-decrement
+t_rdl_ptra_mm1  rdlong  $10, ptra--         ' Post-decrement by 4
+
+' PTRA with pre-decrement
+t_rdl_mmptra1   rdlong  $10, --ptra         ' Pre-decrement by 4
+
+' PTRB with same modifiers
+t_rdl_ptrb_pp1  rdlong  $10, ptrb++         ' Post-increment by 4
+t_rdl_ptrb_pp2  rdlong  $10, ptrb[2]        ' Indexed by 2 longs
+t_rdl_pptrb1    rdlong  $10, ++ptrb         ' Pre-increment by 4
+t_rdl_ptrb_mm1  rdlong  $10, ptrb--         ' Post-decrement by 4
+t_rdl_mmptrb1   rdlong  $10, --ptrb         ' Pre-decrement by 4
+
+' Negative indexing
+t_rdl_ptra_n1   rdlong  $10, ptra[-1]       ' Index by -1 long
+t_rdl_ptra_n4   rdlong  $10, ptra[-4]       ' Index by -4 longs
+t_rdl_ptrb_n2   rdlong  $10, ptrb[-2]       ' Index by -2 longs
+
+' ============================================================================
+' RDWORD - Read Word from Hub (PTRx variants)
+' ============================================================================
+
+t_rdw_ptra      rdword  $10, ptra           ' Read word from PTRA
+t_rdw_ptrb      rdword  $10, ptrb           ' Read word from PTRB
+t_rdw_ptra_pp   rdword  $10, ptra++         ' Post-increment by 2
+t_rdw_pptra     rdword  $10, ++ptra         ' Pre-increment by 2
+t_rdw_ptra_mm   rdword  $10, ptra--         ' Post-decrement by 2
+t_rdw_mmptra    rdword  $10, --ptra         ' Pre-decrement by 2
+t_rdw_ptra_i1   rdword  $10, ptra[1]        ' Indexed by 1 word
+t_rdw_ptra_i4   rdword  $10, ptra[4]        ' Indexed by 4 words
+t_rdw_ptra_n1   rdword  $10, ptra[-1]       ' Negative index
+
+' ============================================================================
+' RDBYTE - Read Byte from Hub (PTRx variants)
+' ============================================================================
+
+t_rdb_ptra      rdbyte  $10, ptra           ' Read byte from PTRA
+t_rdb_ptrb      rdbyte  $10, ptrb           ' Read byte from PTRB
+t_rdb_ptra_pp   rdbyte  $10, ptra++         ' Post-increment by 1
+t_rdb_pptra     rdbyte  $10, ++ptra         ' Pre-increment by 1
+t_rdb_ptra_mm   rdbyte  $10, ptra--         ' Post-decrement by 1
+t_rdb_mmptra    rdbyte  $10, --ptra         ' Pre-decrement by 1
+t_rdb_ptra_i1   rdbyte  $10, ptra[1]        ' Indexed by 1 byte
+t_rdb_ptra_i8   rdbyte  $10, ptra[8]        ' Indexed by 8 bytes
+t_rdb_ptra_n1   rdbyte  $10, ptra[-1]       ' Negative index
+
+' ============================================================================
+' WRLONG - Write Long to Hub (PTRx variants)
+' ============================================================================
+
+t_wrl_ptra      wrlong  $10, ptra           ' Write to PTRA
+t_wrl_ptrb      wrlong  $10, ptrb           ' Write to PTRB
+t_wrl_ptra_pp   wrlong  $10, ptra++         ' Post-increment
+t_wrl_pptra     wrlong  $10, ++ptra         ' Pre-increment
+t_wrl_ptra_mm   wrlong  $10, ptra--         ' Post-decrement
+t_wrl_mmptra    wrlong  $10, --ptra         ' Pre-decrement
+t_wrl_ptra_i2   wrlong  $10, ptra[2]        ' Indexed
+t_wrl_ptra_n2   wrlong  $10, ptra[-2]       ' Negative indexed
+
+' ============================================================================
+' WRWORD - Write Word to Hub (PTRx variants)
+' ============================================================================
+
+t_wrw_ptra      wrword  $10, ptra           ' Write word to PTRA
+t_wrw_ptrb      wrword  $10, ptrb           ' Write word to PTRB
+t_wrw_ptra_pp   wrword  $10, ptra++         ' Post-increment
+t_wrw_pptra     wrword  $10, ++ptra         ' Pre-increment
+t_wrw_ptra_mm   wrword  $10, ptra--         ' Post-decrement
+t_wrw_mmptra    wrword  $10, --ptra         ' Pre-decrement
+t_wrw_ptra_i3   wrword  $10, ptra[3]        ' Indexed
+t_wrw_ptra_n1   wrword  $10, ptra[-1]       ' Negative indexed
+
+' ============================================================================
+' WRBYTE - Write Byte to Hub (PTRx variants)
+' ============================================================================
+
+t_wrb_ptra      wrbyte  $10, ptra           ' Write byte to PTRA
+t_wrb_ptrb      wrbyte  $10, ptrb           ' Write byte to PTRB
+t_wrb_ptra_pp   wrbyte  $10, ptra++         ' Post-increment
+t_wrb_pptra     wrbyte  $10, ++ptra         ' Pre-increment
+t_wrb_ptra_mm   wrbyte  $10, ptra--         ' Post-decrement
+t_wrb_mmptra    wrbyte  $10, --ptra         ' Pre-decrement
+t_wrb_ptra_i5   wrbyte  $10, ptra[5]        ' Indexed
+t_wrb_ptra_n3   wrbyte  $10, ptra[-3]       ' Negative indexed
+
+' Note: RDLONG/WRLONG/RDBYTE/WRBYTE/RDWORD/WRWORD do not support WC/WZ/WCZ effects
+
+' ============================================================================
+' SETQ/SETQ2 for Block Operations
+' ============================================================================
+
+t_setq          setq    #7                  ' Set Q for block ops (8 longs)
+t_setq2         setq2   #3                  ' Set Q2 for block ops
+
+' Block read after SETQ
+t_blk_rdl       rdlong  $10, ptra           ' Block read using SETQ
+t_blk_wrl       wrlong  $10, ptra           ' Block write using SETQ
+
+' ============================================================================
+' PTRx with Scale Factors (complex indexing)
+' ============================================================================
+
+' Larger indices to test encoding range
+t_rdl_ptra_i8   rdlong  $10, ptra[8]        ' Index 8
+t_rdl_ptra_i16  rdlong  $10, ptra[16]       ' Index 16
+t_rdl_ptra_i31  rdlong  $10, ptra[31]       ' Near max positive
+t_rdl_ptra_n16  rdlong  $10, ptra[-16]      ' Larger negative
+t_rdl_ptra_n32  rdlong  $10, ptra[-32]      ' Near max negative
+
+' ============================================================================
+' Mixed Operations with PTRx
+' ============================================================================
+
+' PTRA/PTRB in sequence
+t_seq1          rdlong  $10, ptra++
+t_seq2          rdlong  $11, ptra++
+t_seq3          rdlong  $12, ptra++
+t_seq4          wrlong  $10, ptrb++
+t_seq5          wrlong  $11, ptrb++
+
+' ============================================================================
+' SETPTRA/SETPTRB - Set Pointer Values
+' ============================================================================
+
+' Note: These use register/immediate as source
+t_setptra       mov     ptra, $20           ' Set PTRA from register
+t_setptrb       mov     ptrb, $20           ' Set PTRB from register
+t_setptra_i     mov     ptra, ##$1000       ' Set PTRA from immediate
+t_setptrb_i     mov     ptrb, ##$2000       ' Set PTRB from immediate
+
+' ============================================================================
+' CALLD with PTRA/PTRB (if applicable)
+' ============================================================================
+
+' Using PTRx as return address storage
+t_calld_ptra    calld   ptra, #label1       ' Call with return to PTRA
+t_calld_ptrb    calld   ptrb, #label1       ' Call with return to PTRB
+
+label1          ret
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret

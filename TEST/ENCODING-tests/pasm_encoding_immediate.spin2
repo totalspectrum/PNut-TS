@@ -1,0 +1,361 @@
+' PASM2 Encoding Test: Immediate (#) Forms
+' Tests register vs immediate encoding for major instruction families
+' Each instruction is tested with both register and #immediate operands
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Math Instructions - Register vs Immediate
+' ============================================================================
+
+' ADD instruction
+t_add_reg       add     $10, $20            ' Register form: D = D + S
+t_add_imm       add     $10, #$55           ' Immediate form: D = D + #value
+
+' SUB instruction
+t_sub_reg       sub     $10, $20            ' Register form
+t_sub_imm       sub     $10, #$AA           ' Immediate form
+
+' AND instruction
+t_and_reg       and     $10, $20            ' Register form
+t_and_imm       and     $10, #$FF           ' Immediate form
+
+' OR instruction
+t_or_reg        or      $10, $20            ' Register form
+t_or_imm        or      $10, #$0F           ' Immediate form
+
+' XOR instruction
+t_xor_reg       xor     $10, $20            ' Register form
+t_xor_imm       xor     $10, #$F0           ' Immediate form
+
+' MOV instruction
+t_mov_reg       mov     $10, $20            ' Register form
+t_mov_imm       mov     $10, #$1FF          ' Immediate form (9-bit max)
+
+' NEG instruction
+t_neg_reg       neg     $10, $20            ' Register form
+t_neg_imm       neg     $10, #100           ' Immediate form
+
+' NOT instruction
+t_not_reg       not     $10, $20            ' Register form
+t_not_imm       not     $10, #$AA           ' Immediate form
+
+' ABS instruction
+t_abs_reg       abs     $10, $20            ' Register form
+t_abs_imm       abs     $10, #50            ' Immediate form
+
+' CMP instruction (compare, doesn't modify D)
+t_cmp_reg       cmp     $10, $20            ' Register form
+t_cmp_imm       cmp     $10, #100           ' Immediate form
+
+' CMPS instruction (signed compare)
+t_cmps_reg      cmps    $10, $20            ' Register form
+t_cmps_imm      cmps    $10, #100           ' Immediate form
+
+' TEST instruction (AND without storing)
+t_test_reg      test    $10, $20            ' Register form
+t_test_imm      test    $10, #$80           ' Immediate form
+
+' TESTN instruction (AND NOT without storing)
+t_testn_reg     testn   $10, $20            ' Register form
+t_testn_imm     testn   $10, #$80           ' Immediate form
+
+' ============================================================================
+' Shift/Rotate Instructions - Register vs Immediate
+' ============================================================================
+
+' SHL instruction (shift left)
+t_shl_reg       shl     $10, $20            ' Register form
+t_shl_imm       shl     $10, #5             ' Immediate form
+
+' SHR instruction (shift right)
+t_shr_reg       shr     $10, $20            ' Register form
+t_shr_imm       shr     $10, #8             ' Immediate form
+
+' SAR instruction (shift arithmetic right)
+t_sar_reg       sar     $10, $20            ' Register form
+t_sar_imm       sar     $10, #4             ' Immediate form
+
+' ROL instruction (rotate left)
+t_rol_reg       rol     $10, $20            ' Register form
+t_rol_imm       rol     $10, #16            ' Immediate form
+
+' ROR instruction (rotate right)
+t_ror_reg       ror     $10, $20            ' Register form
+t_ror_imm       ror     $10, #8             ' Immediate form
+
+' RCL instruction (rotate carry left)
+t_rcl_reg       rcl     $10, $20            ' Register form
+t_rcl_imm       rcl     $10, #1             ' Immediate form
+
+' RCR instruction (rotate carry right)
+t_rcr_reg       rcr     $10, $20            ' Register form
+t_rcr_imm       rcr     $10, #1             ' Immediate form
+
+' REV instruction (reverse bits)
+t_rev_reg       rev     $10                 ' Register form (single operand)
+
+' ============================================================================
+' Bit Manipulation - Register vs Immediate
+' ============================================================================
+
+' ZEROX instruction (zero-extend)
+t_zerox_reg     zerox   $10, $20            ' Register form
+t_zerox_imm     zerox   $10, #7             ' Immediate form (8-bit value)
+
+' SIGNX instruction (sign-extend)
+t_signx_reg     signx   $10, $20            ' Register form
+t_signx_imm     signx   $10, #15            ' Immediate form (16-bit value)
+
+' ENCOD instruction (encode MSB position)
+t_encod_reg     encod   $10, $20            ' Register form
+t_encod_imm     encod   $10, #$80           ' Immediate form
+
+' DECOD instruction (decode bit position)
+t_decod_reg     decod   $10, $20            ' Register form
+t_decod_imm     decod   $10, #5             ' Immediate form
+
+' BMASK instruction (create bitmask)
+t_bmask_reg     bmask   $10, $20            ' Register form
+t_bmask_imm     bmask   $10, #7             ' Immediate form (8-bit mask)
+
+' ============================================================================
+' Multiply/Divide - Register vs Immediate
+' ============================================================================
+
+' MUL instruction (unsigned multiply)
+t_mul_reg       mul     $10, $20            ' Register form
+t_mul_imm       mul     $10, #10            ' Immediate form
+
+' MULS instruction (signed multiply)
+t_muls_reg      muls    $10, $20            ' Register form
+t_muls_imm      muls    $10, #10            ' Immediate form
+
+' SCA instruction (scale, unsigned)
+t_sca_reg       sca     $10, $20            ' Register form
+t_sca_imm       sca     $10, #$80           ' Immediate form
+
+' SCAS instruction (scale, signed)
+t_scas_reg      scas    $10, $20            ' Register form
+t_scas_imm      scas    $10, #$80           ' Immediate form
+
+' ============================================================================
+' Logical with ANDN - Register vs Immediate
+' ============================================================================
+
+' ANDN instruction (D = D AND NOT S)
+t_andn_reg      andn    $10, $20            ' Register form
+t_andn_imm      andn    $10, #$0F           ' Immediate form
+
+' ============================================================================
+' Minimum/Maximum - Register vs Immediate
+' ============================================================================
+
+' FGE instruction (force greater or equal, unsigned)
+t_fge_reg       fge     $10, $20            ' Register form
+t_fge_imm       fge     $10, #100           ' Immediate form
+
+' FLE instruction (force less or equal, unsigned)
+t_fle_reg       fle     $10, $20            ' Register form
+t_fle_imm       fle     $10, #200           ' Immediate form
+
+' FGES instruction (force greater or equal, signed)
+t_fges_reg      fges    $10, $20            ' Register form
+t_fges_imm      fges    $10, #50            ' Immediate form
+
+' FLES instruction (force less or equal, signed)
+t_fles_reg      fles    $10, $20            ' Register form
+t_fles_imm      fles    $10, #50            ' Immediate form
+
+' ============================================================================
+' Add/Sub with Carry/Extend - Register vs Immediate
+' ============================================================================
+
+' ADDX instruction (add extended)
+t_addx_reg      addx    $10, $20            ' Register form
+t_addx_imm      addx    $10, #0             ' Immediate form
+
+' SUBX instruction (subtract extended)
+t_subx_reg      subx    $10, $20            ' Register form
+t_subx_imm      subx    $10, #0             ' Immediate form
+
+' ADDS instruction (add signed)
+t_adds_reg      adds    $10, $20            ' Register form
+t_adds_imm      adds    $10, #50            ' Immediate form
+
+' SUBS instruction (subtract signed)
+t_subs_reg      subs    $10, $20            ' Register form
+t_subs_imm      subs    $10, #50            ' Immediate form
+
+' ADDSX instruction (add signed extended)
+t_addsx_reg     addsx   $10, $20            ' Register form
+t_addsx_imm     addsx   $10, #0             ' Immediate form
+
+' SUBSX instruction (subtract signed extended)
+t_subsx_reg     subsx   $10, $20            ' Register form
+t_subsx_imm     subsx   $10, #0             ' Immediate form
+
+' ============================================================================
+' SUMC/SUMNC/SUMZ/SUMNZ - Register vs Immediate
+' ============================================================================
+
+t_sumc_reg      sumc    $10, $20            ' Register form
+t_sumc_imm      sumc    $10, #10            ' Immediate form
+
+t_sumnc_reg     sumnc   $10, $20            ' Register form
+t_sumnc_imm     sumnc   $10, #10            ' Immediate form
+
+t_sumz_reg      sumz    $10, $20            ' Register form
+t_sumz_imm      sumz    $10, #10            ' Immediate form
+
+t_sumnz_reg     sumnz   $10, $20            ' Register form
+t_sumnz_imm     sumnz   $10, #10            ' Immediate form
+
+' ============================================================================
+' TESTB/TESTBN (bit testing) - Register vs Immediate
+' ============================================================================
+
+t_testb_reg     testb   $10, $20        wc  ' Register form
+t_testb_imm     testb   $10, #5         wc  ' Immediate form
+
+t_testbn_reg    testbn  $10, $20        wz  ' Register form
+t_testbn_imm    testbn  $10, #5         wz  ' Immediate form
+
+' ============================================================================
+' BITL/BITH/BITC/BITNC/BITZ/BITNZ/BITRND/BITNOT - Immediate bit positions
+' ============================================================================
+
+t_bitl_imm      bitl    $10, #0             ' Set bit low
+t_bith_imm      bith    $10, #7             ' Set bit high
+t_bitc_imm      bitc    $10, #15            ' Set bit to C
+t_bitnc_imm     bitnc   $10, #23            ' Set bit to !C
+t_bitz_imm      bitz    $10, #31            ' Set bit to Z
+t_bitnz_imm     bitnz   $10, #16            ' Set bit to !Z
+t_bitrnd_imm    bitrnd  $10, #8             ' Set bit to random
+t_bitnot_imm    bitnot  $10, #4             ' Toggle bit
+
+' ============================================================================
+' MOVBYTS - Register vs Immediate
+' ============================================================================
+
+t_movbyts_reg   movbyts $10, $20            ' Register form
+t_movbyts_imm   movbyts $10, #%%3210        ' Immediate form
+
+' ============================================================================
+' WAITX - Register vs Immediate
+' ============================================================================
+
+t_waitx_reg     waitx   $10                 ' Register form
+t_waitx_imm     waitx   #100                ' Immediate form
+
+' ============================================================================
+' GETCT - Register destination
+' ============================================================================
+
+t_getct         getct   $10                 ' Get counter value
+
+' ============================================================================
+' MUXC/MUXNC/MUXZ/MUXNZ - Register vs Immediate
+' ============================================================================
+
+t_muxc_reg      muxc    $10, $20            ' Register form
+t_muxc_imm      muxc    $10, #$FF           ' Immediate form
+
+t_muxnc_reg     muxnc   $10, $20            ' Register form
+t_muxnc_imm     muxnc   $10, #$FF           ' Immediate form
+
+t_muxz_reg      muxz    $10, $20            ' Register form
+t_muxz_imm      muxz    $10, #$FF           ' Immediate form
+
+t_muxnz_reg     muxnz   $10, $20            ' Register form
+t_muxnz_imm     muxnz   $10, #$FF           ' Immediate form
+
+' ============================================================================
+' SETBYTE/GETBYTE - Register vs Immediate
+' ============================================================================
+
+t_setbyte_reg   setbyte $10, $20, #0        ' Register source, immediate byte index
+t_setbyte_imm   setbyte $10, #$AB, #1       ' Immediate source and index
+
+t_getbyte_reg   getbyte $10, $20, #2        ' Register source
+t_getbyte_imm   getbyte $10, $20, #3        ' Different byte index
+
+' ============================================================================
+' SETWORD/GETWORD - Register vs Immediate
+' ============================================================================
+
+t_setword_reg   setword $10, $20, #0        ' Register source, word index 0
+t_setword_imm   setword $10, #$1FF, #1      ' Immediate source, word index 1 (max 9-bit)
+
+t_getword_reg   getword $10, $20, #0        ' Register source
+t_getword_imm   getword $10, $20, #1        ' Different word index
+
+' ============================================================================
+' SETNIB/GETNIB - Register vs Immediate
+' ============================================================================
+
+t_setnib_reg    setnib  $10, $20, #0        ' Register source
+t_setnib_imm    setnib  $10, #$A, #3        ' Immediate source
+
+t_getnib_reg    getnib  $10, $20, #4        ' Register source
+t_getnib_imm    getnib  $10, $20, #7        ' Different nibble index
+
+' ============================================================================
+' ROLBYTE/ROLWORD/ROLNIB - With Immediate
+' ============================================================================
+
+t_rolbyte_reg   rolbyte $10, $20, #0        ' Register source
+t_rolbyte_imm   rolbyte $10, #$CD, #1       ' Immediate source
+
+t_rolword_reg   rolword $10, $20, #0        ' Register source
+t_rolword_imm   rolword $10, #$1FE, #1      ' Immediate source (max 9-bit)
+
+t_rolnib_reg    rolnib  $10, $20, #0        ' Register source
+t_rolnib_imm    rolnib  $10, #$B, #2        ' Immediate source
+
+' ============================================================================
+' SPLITB/MERGEB/SPLITW/MERGEW
+' ============================================================================
+
+t_splitb        splitb  $10                 ' Split bytes
+t_mergeb        mergeb  $10                 ' Merge bytes
+t_splitw        splitw  $10                 ' Split words
+t_mergew        mergew  $10                 ' Merge words
+
+' ============================================================================
+' SEUSSF/SEUSSR - Single Operand (D only)
+' ============================================================================
+
+t_seussf        seussf  $10                 ' Forward SEUSS (single operand)
+t_seussr        seussr  $10                 ' Reverse SEUSS (single operand)
+
+' ============================================================================
+' RGBSQZ/RGBEXP - Single Operand (D only)
+' ============================================================================
+
+t_rgbsqz        rgbsqz  $10                 ' Squeeze RGB (single operand)
+t_rgbexp        rgbexp  $10                 ' Expand RGB (single operand)
+
+' ============================================================================
+' Large Immediate with AUGS prefix (values > 9 bits)
+' ============================================================================
+
+t_mov_augs      mov     $10, ##$12345678    ' 32-bit immediate (generates AUGS)
+t_add_augs      add     $10, ##$AABBCCDD    ' 32-bit immediate
+t_and_augs      and     $10, ##$FF00FF00    ' 32-bit immediate
+t_or_augs       or      $10, ##$00FF00FF    ' 32-bit immediate
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
+' Data section for reference values
+data_section
+val1            long    0
+val2            long    0

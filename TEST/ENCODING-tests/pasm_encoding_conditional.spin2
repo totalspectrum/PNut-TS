@@ -1,0 +1,223 @@
+' PASM2 Encoding Test: IF_* Conditional Execution
+' Tests all conditional execution prefixes
+' Each instruction can be conditionally executed based on C and Z flags
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' All 16 IF_* Conditions with a Representative Instruction
+' ============================================================================
+
+' The condition field is 4 bits, giving 16 possible conditions
+
+' IF_ALWAYS (default, no prefix needed) - cccc = 1111
+t_always        add     $10, $20            ' Always execute
+
+' IF_NEVER - cccc = 0000
+t_never   if_nc_and_nz add $10, $20         ' Never execute (always false)
+
+' ============================================================================
+' Single Flag Conditions
+' ============================================================================
+
+' IF_C - Execute if Carry set (cccc = 1100)
+t_if_c          if_c    add     $10, $20    ' If C=1
+
+' IF_NC - Execute if Carry clear (cccc = 0011)
+t_if_nc         if_nc   add     $10, $20    ' If C=0
+
+' IF_Z - Execute if Zero set (cccc = 1010)
+t_if_z          if_z    add     $10, $20    ' If Z=1
+
+' IF_NZ - Execute if Zero clear (cccc = 0101)
+t_if_nz         if_nz   add     $10, $20    ' If Z=0
+
+' ============================================================================
+' Combined Flag Conditions (AND)
+' ============================================================================
+
+' IF_C_AND_Z - Execute if both C and Z set (cccc = 1000)
+t_if_c_and_z    if_c_and_z  add $10, $20    ' If C=1 AND Z=1
+
+' IF_C_AND_NZ - Execute if C set and Z clear (cccc = 0100)
+t_if_c_and_nz   if_c_and_nz add $10, $20    ' If C=1 AND Z=0
+
+' IF_NC_AND_Z - Execute if C clear and Z set (cccc = 0010)
+t_if_nc_and_z   if_nc_and_z add $10, $20    ' If C=0 AND Z=1
+
+' IF_NC_AND_NZ - Execute if both C and Z clear (cccc = 0001) - also IF_NEVER alternate
+t_if_nc_and_nz  if_nc_and_nz add $10, $20   ' If C=0 AND Z=0
+
+' ============================================================================
+' Combined Flag Conditions (OR)
+' ============================================================================
+
+' IF_C_OR_Z - Execute if C or Z set (cccc = 1110)
+t_if_c_or_z     if_c_or_z   add $10, $20    ' If C=1 OR Z=1
+
+' IF_C_OR_NZ - Execute if C set or Z clear (cccc = 1101)
+t_if_c_or_nz    if_c_or_nz  add $10, $20    ' If C=1 OR Z=0
+
+' IF_NC_OR_Z - Execute if C clear or Z set (cccc = 1011)
+t_if_nc_or_z    if_nc_or_z  add $10, $20    ' If C=0 OR Z=1
+
+' IF_NC_OR_NZ - Execute if C clear or Z clear (cccc = 0111)
+t_if_nc_or_nz   if_nc_or_nz add $10, $20    ' If C=0 OR Z=0
+
+' ============================================================================
+' Flag Equality Conditions
+' ============================================================================
+
+' IF_C_EQ_Z - Execute if C equals Z (cccc = 1001)
+t_if_c_eq_z     if_c_eq_z   add $10, $20    ' If C == Z
+
+' IF_C_NE_Z - Execute if C not equals Z (cccc = 0110)
+t_if_c_ne_z     if_c_ne_z   add $10, $20    ' If C != Z
+
+' ============================================================================
+' Aliases for Common Conditions
+' ============================================================================
+
+' IF_E (equals) = IF_Z
+t_if_e          if_e    add     $10, $20    ' If equal (Z=1)
+
+' IF_NE (not equals) = IF_NZ
+t_if_ne         if_ne   add     $10, $20    ' If not equal (Z=0)
+
+' IF_A (above, unsigned) = IF_NC_AND_NZ
+t_if_a          if_a    add     $10, $20    ' If above (unsigned greater)
+
+' IF_B (below, unsigned) = IF_C
+t_if_b          if_b    add     $10, $20    ' If below (unsigned less)
+
+' IF_AE (above or equal) = IF_NC
+t_if_ae         if_ae   add     $10, $20    ' If above or equal
+
+' IF_BE (below or equal) = IF_C_OR_Z
+t_if_be         if_be   add     $10, $20    ' If below or equal
+
+' ============================================================================
+' Conditional with Different Instructions
+' ============================================================================
+
+' Math operations
+t_c_sub         if_c    sub     $10, $20    ' Conditional SUB
+t_c_and         if_nc   and     $10, $20    ' Conditional AND
+t_c_or          if_z    or      $10, $20    ' Conditional OR
+t_c_xor         if_nz   xor     $10, $20    ' Conditional XOR
+t_c_mov         if_c    mov     $10, $20    ' Conditional MOV
+
+' Shift operations
+t_c_shl         if_c    shl     $10, #1     ' Conditional SHL
+t_c_shr         if_nc   shr     $10, #1     ' Conditional SHR
+t_c_rol         if_z    rol     $10, #1     ' Conditional ROL
+t_c_ror         if_nz   ror     $10, #1     ' Conditional ROR
+
+' Compare operations
+t_c_cmp         if_c    cmp     $10, $20    ' Conditional CMP
+t_c_cmps        if_nc   cmps    $10, $20    ' Conditional CMPS
+t_c_test        if_z    test    $10, $20    ' Conditional TEST
+
+' Memory operations
+t_c_rdlong      if_c    rdlong  $10, $20    ' Conditional RDLONG
+t_c_wrlong      if_nc   wrlong  $10, $20    ' Conditional WRLONG
+t_c_rdbyte      if_z    rdbyte  $10, $20    ' Conditional RDBYTE
+t_c_wrbyte      if_nz   wrbyte  $10, $20    ' Conditional WRBYTE
+
+' ============================================================================
+' Conditional Branches
+' ============================================================================
+
+t_c_jmp         if_c    jmp     #cjmp_tgt   ' Conditional JMP
+cjmp_tgt        nop
+
+t_c_call        if_nc   call    #ccall_sub  ' Conditional CALL
+ccall_sub       ret
+
+t_c_ret         if_z    ret                 ' Conditional RET
+
+t_c_djnz        if_c    djnz    $10, #cdjnz_lp  ' Conditional DJNZ
+cdjnz_lp        nop
+
+' ============================================================================
+' Conditional with Effects (WC, WZ, WCZ)
+' ============================================================================
+
+' IF_C with WC
+t_if_c_wc       if_c    add     $10, $20    wc  ' Conditional ADD with WC
+
+' IF_NC with WZ
+t_if_nc_wz      if_nc   sub     $10, $20    wz  ' Conditional SUB with WZ
+
+' IF_Z with WCZ
+t_if_z_wcz      if_z    and     $10, $20    wcz ' Conditional AND with WCZ
+
+' IF_NZ with WC
+t_if_nz_wc      if_nz   or      $10, $20    wc  ' Conditional OR with WC
+
+' Complex conditions with effects
+t_if_cz_wc      if_c_and_z  mov $10, $20    wc  ' C AND Z, with WC
+t_if_cnz_wz     if_c_and_nz mov $10, $20    wz  ' C AND NZ, with WZ
+t_if_ncz_wcz    if_nc_and_z mov $10, $20    wcz ' NC AND Z, with WCZ
+
+' ============================================================================
+' Conditional with Immediate Values
+' ============================================================================
+
+t_if_c_imm      if_c    add     $10, #100   ' IF_C with immediate
+t_if_nc_imm     if_nc   mov     $10, #$FF   ' IF_NC with immediate
+t_if_z_imm      if_z    and     $10, #$0F   ' IF_Z with immediate
+t_if_nz_imm     if_nz   or      $10, #$F0   ' IF_NZ with immediate
+
+' ============================================================================
+' Conditional with 32-bit Immediate (AUGS)
+' ============================================================================
+
+t_if_c_aug      if_c    mov     $10, ##$12345678    ' 32-bit immediate
+t_if_nc_aug     if_nc   add     $10, ##$AABBCCDD    ' 32-bit immediate
+
+' ============================================================================
+' Conditional Bit Operations
+' ============================================================================
+
+t_if_c_testb    if_c    testb   $10, #5     wc  ' Conditional TESTB
+t_if_nc_bitl    if_nc   bitl    $10, #3         ' Conditional BITL
+t_if_z_bith     if_z    bith    $10, #7         ' Conditional BITH
+t_if_nz_bitnot  if_nz   bitnot  $10, #15        ' Conditional BITNOT
+
+' ============================================================================
+' Conditional MUX Operations
+' ============================================================================
+
+t_if_c_muxc     if_c    muxc    $10, $20        ' Conditional MUXC
+t_if_nc_muxnc   if_nc   muxnc   $10, $20        ' Conditional MUXNC
+t_if_z_muxz     if_z    muxz    $10, $20        ' Conditional MUXZ
+t_if_nz_muxnz   if_nz   muxnz   $10, $20        ' Conditional MUXNZ
+
+' ============================================================================
+' Conditional Byte/Word Operations
+' ============================================================================
+
+t_if_c_getb     if_c    getbyte $10, $20, #0    ' Conditional GETBYTE
+t_if_nc_setb    if_nc   setbyte $10, $20, #1    ' Conditional SETBYTE
+t_if_z_getw     if_z    getword $10, $20, #0    ' Conditional GETWORD
+t_if_nz_setw    if_nz   setword $10, $20, #1    ' Conditional SETWORD
+
+' ============================================================================
+' Conditional PTRx Operations
+' ============================================================================
+
+t_if_c_rdl_p    if_c    rdlong  $10, ptra++     ' Conditional with PTRA++
+t_if_nc_wrl_p   if_nc   wrlong  $10, ptrb--     ' Conditional with PTRB--
+t_if_z_rdl_pi   if_z    rdlong  $10, ptra[2]    ' Conditional with indexed
+t_if_nz_wrl_pi  if_nz   wrlong  $10, ptrb[-1]   ' Conditional with negative index
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret

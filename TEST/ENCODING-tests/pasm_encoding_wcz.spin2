@@ -1,0 +1,174 @@
+' PASM2 Encoding Test: WCZ (Write Carry and Zero) Combined Effects
+' Tests instructions with WCZ that sets both C and Z flags
+' Also includes WCZ-only instructions (BIT*, DIR*, DRV*, FLT*, OUT*)
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Math Instructions with WCZ (most ALU ops support all effects)
+' ============================================================================
+
+t_add_wcz       add     $10, $20        wcz ' C = carry, Z = (result == 0)
+t_sub_wcz       sub     $10, $20        wcz ' C = borrow, Z = (result == 0)
+t_cmp_wcz       cmp     $10, $20        wcz ' C = (D < S), Z = (D == S)
+t_cmps_wcz      cmps    $10, $20        wcz ' C = (D < S signed), Z = (D == S)
+t_and_wcz       and     $10, $20        wcz ' C = parity, Z = (result == 0)
+t_or_wcz        or      $10, $20        wcz ' C = parity, Z = (result == 0)
+t_xor_wcz       xor     $10, $20        wcz ' C = parity, Z = (result == 0)
+t_test_wcz      test    $10, $20        wcz ' C = parity, Z = (result == 0)
+t_testn_wcz     testn   $10, $20        wcz ' C = parity, Z = (result == 0)
+t_mov_wcz       mov     $10, $20        wcz ' C = MSB, Z = (S == 0)
+t_neg_wcz       neg     $10, $20        wcz ' C = overflow, Z = (result == 0)
+t_not_wcz       not     $10, $20        wcz ' C = parity, Z = (result == 0)
+t_abs_wcz       abs     $10, $20        wcz ' C = was negative, Z = (result == 0)
+t_andn_wcz      andn    $10, $20        wcz ' C = parity, Z = (result == 0)
+
+' ============================================================================
+' Shift Instructions with WCZ
+' ============================================================================
+
+t_shl_wcz       shl     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_shr_wcz       shr     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_sar_wcz       sar     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_rol_wcz       rol     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_ror_wcz       ror     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_rcl_wcz       rcl     $10, #1         wcz ' C = bit out, Z = (result == 0)
+t_rcr_wcz       rcr     $10, #1         wcz ' C = bit out, Z = (result == 0)
+
+' ============================================================================
+' Bit Manipulation with WCZ
+' ============================================================================
+
+t_zerox_wcz     zerox   $10, #7         wcz ' C = bit 7, Z = (result == 0)
+t_signx_wcz     signx   $10, #15        wcz ' C = sign bit, Z = (result == 0)
+t_encod_wcz     encod   $10, $20        wcz ' C = (S == 0), Z = (result == 0)
+
+' ============================================================================
+' Compare Instructions with WCZ
+' ============================================================================
+
+t_cmpr_wcz      cmpr    $10, $20        wcz ' C = (S < D), Z = (D == S)
+t_cmpm_wcz      cmpm    $10, $20        wcz ' Both flags
+t_cmpx_wcz      cmpx    $10, $20        wcz ' Extended compare
+t_cmpsx_wcz     cmpsx   $10, $20        wcz ' Extended signed compare
+
+' ============================================================================
+' Extended Arithmetic with WCZ
+' ============================================================================
+
+t_addx_wcz      addx    $10, $20        wcz ' C = carry, Z = Z AND (result == 0)
+t_subx_wcz      subx    $10, $20        wcz ' C = borrow, Z = Z AND (result == 0)
+t_adds_wcz      adds    $10, $20        wcz ' Both flags
+t_subs_wcz      subs    $10, $20        wcz ' Both flags
+t_addsx_wcz     addsx   $10, $20        wcz ' Both extended flags
+t_subsx_wcz     subsx   $10, $20        wcz ' Both extended flags
+
+' ============================================================================
+' SUMC/SUMNC/SUMZ/SUMNZ with WCZ
+' ============================================================================
+
+t_sumc_wcz      sumc    $10, $20        wcz ' Both flags
+t_sumnc_wcz     sumnc   $10, $20        wcz ' Both flags
+t_sumz_wcz      sumz    $10, $20        wcz ' Both flags
+t_sumnz_wcz     sumnz   $10, $20        wcz ' Both flags
+
+' ============================================================================
+' Min/Max with WCZ
+' ============================================================================
+
+t_fge_wcz       fge     $10, $20        wcz ' Both flags
+t_fle_wcz       fle     $10, $20        wcz ' Both flags
+t_fges_wcz      fges    $10, $20        wcz ' Both flags
+t_fles_wcz      fles    $10, $20        wcz ' Both flags
+
+' ============================================================================
+' MUX Instructions with WCZ
+' ============================================================================
+
+t_muxc_wcz      muxc    $10, $20        wcz ' Both flags
+t_muxnc_wcz     muxnc   $10, $20        wcz ' Both flags
+t_muxz_wcz      muxz    $10, $20        wcz ' Both flags
+t_muxnz_wcz     muxnz   $10, $20        wcz ' Both flags
+
+' ============================================================================
+' WCZ-ONLY Instructions: BIT* Family (8 instructions)
+' These ONLY accept WCZ, not WC or WZ individually
+' C and Z are both set to the original bit state before modification
+' ============================================================================
+
+t_bitl_wcz      bitl    $10, #0         wcz ' Set bit 0 low, C=Z=original bit
+t_bith_wcz      bith    $10, #7         wcz ' Set bit 7 high
+t_bitc_wcz      bitc    $10, #15        wcz ' Set bit to C
+t_bitnc_wcz     bitnc   $10, #23        wcz ' Set bit to !C
+t_bitz_wcz      bitz    $10, #31        wcz ' Set bit to Z
+t_bitnz_wcz     bitnz   $10, #16        wcz ' Set bit to !Z
+t_bitrnd_wcz    bitrnd  $10, #8         wcz ' Set bit to random
+t_bitnot_wcz    bitnot  $10, #4         wcz ' Toggle bit
+
+' ============================================================================
+' WCZ-ONLY Instructions: OUT* Family (8 instructions)
+' ============================================================================
+
+t_outl_wcz      outl    #0              wcz ' Output low
+t_outh_wcz      outh    #1              wcz ' Output high
+t_outc_wcz      outc    #2              wcz ' Output to C
+t_outnc_wcz     outnc   #3              wcz ' Output to !C
+t_outz_wcz      outz    #4              wcz ' Output to Z
+t_outnz_wcz     outnz   #5              wcz ' Output to !Z
+t_outrnd_wcz    outrnd  #6              wcz ' Output random
+t_outnot_wcz    outnot  #7              wcz ' Toggle output
+
+' ============================================================================
+' WCZ-ONLY Instructions: DIR* Family (8 instructions)
+' ============================================================================
+
+t_dirl_wcz      dirl    #0              wcz ' Direction low (input)
+t_dirh_wcz      dirh    #1              wcz ' Direction high (output)
+t_dirc_wcz      dirc    #2              wcz ' Direction to C
+t_dirnc_wcz     dirnc   #3              wcz ' Direction to !C
+t_dirz_wcz      dirz    #4              wcz ' Direction to Z
+t_dirnz_wcz     dirnz   #5              wcz ' Direction to !Z
+t_dirrnd_wcz    dirrnd  #6              wcz ' Direction random
+t_dirnot_wcz    dirnot  #7              wcz ' Toggle direction
+
+' ============================================================================
+' WCZ-ONLY Instructions: DRV* Family (8 instructions)
+' ============================================================================
+
+t_drvl_wcz      drvl    #0              wcz ' Drive low
+t_drvh_wcz      drvh    #1              wcz ' Drive high
+t_drvc_wcz      drvc    #2              wcz ' Drive to C
+t_drvnc_wcz     drvnc   #3              wcz ' Drive to !C
+t_drvz_wcz      drvz    #4              wcz ' Drive to Z
+t_drvnz_wcz     drvnz   #5              wcz ' Drive to !Z
+t_drvrnd_wcz    drvrnd  #6              wcz ' Drive random
+t_drvnot_wcz    drvnot  #7              wcz ' Toggle drive
+
+' ============================================================================
+' WCZ-ONLY Instructions: FLT* Family (8 instructions)
+' ============================================================================
+
+t_fltl_wcz      fltl    #0              wcz ' Float low
+t_flth_wcz      flth    #1              wcz ' Float high
+t_fltc_wcz      fltc    #2              wcz ' Float to C
+t_fltnc_wcz     fltnc   #3              wcz ' Float to !C
+t_fltz_wcz      fltz    #4              wcz ' Float to Z
+t_fltnz_wcz     fltnz   #5              wcz ' Float to !Z
+t_fltrnd_wcz    fltrnd  #6              wcz ' Float random
+t_fltnot_wcz    fltnot  #7              wcz ' Toggle float
+
+' ============================================================================
+' Note: TESTB/TESTBN do NOT support WCZ (only WC, WZ, or extended effects)
+' Note: MUL, MULS, SCA, SCAS only support WZ (not WCZ)
+' Note: COGID, COGINIT, GETCT, etc. only support WC (not WCZ)
+' ============================================================================
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret

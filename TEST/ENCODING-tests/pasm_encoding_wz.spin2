@@ -1,0 +1,159 @@
+' PASM2 Encoding Test: WZ (Write Zero) Effect
+' Tests instructions with the WZ effect modifier
+' Only includes instructions that actually support WZ
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Math Instructions with WZ (that support it)
+' ============================================================================
+
+' ADD with zero result
+t_add_wz        add     $10, $20        wz  ' Z = (result == 0)
+
+' SUB with zero result
+t_sub_wz        sub     $10, $20        wz  ' Z = (result == 0)
+
+' CMP with zero (equality test)
+t_cmp_wz        cmp     $10, $20        wz  ' Z = (D == S)
+
+' CMPS with zero
+t_cmps_wz       cmps    $10, $20        wz  ' Z = (D == S)
+
+' AND with zero result
+t_and_wz        and     $10, $20        wz  ' Z = (result == 0)
+
+' OR with zero result
+t_or_wz         or      $10, $20        wz  ' Z = (result == 0)
+
+' XOR with zero result
+t_xor_wz        xor     $10, $20        wz  ' Z = (result == 0)
+
+' TEST with zero result (non-destructive AND)
+t_test_wz       test    $10, $20        wz  ' Z = ((D AND S) == 0)
+
+' TESTN with zero result
+t_testn_wz      testn   $10, $20        wz  ' Z = ((D AND NOT S) == 0)
+
+' MOV with zero source
+t_mov_wz        mov     $10, $20        wz  ' Z = (S == 0)
+
+' NEG with zero result
+t_neg_wz        neg     $10, $20        wz  ' Z = (result == 0)
+
+' NOT with zero result
+t_not_wz        not     $10, $20        wz  ' Z = (result == 0)
+
+' ABS with zero result
+t_abs_wz        abs     $10, $20        wz  ' Z = (result == 0)
+
+' ANDN with zero result
+t_andn_wz       andn    $10, $20        wz  ' Z = (result == 0)
+
+' ============================================================================
+' Shift Instructions with WZ
+' ============================================================================
+
+t_shl_wz        shl     $10, #1         wz  ' Z = (result == 0)
+t_shr_wz        shr     $10, #1         wz  ' Z = (result == 0)
+t_sar_wz        sar     $10, #1         wz  ' Z = (result == 0)
+t_rol_wz        rol     $10, #1         wz  ' Z = (result == 0)
+t_ror_wz        ror     $10, #1         wz  ' Z = (result == 0)
+t_rcl_wz        rcl     $10, #1         wz  ' Z = (result == 0)
+t_rcr_wz        rcr     $10, #1         wz  ' Z = (result == 0)
+
+' ============================================================================
+' Bit Manipulation with WZ (that support it)
+' ============================================================================
+
+t_zerox_wz      zerox   $10, #7         wz  ' Z = (result == 0)
+t_signx_wz      signx   $10, #15        wz  ' Z = (result == 0)
+t_encod_wz      encod   $10, $20        wz  ' Z = (result == 0)
+
+' ============================================================================
+' Compare Instructions with WZ
+' ============================================================================
+
+t_cmpr_wz       cmpr    $10, $20        wz  ' Z = (D == S)
+t_cmpm_wz       cmpm    $10, $20        wz  ' Z = (D == S)
+t_cmpx_wz       cmpx    $10, $20        wz  ' Z = (result == 0) in chain
+t_cmpsx_wz      cmpsx   $10, $20        wz  ' Z = (result == 0) in chain
+
+' ============================================================================
+' WZ-Only Instructions (these ONLY support WZ, not WC)
+' ============================================================================
+
+' MUL - Z = 1 if either operand was 0
+t_mul_wz        mul     $10, $20        wz  ' Z = (S == 0) | (D == 0)
+
+' MULS - signed multiply
+t_muls_wz       muls    $10, $20        wz  ' Z = (S == 0) | (D == 0)
+
+' SCA - scale
+t_sca_wz        sca     $10, $20        wz  ' Z = (result == 0)
+
+' SCAS - signed scale
+t_scas_wz       scas    $10, $20        wz  ' Z = (result == 0)
+
+' ============================================================================
+' Extended Arithmetic with WZ
+' ============================================================================
+
+t_addx_wz       addx    $10, $20        wz  ' Z = Z AND (result == 0)
+t_subx_wz       subx    $10, $20        wz  ' Z = Z AND (result == 0)
+t_adds_wz       adds    $10, $20        wz  ' Z = (result == 0)
+t_subs_wz       subs    $10, $20        wz  ' Z = (result == 0)
+t_addsx_wz      addsx   $10, $20        wz  ' Z = Z AND (result == 0)
+t_subsx_wz      subsx   $10, $20        wz  ' Z = Z AND (result == 0)
+
+' ============================================================================
+' SUMC/SUMNC/SUMZ/SUMNZ with WZ
+' ============================================================================
+
+t_sumc_wz       sumc    $10, $20        wz  ' Z = (result == 0)
+t_sumnc_wz      sumnc   $10, $20        wz  ' Z = (result == 0)
+t_sumz_wz       sumz    $10, $20        wz  ' Z = (result == 0)
+t_sumnz_wz      sumnz   $10, $20        wz  ' Z = (result == 0)
+
+' ============================================================================
+' Min/Max with WZ
+' ============================================================================
+
+t_fge_wz        fge     $10, $20        wz  ' Z = (result == 0)
+t_fle_wz        fle     $10, $20        wz  ' Z = (result == 0)
+t_fges_wz       fges    $10, $20        wz  ' Z = (result == 0)
+t_fles_wz       fles    $10, $20        wz  ' Z = (result == 0)
+
+' ============================================================================
+' TESTB/TESTBN - Bit Testing with WZ
+' ============================================================================
+
+t_testb_wz      testb   $10, #0         wz  ' Z = bit 0 of D
+t_testb1_wz     testb   $10, #15        wz  ' Z = bit 15 of D
+t_testb2_wz     testb   $10, #31        wz  ' Z = bit 31 of D
+
+t_testbn_wz     testbn  $10, #0         wz  ' Z = NOT bit 0 of D
+t_testbn1_wz    testbn  $10, #15        wz  ' Z = NOT bit 15 of D
+t_testbn2_wz    testbn  $10, #31        wz  ' Z = NOT bit 31 of D
+
+' ============================================================================
+' MUX Instructions with WZ
+' ============================================================================
+
+t_muxc_wz       muxc    $10, $20        wz  ' Z = (result == 0)
+t_muxnc_wz      muxnc   $10, $20        wz  ' Z = (result == 0)
+t_muxz_wz       muxz    $10, $20        wz  ' Z = (result == 0)
+t_muxnz_wz      muxnz   $10, $20        wz  ' Z = (result == 0)
+
+' Note: GETBYTE, GETWORD, GETNIB, SETBYTE, SETWORD, SETNIB,
+' ROLBYTE, ROLWORD, ROLNIB, MOVBYTS, GETCT do not support WZ alone
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
