@@ -171,7 +171,11 @@ export class PNutInTypeScript {
       this.program.parse(combinedArgs);
     } catch (error: unknown) {
       if (error instanceof CommanderError) {
-        //this.context.logger.logMessage(`XYZZY Error: name=[${error.name}], message=[${error.message}]`);
+        //this.context.logger.logMessage(`XYZZY Error: name=[${error.name}], code=[${error.code}], message=[${error.message}]`);
+        // Handle --version: exit cleanly
+        if (error.code === 'commander.version') {
+          return Promise.resolve(0);
+        }
         if (error.name === 'CommanderError') {
           this.context.logger.logMessage(``); // our blank line so prompt is not too close after output
           //this.context.logger.logMessage(`  xyzxzy `);
@@ -210,6 +214,12 @@ export class PNutInTypeScript {
     this.options = { ...this.options, ...this.program.opts() };
 
     const showingHelp: boolean = this.program.args.includes('--help') || this.program.args.includes('-h');
+    const showingVersion: boolean = combinedArgs.includes('--version') || combinedArgs.includes('-V');
+
+    // Exit early for --version (Commander already printed it)
+    if (showingVersion) {
+      return Promise.resolve(0);
+    }
 
     if (!showingHelp) {
       if (foundJest || runningCoverageTesting) {
