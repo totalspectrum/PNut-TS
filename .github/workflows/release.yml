@@ -457,6 +457,30 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
 
+          # Define AppleScript for DMG styling (heredoc must be at base indent level)
+          cat > /tmp/dmg-style.scpt << 'APPLESCRIPT'
+          tell application "Finder"
+            tell disk "PNut-TS"
+              open
+              set current view of container window to icon view
+              set toolbar visible of container window to false
+              set statusbar visible of container window to false
+              set the bounds of container window to {400, 100, 900, 400}
+              set theViewOptions to the icon view options of container window
+              set arrangement of theViewOptions to not arranged
+              set icon size of theViewOptions to 72
+              set background picture of theViewOptions to file ".background:background.png"
+              set position of item "pnut_ts" of container window to {125, 150}
+              set position of item "Applications" of container window to {375, 150}
+              close
+              open
+              update without registering applications
+              delay 2
+              close
+            end tell
+          end tell
+          APPLESCRIPT
+
           for arch in x64 arm64; do
             PKG_DIR="packages/pnut-ts-macos-${arch}-${VERSION}"
             DMG_NAME="pnut-ts-macos-${arch}-${VERSION}.dmg"
@@ -534,30 +558,7 @@ jobs:
 
               # Apply window styling with AppleScript FIRST (before setting volume icon)
               echo "Applying window styling..."
-              cat > /tmp/dmg-style.scpt << 'APPLESCRIPT'
-              tell application "Finder"
-                tell disk "PNut-TS"
-                  open
-                  set current view of container window to icon view
-                  set toolbar visible of container window to false
-                  set statusbar visible of container window to false
-                  set the bounds of container window to {400, 100, 900, 400}
-                  set theViewOptions to the icon view options of container window
-                  set arrangement of theViewOptions to not arranged
-                  set icon size of theViewOptions to 72
-                  set background picture of theViewOptions to file ".background:background.png"
-                  set position of item "pnut_ts" of container window to {125, 150}
-                  set position of item "Applications" of container window to {375, 150}
-                  close
-                  open
-                  update without registering applications
-                  delay 2
-                  close
-                end tell
-              end tell
-              APPLESCRIPT
               osascript /tmp/dmg-style.scpt || true
-              rm -f /tmp/dmg-style.scpt
               sleep 1
 
               # Set volume icon AFTER AppleScript (AppleScript can delete it)
@@ -583,6 +584,9 @@ jobs:
               rm -rf "$STAGING"
             fi
           done
+
+          # Cleanup temp AppleScript
+          rm -f /tmp/dmg-style.scpt
 
       - name: Create macOS ZIP packages
         run: |
