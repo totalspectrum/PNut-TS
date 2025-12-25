@@ -62,8 +62,8 @@ describe('PNut_ts compiles .spin2 w/debug() correctly', () => {
     console.error('ERROR: glob issue:', error);
   }
   if (files.length > 1) {
-    // Don't compile __pre.spin2 files (preprocessor intermediates)!
-    files = files.filter((file) => !file.includes('__pre.spin2'));
+    // Don't compile preprocessor intermediate files (both naming conventions)!
+    files = files.filter((file) => !file.includes('__pre.spin2') && !file.includes('-pre.spin2'));
     // isp_dummy_flash_rpi is NOT a debug compile
     files = files.filter((file) => !file.includes('isp_dummy_flash_rpi.spin2'));
     // isp_dummy_flash is NOT a debug compile
@@ -219,8 +219,8 @@ describe('PNut_ts compiles .spin2 w/o debug() correctly', () => {
     console.error('ERROR: glob issue:', error);
   }
   if (files.length > 1) {
-    // Don't compile __pre.spin2 files (preprocessor intermediates)!
-    files = files.filter((file) => !file.includes('__pre.spin2'));
+    // Don't compile preprocessor intermediate files (both naming conventions)!
+    files = files.filter((file) => !file.includes('__pre.spin2') && !file.includes('-pre.spin2'));
     // add these files if they exist
     let specificFile: string = path.join(testDirPath, 'isp_dummy_flash_rpi.spin2');
     if (fs.existsSync(specificFile)) {
