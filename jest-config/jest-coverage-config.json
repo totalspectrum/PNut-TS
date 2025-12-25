@@ -14,7 +14,8 @@
     "<rootDir>/dist/tests/OBJ-tests/",
     "<rootDir>/dist/tests/SPIN-tests/",
     "<rootDir>/dist/tests/VAR-tests/",
-    "<rootDir>/dist/tests/LANG-VER-tests/"
+    "<rootDir>/dist/tests/LANG-VER-tests/",
+    "<rootDir>/dist/tests/ENCODING-tests/"
   ],
   "testMatch": ["**/*.test.js"],
   "verbose": true
