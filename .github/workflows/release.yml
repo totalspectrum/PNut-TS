@@ -570,10 +570,31 @@ jobs:
               fi
 
               sync
-              sleep 1
+              sleep 2
 
-              # Unmount
-              hdiutil detach "${DEVICE}" || hdiutil detach "${DEVICE}" -force
+              # Unmount with retry loop (disk can be busy)
+              echo "Unmounting disk..."
+              DETACH_ATTEMPTS=0
+              MAX_DETACH_ATTEMPTS=5
+              while [ $DETACH_ATTEMPTS -lt $MAX_DETACH_ATTEMPTS ]; do
+                if hdiutil detach "${DEVICE}" 2>/dev/null; then
+                  echo "Disk unmounted successfully"
+                  break
+                fi
+                DETACH_ATTEMPTS=$((DETACH_ATTEMPTS + 1))
+                echo "Unmount attempt $DETACH_ATTEMPTS failed, waiting..."
+                sleep 3
+              done
+
+              # Force unmount if still mounted
+              if [ $DETACH_ATTEMPTS -eq $MAX_DETACH_ATTEMPTS ]; then
+                echo "Force unmounting..."
+                hdiutil detach "${DEVICE}" -force || true
+                sleep 2
+              fi
+
+              # Extra delay to ensure disk is fully released
+              sleep 3
 
               # Convert to compressed read-only
               echo "Compressing DMG..."
