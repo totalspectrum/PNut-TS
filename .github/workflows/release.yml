@@ -195,8 +195,9 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install Pillow
+          # Use --break-system-packages for Homebrew-managed Python on macOS
+          python3 -m pip install --upgrade pip --break-system-packages
+          python3 -m pip install Pillow --break-system-packages
 
       - name: List downloaded packages
         run: |
