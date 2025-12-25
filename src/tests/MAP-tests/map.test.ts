@@ -4,6 +4,8 @@
  * Tests that verify .map file output matches .lst file and expected.json
  */
 
+/* eslint-disable no-console */
+
 import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';

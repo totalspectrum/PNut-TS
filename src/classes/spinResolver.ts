@@ -11117,7 +11117,7 @@ private checkDec(): boolean {
           // [error_dbz]
           throw new Error(`Divide by zero (m142)`);
         }
-        a = this.signExtendFrom32Bit(a) % this.signExtendFrom32Bit(b) & mask32Bit;
+        a = (this.signExtendFrom32Bit(a) % this.signExtendFrom32Bit(b)) & mask32Bit;
         break;
 
       case eOperationType.op_remu: //  +//
