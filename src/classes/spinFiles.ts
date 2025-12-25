@@ -307,10 +307,6 @@ export class SpinFiles {
     } else {
       throw new Error(`Cannot find ${spin2fileName}`);
     }
-    if (desiredFile === undefined) {
-      // [error_INTERNAL]
-      throw new Error(`ERROR[INTERNAL] - failed to locate/allocate object file record ${fileName}`);
-    }
     return desiredFile;
   }
 

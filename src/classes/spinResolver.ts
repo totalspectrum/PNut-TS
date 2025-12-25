@@ -10136,7 +10136,7 @@ private checkDec(): boolean {
         const rcdSetEndMarker: number = structureRecord.nextByte(); // returns 1 if another member, 0 if end of record
         const endMarkerInterp: string = rcdSetEndMarker == 0 ? 'EndOfRcds' : 'MoreRcds';
         this.logMessage(`  -- CSR() recdEndMarker=(${rcdSetEndMarker}) - ${endMarkerInterp}`);
-        if (!foundMatch && rcdSetEndMarker == 0) {
+        if (rcdSetEndMarker == 0) {
           // [error_sdnctn]
           throw new Error('Structure does not contain this name');
         }

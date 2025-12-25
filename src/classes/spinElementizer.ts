@@ -137,7 +137,8 @@ export class SpinElementizer {
       }
       elements = this.get_element_entries();
       this.logMessage(`- get IN-LOOP elements(${elements.length})=[${elements}]`);
-    } while (!atEndOfFile);
+      // eslint-disable-next-line no-constant-condition
+    } while (true); // Loop exits via break when atEndOfFile is set
     this.isElementizing = false; // Mark that elementization has completed successfully
     return element_list;
   }
