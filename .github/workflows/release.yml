@@ -39,6 +39,11 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "Package version: ${VERSION}"
 
+          # Convert to packed format (1.51.7 -> 015107)
+          PACKED_VERSION=$(echo "$VERSION" | awk -F. '{printf "%02d%02d%02d", $1, $2, $3}')
+          echo "PACKED_VERSION=${PACKED_VERSION}" >> $GITHUB_OUTPUT
+          echo "Packed version: ${PACKED_VERSION}"
+
       - name: Validate tag matches package.json version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -89,7 +94,7 @@ jobs:
 
       - name: Prepare package contents
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
 
           # Executable naming convention:
           #   Primary executable: pnut-ts (hyphenated, matches project name)
@@ -99,24 +104,24 @@ jobs:
 
           # Create package directories for each platform
           for platform in win-x64 win-arm64 linux-x64 linux-arm64 macos-x64 macos-arm64; do
-            mkdir -p "packages/pnut-ts-${platform}-${VERSION}/pnut_ts"
+            mkdir -p "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts"
 
             # Copy documentation files
-            cp README.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/"
-            cp LICENSE.txt "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || cp LICENSE "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/LICENSE.txt" 2>/dev/null || echo "No LICENSE file found"
-            cp CHANGELOG.md "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/" 2>/dev/null || true
+            cp README.md "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/"
+            cp LICENSE.txt "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/" 2>/dev/null || cp LICENSE "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/LICENSE.txt" 2>/dev/null || echo "No LICENSE file found"
+            cp CHANGELOG.md "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/" 2>/dev/null || true
 
             # Copy binary with correct name and create compatibility alias
             # Note: pkg produces files named "p2-pnut-ts-*" based on package.json name
             if [[ "$platform" == win-* ]]; then
               # Windows: copy as pnut-ts.exe (primary) and pnut_ts.exe (compat copy)
-              cp "pkgs/p2-pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe"
-              cp "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts.exe" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts.exe"
+              cp "pkgs/p2-pnut-ts-${platform}.exe" "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut-ts.exe"
+              cp "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut-ts.exe" "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut_ts.exe"
             else
               # Unix: copy as pnut-ts (primary) and symlink pnut_ts -> pnut-ts (compat)
-              cp "pkgs/p2-pnut-ts-${platform}" "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
-              chmod +x "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut-ts"
-              ln -sf pnut-ts "packages/pnut-ts-${platform}-${VERSION}/pnut_ts/pnut_ts"
+              cp "pkgs/p2-pnut-ts-${platform}" "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut-ts"
+              chmod +x "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut-ts"
+              ln -sf pnut-ts "packages/pnut-ts-${platform}-${PACKED_VERSION}/pnut_ts/pnut_ts"
             fi
           done
 
@@ -124,12 +129,12 @@ jobs:
 
       - name: Create Windows/Linux ZIP packages
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
           cd packages
 
           for platform in win-x64 win-arm64 linux-x64 linux-arm64; do
-            zip -r "../pnut-ts-${platform}-${VERSION}.zip" "pnut-ts-${platform}-${VERSION}"
-            echo "Created: pnut-ts-${platform}-${VERSION}.zip"
+            zip -r "../pnut-ts-${platform}-${PACKED_VERSION}.zip" "pnut-ts-${platform}-${PACKED_VERSION}"
+            echo "Created: pnut-ts-${platform}-${PACKED_VERSION}.zip"
           done
 
       - name: Upload Windows/Linux packages
@@ -193,6 +198,11 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
+          # Convert to packed format (1.51.7 -> 015107)
+          PACKED_VERSION=$(echo "$VERSION" | awk -F. '{printf "%02d%02d%02d", $1, $2, $3}')
+          echo "PACKED_VERSION=${PACKED_VERSION}" >> $GITHUB_OUTPUT
+          echo "Semantic: ${VERSION}, Packed: ${PACKED_VERSION}"
+
       - name: Install Python dependencies
         run: |
           # Use --break-system-packages for Homebrew-managed Python on macOS
@@ -210,9 +220,9 @@ jobs:
       - name: Restore executable permissions
         run: |
           # GitHub Actions artifacts don't preserve Unix permissions
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
           for arch in x64 arm64; do
-            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut-ts"
+            BINARY="packages/pnut-ts-macos-${arch}-${PACKED_VERSION}/pnut_ts/pnut-ts"
             if [ -f "$BINARY" ]; then
               chmod +x "$BINARY"
               echo "Set executable: $BINARY"
@@ -272,11 +282,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_DEVELOPER_NAME: ${{ secrets.APPLE_DEVELOPER_NAME }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
 
           for arch in x64 arm64; do
             # Sign the primary executable (pnut-ts)
-            BINARY="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut-ts"
+            BINARY="packages/pnut-ts-macos-${arch}-${PACKED_VERSION}/pnut_ts/pnut-ts"
 
             if [ -f "$BINARY" ]; then
               echo "Signing ${arch} binary (pnut-ts)..."
@@ -292,7 +302,7 @@ jobs:
               echo "${arch} binary signed successfully"
 
               # Recreate symlink (signing may have affected it)
-              SYMLINK="packages/pnut-ts-macos-${arch}-${VERSION}/pnut_ts/pnut_ts"
+              SYMLINK="packages/pnut-ts-macos-${arch}-${PACKED_VERSION}/pnut_ts/pnut_ts"
               rm -f "$SYMLINK"
               ln -sf pnut-ts "$SYMLINK"
               echo "Recreated compatibility symlink: pnut_ts -> pnut-ts"
@@ -361,7 +371,7 @@ jobs:
 
       - name: Create DMGs
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
 
           # Define AppleScript for DMG styling (heredoc must be at base indent level)
           cat > /tmp/dmg-style.scpt << 'APPLESCRIPT'
@@ -388,8 +398,8 @@ jobs:
           APPLESCRIPT
 
           for arch in x64 arm64; do
-            PKG_DIR="packages/pnut-ts-macos-${arch}-${VERSION}"
-            DMG_NAME="pnut-ts-macos-${arch}-${VERSION}.dmg"
+            PKG_DIR="packages/pnut-ts-macos-${arch}-${PACKED_VERSION}"
+            DMG_NAME="pnut-ts-macos-${arch}-${PACKED_VERSION}.dmg"
 
             if [ -d "$PKG_DIR" ]; then
               echo "Creating DMG for ${arch}..."
@@ -561,11 +571,11 @@ jobs:
 
       - name: Create macOS ZIP packages (containing signed/notarized DMGs)
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
 
           for arch in x64 arm64; do
-            DMG_FILE="pnut-ts-macos-${arch}-${VERSION}.dmg"
-            ZIP_FILE="pnut-ts-macos-${arch}-${VERSION}.zip"
+            DMG_FILE="pnut-ts-macos-${arch}-${PACKED_VERSION}.dmg"
+            ZIP_FILE="pnut-ts-macos-${arch}-${PACKED_VERSION}.zip"
             if [ -f "$DMG_FILE" ]; then
               echo "Creating ZIP containing DMG for macOS ${arch}..."
               zip "$ZIP_FILE" "$DMG_FILE"
@@ -616,6 +626,10 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
+          # Convert to packed format (1.51.7 -> 015107)
+          PACKED_VERSION=$(echo "$VERSION" | awk -F. '{printf "%02d%02d%02d", $1, $2, $3}')
+          echo "PACKED_VERSION=${PACKED_VERSION}" >> $GITHUB_OUTPUT
+
       - name: List release artifacts
         run: |
           echo "Release artifacts:"
@@ -645,6 +659,7 @@ jobs:
       - name: Generate release body
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
+          PACKED_VERSION="${{ steps.version.outputs.PACKED_VERSION }}"
           TAG="${{ github.ref_name }}"
 
           # Extract changelog section for this version
@@ -675,12 +690,12 @@ jobs:
 
           | Platform | Architecture | Download |
           |----------|--------------|----------|
-          | **macOS** | Apple Silicon (M1 and later) | \`pnut-ts-macos-arm64-${VERSION}.zip\` |
-          | **macOS** | Intel x64 | \`pnut-ts-macos-x64-${VERSION}.zip\` |
-          | **Windows** | x64 | \`pnut-ts-win-x64-${VERSION}.zip\` |
-          | **Windows** | ARM64 | \`pnut-ts-win-arm64-${VERSION}.zip\` |
-          | **Linux** | x64 | \`pnut-ts-linux-x64-${VERSION}.zip\` |
-          | **Linux** | ARM64 | \`pnut-ts-linux-arm64-${VERSION}.zip\` |
+          | **macOS** | Apple Silicon (M1 and later) | \`pnut-ts-macos-arm64-${PACKED_VERSION}.zip\` |
+          | **macOS** | Intel x64 | \`pnut-ts-macos-x64-${PACKED_VERSION}.zip\` |
+          | **Windows** | x64 | \`pnut-ts-win-x64-${PACKED_VERSION}.zip\` |
+          | **Windows** | ARM64 | \`pnut-ts-win-arm64-${PACKED_VERSION}.zip\` |
+          | **Linux** | x64 | \`pnut-ts-linux-x64-${PACKED_VERSION}.zip\` |
+          | **Linux** | ARM64 | \`pnut-ts-linux-arm64-${PACKED_VERSION}.zip\` |
 
           ---
 
