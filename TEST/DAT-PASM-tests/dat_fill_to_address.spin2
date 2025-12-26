@@ -1,0 +1,14 @@
+CON
+
+_CLKFREQ        = 4_000_000
+
+
+DAT
+                org     0
+start
+                jmp    #$
+.end_of_code
+
+                long    $AA55_BB44[$1F0 - $]
+
+                fit     $1F0

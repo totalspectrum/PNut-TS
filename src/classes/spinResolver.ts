@@ -8500,7 +8500,9 @@ export class SpinResolver {
             // FIXME: TODO: handle DAT symbols
             if (this.currElement.type == eElementType.type_dollar) {
               // HANDLE an origin symbol
-              if (mode != eMode.BM_OperandIntOnly && mode != eMode.BM_OperandIntOrFloat) {
+              // $ is valid in DAT blocks (operand mode OR data declarations)
+              // but NOT in CON block or OBJ block
+              if (this.inConBlock || this.inObjBlock) {
                 // [error_dioa]
                 throw new Error('"$" (DAT origin) is only allowed in DAT blocks');
               }
