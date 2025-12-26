@@ -73,10 +73,11 @@ export class MapGenerator {
     const topFile = this.context.sourceFiles.getTopFile();
     const filename = topFile.fileName;
     const timestamp = new Date().toISOString();
+    const langVersion = topFile.versionNumber;
 
     this.writeLine('================================================================================');
     this.writeLine(`PNut-TS Memory Map: ${filename}`);
-    this.writeLine('Spin2_v44');
+    this.writeLine(`Spin2_v${langVersion}`);
     this.writeLine(`Generated: ${timestamp}`);
     this.writeLine('================================================================================');
     this.writeLine('');
