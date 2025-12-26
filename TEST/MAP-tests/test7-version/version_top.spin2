@@ -1,0 +1,16 @@
+{Spin2_v45}
+'' Test file with explicit language version directive
+'' Used to verify map file shows correct version
+
+CON
+  _clkfreq = 200_000_000
+
+VAR
+  LONG  value
+
+PUB go() | temp
+  temp := getValue()
+  value := temp
+
+PUB getValue() : result
+  result := 42

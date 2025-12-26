@@ -171,4 +171,32 @@ describe('Map File Verification', () => {
       expect(bytesCheck?.passed).toBe(true);
     });
   });
+
+  describe('test7-version', () => {
+    const testDir = path.join(TEST_DIR, 'test7-version');
+    const expectedJson = JSON.parse(fs.readFileSync(path.join(testDir, 'expected.json'), 'utf8'));
+
+    beforeAll(() => {
+      compileTest(testDir, expectedJson.top_file);
+    });
+
+    afterAll(() => {
+      cleanupGeneratedFiles(testDir);
+    });
+
+    it('should verify map matches listing and expected values', () => {
+      const result = verifyMapAgainstExpected(testDir);
+      if (!result.passed) {
+        console.log(formatResults(result));
+      }
+      expect(result.passed).toBe(true);
+    });
+
+    it('should have correct language version from directive', () => {
+      const result = verifyMapAgainstExpected(testDir);
+      const versionCheck = result.checks.find((c) => c.name === 'Language version');
+      expect(versionCheck?.passed).toBe(true);
+      expect(versionCheck?.expected).toBe('Spin2_v45');
+    });
+  });
 });

@@ -46,6 +46,7 @@ interface ExpectedObject {
 interface ExpectedJson {
   description: string;
   top_file: string;
+  language_version?: number;
   objects: ExpectedObject[];
   totals: {
     object_count: number;
@@ -104,6 +105,7 @@ interface MapSummary {
   varSymbols: number;
   executableBytes: number;
   variableBytes: number;
+  languageVersion: number;
 }
 
 interface VerificationResult {
@@ -163,9 +165,16 @@ export function parseMap(content: string): MapSummary {
   let varSymbols = 0;
   let executableBytes = 0;
   let variableBytes = 0;
+  let languageVersion = 0;
 
   let section = '';
   let currentObjectName = '';
+
+  // Parse language version from header (e.g., "Spin2_v45")
+  const versionMatch = content.match(/^Spin2_v(\d+)/m);
+  if (versionMatch) {
+    languageVersion = parseInt(versionMatch[1], 10);
+  }
 
   for (const line of lines) {
     // Detect section headers (new Option A format)
@@ -303,7 +312,8 @@ export function parseMap(content: string): MapSummary {
     datSymbols,
     varSymbols,
     executableBytes,
-    variableBytes
+    variableBytes,
+    languageVersion
   };
 }
 
@@ -377,6 +387,17 @@ export function verifyMapAgainstExpected(testDir: string): VerificationResult {
     expected: 'Parsed',
     actual: `${map.objects.length} objects, ${map.methods.length} methods`
   });
+
+  // Verify language version if specified in expected.json
+  if (expected.language_version !== undefined) {
+    const versionMatch = map.languageVersion === expected.language_version;
+    checks.push({
+      name: 'Language version',
+      passed: versionMatch,
+      expected: `Spin2_v${expected.language_version}`,
+      actual: `Spin2_v${map.languageVersion}`
+    });
+  }
 
   // Verify object count
   const objectCountMatch = map.objects.length === expected.totals.object_count;
