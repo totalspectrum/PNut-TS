@@ -17,7 +17,7 @@ PNut-TS is distributed as **standalone executables** with the Node.js 18 runtime
 | Runtime Dependencies | None (Commander.js bundled) |
 | Code Signing | macOS only (Apple Developer ID) |
 | Notarization | macOS DMGs only |
-| Current Version | 1.51.5 |
+| Current Version | 1.51.7 |
 
 ---
 
@@ -25,14 +25,16 @@ PNut-TS is distributed as **standalone executables** with the Node.js 18 runtime
 
 ### Platform Matrix
 
-| Platform | Architecture | Binary Name | Size (approx) |
-|----------|-------------|-------------|---------------|
-| Windows | x64 | `pnut_ts.exe` | 39 MB |
-| Windows | ARM64 | `pnut_ts.exe` | 29 MB |
-| Linux | x64 | `pnut_ts` | 47 MB |
-| Linux | ARM64 | `pnut_ts` | 45 MB |
-| macOS | x64 (Intel) | `pnut_ts` | 52 MB |
-| macOS | ARM64 (Apple Silicon) | `pnut_ts` | 47 MB |
+| Platform | Architecture | Primary Binary | Compat Alias | Size (approx) |
+|----------|-------------|----------------|--------------|---------------|
+| Windows | x64 | `pnut-ts.exe` | `pnut_ts.exe` | 39 MB |
+| Windows | ARM64 | `pnut-ts.exe` | `pnut_ts.exe` | 29 MB |
+| Linux | x64 | `pnut-ts` | `pnut_ts` (symlink) | 47 MB |
+| Linux | ARM64 | `pnut-ts` | `pnut_ts` (symlink) | 45 MB |
+| macOS | x64 (Intel) | `pnut-ts` | `pnut_ts` (symlink) | 52 MB |
+| macOS | ARM64 (Apple Silicon) | `pnut-ts` | `pnut_ts` (symlink) | 47 MB |
+
+**Note:** Both `pnut-ts` and `pnut_ts` names work. The hyphenated name (`pnut-ts`) is the primary executable; the underscored name (`pnut_ts`) is provided for backward compatibility.
 
 ### pkg Target Strings
 

@@ -52,24 +52,26 @@ The features of this new implementation are:
 
 Install .zip files available for each release:
 
-| Archive Name | Operating System | Architecture | Unpack Leaves |
+| Archive Name | Operating System | Architecture | Contents |
 | --- | --- | --- | --- |
-| linux-arm64-{MMmmpp}.zip | Linux, RPi | Arm 64 bit | pnut_ts/ |
-| linux-x64-{MMmmpp}.zip| Linux | Intel x86-64 bit | pnut_ts/ |
-| macos-arm64-{MMmmpp}.zip| MacOS | Apple Silicon | pnut_ts/ |
-| macos-x64-{MMmmpp}.zip| MacOS | Intel x86-64 bit | pnut_ts/ |
-| win-arm64-{MMmmpp}.zip| Windows | Arm 64 bit | pnut_ts/ |
-| win-x64-{MMmmpp}.zip| Windows | Intel x86-64 bit | pnut_ts/ |
+| pnut-ts-linux-arm64-{MMmmpp}.zip | Linux, RPi | ARM 64 bit | pnut_ts/ folder |
+| pnut-ts-linux-x64-{MMmmpp}.zip | Linux | Intel x86-64 bit | pnut_ts/ folder |
+| pnut-ts-macos-arm64-{MMmmpp}.zip | macOS | Apple Silicon | DMG installer |
+| pnut-ts-macos-x64-{MMmmpp}.zip | macOS | Intel x86-64 bit | DMG installer |
+| pnut-ts-win-arm64-{MMmmpp}.zip | Windows | ARM 64 bit | pnut_ts/ folder |
+| pnut-ts-win-x64-{MMmmpp}.zip | Windows | Intel x86-64 bit | pnut_ts/ folder |
 
-**NOTE:** *where -MMmmpp is the release verison. (E.g., -014303.zip means v1.43.3.)*
+**NOTE:** *where {MMmmpp} is the packed release version. (E.g., 014303 means v1.43.3, 015107 means v1.51.7)*
 
-Installation is pretty easy for PNut-TS.  Here are the general steps: (*more specific instructions links are below.*)
+Installation is pretty easy for PNut-TS. Here are the general steps: (*more specific instructions links are below.*)
 
 - Identify and download the .zip file for your platform and architecture (from the latest release.)
-- unzip the file, creates a folder (or .dmg)
-- On **Windows**, **Linux** move the folder to the install location.<BR>On **macOS** move the folder to the /Applications folder. *(This is a signed application so it should run without unknown developer warnings.)*
-- Setup and enviroment variable (typically PATH) so that the **pnut_ts** executable can be referenceed from anywhere.
-- Run VSCode with the **Spin2 v2.3.0 extension** (when it's released) to ensure that the installed **pnut_ts** was found.
+- Unzip the file:
+  - **Windows/Linux**: Creates a `pnut_ts/` folder containing the executable
+  - **macOS**: Contains a signed and notarized DMG installer
+- On **Windows**, **Linux** move the `pnut_ts/` folder to your preferred install location.<BR>On **macOS** open the DMG and drag the `pnut_ts/` folder to the /Applications folder. *(This is a signed and notarized application so it should run without Gatekeeper warnings.)*
+- Setup an environment variable (typically PATH) so that the **pnut_ts** (or **pnut-ts**) executable can be referenced from anywhere.
+- Run VSCode with the **Spin2 extension** to ensure that the installed compiler was found.
 
 See detailed installation instructions for; **[macOS](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-macOS.md#installing-pnut-ts-on-macos)**, **[Windows](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-win.md#installing-pnut-ts-on-windows)**, and **[Linux/RPi](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-RPi.md#installing-pnut-ts-on-rpilinux)**.
 
