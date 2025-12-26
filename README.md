@@ -71,7 +71,7 @@ Installation is pretty easy for PNut-TS. Here are the general steps: (*more spec
   - **macOS**: Contains a signed and notarized DMG installer
 - On **Windows**, **Linux** move the `pnut_ts/` folder to your preferred install location.<BR>On **macOS** open the DMG and drag the `pnut_ts/` folder to the /Applications folder. *(This is a signed and notarized application so it should run without Gatekeeper warnings.)*
 - Setup an environment variable (typically PATH) so that the **pnut_ts** (or **pnut-ts**) executable can be referenced from anywhere.
-- Run VSCode with the **Spin2 extension** to ensure that the installed compiler was found.
+- Run VSCode with the **Spin2 extension** (v2.3.0 or later) to ensure that the installed compiler was found.
 
 See detailed installation instructions for; **[macOS](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-macOS.md#installing-pnut-ts-on-macos)**, **[Windows](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-win.md#installing-pnut-ts-on-windows)**, and **[Linux/RPi](https://github.com/ironsheep/P2-vscode-langserv-extension/blob/main/TASKS-User-RPi.md#installing-pnut-ts-on-rpilinux)**.
 
