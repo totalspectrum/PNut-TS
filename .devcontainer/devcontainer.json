@@ -1,8 +1,9 @@
 // See https://aka.ms/vscode-remote/devcontainer.json for format details.
 {
   "name": "Pnut TypeScript Development",
-  "image": "node:latest",
-  "context": "..",
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.override.yml"],
+  "service": "dev",
+  "workspaceFolder": "/workspaces/PNut-TS",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": false,
@@ -16,34 +17,29 @@
     }
   },
   "remoteUser": "vscode",
-  "appPort": ["5001:5001", "9123:8123"],
   "postCreateCommand": "sudo apt-get update && sudo apt-get install -y liblept5 libtesseract5 && npm install",
-  "runArgs": [
-    "-v",
-    "${env:HOME}${env:USERPROFILE}/.ssh:/tmp/.ssh" // This is added so you can push from inside the container
-  ],
-  "mounts": [
-    "source=/Users/stephen/.claude,target=/home/vscode/.claude,type=bind",
-    "source=/Users/stephen/container-tools,target=/opt/container-tools,type=bind"
-  ],
-  "extensions": [
-    "github.vscode-pull-request-github",
-    "eamodio.gitlens",
-    "dbaeumer.vscode-eslint",
-    "esbenp.prettier-vscode",
-    "auchenberg.vscode-browser-preview",
-    "davidanson.vscode-markdownlint",
-    "redhat.vscode-yaml",
-    "johnnywong.vscode-ts-whitespace-converter",
-    "sj0000e.hexdiff"
-  ],
-  "settings": {
-    "files.eol": "\n",
-    "editor.tabSize": 2,
-    "terminal.integrated.shell.linux": "/bin/bash",
-    "editor.formatOnPaste": false,
-    "editor.formatOnSave": true,
-    "editor.formatOnType": true,
-    "files.trimTrailingWhitespace": true
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-pull-request-github",
+        "eamodio.gitlens",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "auchenberg.vscode-browser-preview",
+        "davidanson.vscode-markdownlint",
+        "redhat.vscode-yaml",
+        "johnnywong.vscode-ts-whitespace-converter",
+        "sj0000e.hexdiff"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "editor.tabSize": 2,
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
   }
 }

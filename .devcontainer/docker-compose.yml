@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  dev:
+    image: node:latest
+    volumes:
+      - ..:/workspaces/PNut-TS:cached
+      - ${HOME}${USERPROFILE}/.ssh:/tmp/.ssh:ro
+    ports:
+      - "5001:5001"
+      - "9123:8123"
+    command: sleep infinity
+    # Note: features, postCreateCommand, extensions, and settings
+    # are handled in devcontainer.json, not here
