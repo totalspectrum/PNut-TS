@@ -1,0 +1,127 @@
+' field_operator_wide.spin2
+' FIELD operator tests for wider fields using WORD/LONG storage
+'
+' Tests covered:
+'   - 12-bit fields in WORD storage
+'   - 16-bit fields in WORD storage
+'   - Mixed field widths
+'   - Storage calculations
+
+CON
+  _clkfreq = 200_000_000
+
+  ' Field counts
+  ID_COUNT = 10             ' Number of 12-bit IDs
+  FULL_WORD_COUNT = 8       ' Number of 16-bit values
+
+  ' Calculate storage sizes
+  ' 12-bit fields: 10 * 12 = 120 bits, needs 8 words (128 bits)
+  ID_STORAGE_SIZE = (ID_COUNT * 12 + 15) / 16
+
+DAT
+  ' Storage for 12-bit fields (IDs ranging 0-4095)
+  idStorage       WORD    0[ID_STORAGE_SIZE]
+
+  ' Storage for 16-bit fields
+  wordStorage     WORD    0[FULL_WORD_COUNT]
+
+  ' Mixed storage: some 12-bit, some 4-bit
+  mixedStorage    WORD    0[10]
+
+VAR
+  LONG  idPtr             ' Pointer to 12-bit fields
+  LONG  wordPtr           ' Pointer to 16-bit fields
+  LONG  ptr12             ' For mixed storage 12-bit
+  LONG  ptr4              ' For mixed storage 4-bit
+  LONG  result
+
+PUB Main()
+
+  ' Initialize field pointers
+  InitPointers()
+
+  ' Test 12-bit fields
+  Test12BitFields()
+
+  ' Test 16-bit fields
+  Test16BitFields()
+
+  ' Test mixed usage
+  TestMixedUsage()
+
+PRI InitPointers()
+  ' Create field pointers
+  idPtr   := ^@idStorage.[11..0]        ' 12-bit fields (0-4095)
+  wordPtr := ^@wordStorage.[15..0]      ' 16-bit fields (full WORD)
+  ptr12   := ^@mixedStorage.[11..0]     ' 12-bit in mixed storage
+  ptr4    := ^@mixedStorage.[3..0]      ' 4-bit in same storage (different offset)
+
+PRI Test12BitFields() | i, val
+  ' Write 12-bit values
+  FIELD[idPtr][0] := 0
+  FIELD[idPtr][1] := 100
+  FIELD[idPtr][2] := 1000
+  FIELD[idPtr][3] := 2048
+  FIELD[idPtr][4] := 4095               ' Max 12-bit value
+
+  ' Read and verify
+  repeat i from 0 to 4
+    val := FIELD[idPtr][i]
+    result := val
+
+  ' Test modify operations on 12-bit
+  FIELD[idPtr][5] := 2000
+  FIELD[idPtr][5] += 500                ' Should be 2500
+  val := FIELD[idPtr][5]
+  result := val
+
+  FIELD[idPtr][6] := 4000
+  FIELD[idPtr][6] -= 1000               ' Should be 3000
+  val := FIELD[idPtr][6]
+  result := val
+
+  ' Fill all IDs
+  repeat i from 0 to ID_COUNT - 1
+    FIELD[idPtr][i] := i * 400          ' 0, 400, 800, 1200...
+
+PRI Test16BitFields() | i, val
+  ' Write 16-bit values
+  FIELD[wordPtr][0] := 0
+  FIELD[wordPtr][1] := 255
+  FIELD[wordPtr][2] := 256
+  FIELD[wordPtr][3] := 1000
+  FIELD[wordPtr][4] := 32767
+  FIELD[wordPtr][5] := 65535            ' Max 16-bit value
+
+  ' Read values
+  repeat i from 0 to 5
+    val := FIELD[wordPtr][i]
+    result := val
+
+  ' Test modify operations on 16-bit
+  FIELD[wordPtr][6] := 30000
+  FIELD[wordPtr][6] += 10000            ' Should be 40000
+  val := FIELD[wordPtr][6]
+  result := val
+
+  FIELD[wordPtr][7] := 50000
+  FIELD[wordPtr][7] -= 25000            ' Should be 25000
+  val := FIELD[wordPtr][7]
+  result := val
+
+PRI TestMixedUsage() | val
+  ' Demonstrate using same storage with different field pointers
+  ' Note: These overlap in memory - for testing field pointer mechanics
+
+  ' Write using 12-bit pointer
+  FIELD[ptr12][0] := 2048
+
+  ' Write using 4-bit pointer at different indices
+  FIELD[ptr4][3] := 15
+
+  ' Read back
+  val := FIELD[ptr12][0]
+  result := val
+
+  val := FIELD[ptr4][3]
+  result := val

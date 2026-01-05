@@ -1,0 +1,6 @@
+{
+  "displayName": "Language Features suite of tests (FIELD, STRUCT)",
+  "roots": ["<rootDir>/../dist/tests/LANG-FEAT-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}

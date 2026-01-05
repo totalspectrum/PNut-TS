@@ -1,0 +1,179 @@
+{Spin2_v45}
+' struct_operations.spin2
+' STRUCT operation tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Struct assignment (copy)
+'   - Multi-value assignment
+'   - Struct swap (:=:)
+'   - Clear (~) and set all (~~)
+'   - Struct comparison (== and <>)
+
+CON
+  _clkfreq = 200_000_000
+
+  ' Test structs
+  STRUCT point(x, y)
+  STRUCT rgb(BYTE r, BYTE g, BYTE b)
+  STRUCT sensor(BYTE id, WORD value, LONG time)
+
+VAR
+  point p1, p2, p3
+  rgb color1, color2
+  sensor s1, s2
+  LONG result
+
+PUB Main()
+
+  TestStructCopy()
+  TestMultiValueAssign()
+  TestStructSwap()
+  TestClearAndSet()
+  TestComparison()
+
+PRI TestStructCopy()
+  ' Initialize p1
+  p1.x := 100
+  p1.y := 200
+
+  ' Copy p1 to p2
+  p2 := p1
+
+  ' Verify p2 has same values
+  result := p2.x                        ' Should be 100
+  result := p2.y                        ' Should be 200
+
+  ' Modify p1 - p2 should not change
+  p1.x := 999
+  result := p2.x                        ' Should still be 100
+
+  ' Test with rgb struct
+  color1.r := 255
+  color1.g := 128
+  color1.b := 64
+  color2 := color1
+
+  result := color2.r                    ' 255
+  result := color2.g                    ' 128
+  result := color2.b                    ' 64
+
+PRI TestMultiValueAssign()
+  ' Assign multiple values at once to point
+  p1 := 50, 75
+
+  result := p1.x                        ' 50
+  result := p1.y                        ' 75
+
+  ' Assign to rgb
+  color1 := 128, 64, 32
+
+  result := color1.r                    ' 128
+  result := color1.g                    ' 64
+  result := color1.b                    ' 32
+
+  ' Assign to sensor with mixed types
+  s1 := 10, 1000, 5_000_000
+
+  result := s1.id                       ' 10
+  result := s1.value                    ' 1000
+  result := s1.time                     ' 5000000
+
+PRI TestStructSwap()
+  ' Initialize two points
+  p1 := 100, 200
+  p2 := 300, 400
+
+  ' Swap them
+  p1 :=: p2
+
+  ' Verify swap
+  result := p1.x                        ' Should be 300
+  result := p1.y                        ' Should be 400
+  result := p2.x                        ' Should be 100
+  result := p2.y                        ' Should be 200
+
+  ' Test swap with rgb
+  color1 := 255, 0, 0                   ' Red
+  color2 := 0, 0, 255                   ' Blue
+
+  color1 :=: color2
+
+  result := color1.r                    ' 0
+  result := color1.b                    ' 255
+  result := color2.r                    ' 255
+  result := color2.b                    ' 0
+
+PRI TestClearAndSet()
+  ' Initialize point
+  p1 := 100, 200
+
+  ' Clear all members
+  p1~
+
+  result := p1.x                        ' 0
+  result := p1.y                        ' 0
+
+  ' Set all bits
+  p1~~
+
+  result := p1.x                        ' $FFFFFFFF (-1)
+  result := p1.y                        ' $FFFFFFFF (-1)
+
+  ' Test with rgb
+  color1 := 128, 64, 32
+  color1~
+  result := color1.r                    ' 0
+  result := color1.g                    ' 0
+  result := color1.b                    ' 0
+
+  color1~~
+  result := color1.r                    ' 255 (all bits set in byte)
+  result := color1.g                    ' 255
+  result := color1.b                    ' 255
+
+PRI TestComparison() | same
+  ' Test equality
+  p1 := 100, 200
+  p2 := 100, 200
+  p3 := 100, 201                        ' Different y
+
+  ' Test ==
+  if p1 == p2
+    same := 1                           ' Should be true
+  else
+    same := 0
+
+  result := same                        ' 1
+
+  if p1 == p3
+    same := 1
+  else
+    same := 0                           ' Should be false
+
+  result := same                        ' 0
+
+  ' Test <>
+  if p1 <> p3
+    same := 1                           ' Should be true (they differ)
+  else
+    same := 0
+
+  result := same                        ' 1
+
+  if p1 <> p2
+    same := 1
+  else
+    same := 0                           ' Should be false (they're equal)
+
+  result := same                        ' 0
+
+  ' Test with rgb
+  color1 := 255, 128, 64
+  color2 := 255, 128, 64
+
+  if color1 == color2
+    same := 1
+  else
+    same := 0
+
+  result := same                        ' 1

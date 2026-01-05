@@ -1,0 +1,182 @@
+' field_operator_modify.spin2
+' FIELD operator modify-and-assign tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Increment (++)
+'   - Decrement (--)
+'   - Add (+=)
+'   - Subtract (-=)
+'   - AND (&=)
+'   - OR (|=)
+'   - XOR (^=)
+'   - Clear (~)
+'   - Set all bits (~~)
+
+CON
+  _clkfreq = 200_000_000
+
+  FIELD_COUNT = 16
+
+DAT
+  ' Storage for 4-bit fields (16 nibbles = 8 bytes)
+  storage4bit   BYTE    0[8]
+
+  ' Storage for 8-bit fields
+  storage8bit   BYTE    0[16]
+
+VAR
+  LONG  ptr4bit
+  LONG  ptr8bit
+  LONG  result
+
+PUB Main()
+
+  ' Initialize field pointers
+  ptr4bit := ^@storage4bit.[3..0]     ' 4-bit fields
+  ptr8bit := ^@storage8bit.[7..0]     ' 8-bit fields
+
+  ' Test all modify operations
+  TestIncrement()
+  TestDecrement()
+  TestAddAssign()
+  TestSubtractAssign()
+  TestAndAssign()
+  TestOrAssign()
+  TestXorAssign()
+  TestClear()
+  TestSetAllBits()
+
+PRI TestIncrement() | val
+  ' Initialize to 5
+  FIELD[ptr4bit][0] := 5
+
+  ' Increment
+  FIELD[ptr4bit][0]++
+  val := FIELD[ptr4bit][0]            ' Should be 6
+  result := val
+
+  ' Test 8-bit increment
+  FIELD[ptr8bit][0] := 100
+  FIELD[ptr8bit][0]++
+  val := FIELD[ptr8bit][0]            ' Should be 101
+  result := val
+
+PRI TestDecrement() | val
+  ' Initialize to 10
+  FIELD[ptr4bit][1] := 10
+
+  ' Decrement
+  FIELD[ptr4bit][1]--
+  val := FIELD[ptr4bit][1]            ' Should be 9
+  result := val
+
+  ' Test 8-bit decrement
+  FIELD[ptr8bit][1] := 200
+  FIELD[ptr8bit][1]--
+  val := FIELD[ptr8bit][1]            ' Should be 199
+  result := val
+
+PRI TestAddAssign() | val
+  ' Initialize to 3
+  FIELD[ptr4bit][2] := 3
+
+  ' Add 5
+  FIELD[ptr4bit][2] += 5
+  val := FIELD[ptr4bit][2]            ' Should be 8
+  result := val
+
+  ' Test 8-bit add
+  FIELD[ptr8bit][2] := 50
+  FIELD[ptr8bit][2] += 100
+  val := FIELD[ptr8bit][2]            ' Should be 150
+  result := val
+
+PRI TestSubtractAssign() | val
+  ' Initialize to 15
+  FIELD[ptr4bit][3] := 15
+
+  ' Subtract 7
+  FIELD[ptr4bit][3] -= 7
+  val := FIELD[ptr4bit][3]            ' Should be 8
+  result := val
+
+  ' Test 8-bit subtract
+  FIELD[ptr8bit][3] := 255
+  FIELD[ptr8bit][3] -= 55
+  val := FIELD[ptr8bit][3]            ' Should be 200
+  result := val
+
+PRI TestAndAssign() | val
+  ' Initialize to %1111 (15)
+  FIELD[ptr4bit][4] := %1111
+
+  ' AND with %1010
+  FIELD[ptr4bit][4] &= %1010
+  val := FIELD[ptr4bit][4]            ' Should be %1010 (10)
+  result := val
+
+  ' Test 8-bit AND
+  FIELD[ptr8bit][4] := $FF
+  FIELD[ptr8bit][4] &= $0F
+  val := FIELD[ptr8bit][4]            ' Should be $0F (15)
+  result := val
+
+PRI TestOrAssign() | val
+  ' Initialize to %0101 (5)
+  FIELD[ptr4bit][5] := %0101
+
+  ' OR with %1010
+  FIELD[ptr4bit][5] |= %1010
+  val := FIELD[ptr4bit][5]            ' Should be %1111 (15)
+  result := val
+
+  ' Test 8-bit OR
+  FIELD[ptr8bit][5] := $F0
+  FIELD[ptr8bit][5] |= $0F
+  val := FIELD[ptr8bit][5]            ' Should be $FF (255)
+  result := val
+
+PRI TestXorAssign() | val
+  ' Initialize to %1111 (15)
+  FIELD[ptr4bit][6] := %1111
+
+  ' XOR with %0101 (toggle)
+  FIELD[ptr4bit][6] ^= %0101
+  val := FIELD[ptr4bit][6]            ' Should be %1010 (10)
+  result := val
+
+  ' Test 8-bit XOR (toggle bits)
+  FIELD[ptr8bit][6] := $AA
+  FIELD[ptr8bit][6] ^= $FF
+  val := FIELD[ptr8bit][6]            ' Should be $55 (85)
+  result := val
+
+PRI TestClear() | val
+  ' Initialize to 15
+  FIELD[ptr4bit][7] := 15
+
+  ' Clear
+  FIELD[ptr4bit][7]~
+  val := FIELD[ptr4bit][7]            ' Should be 0
+  result := val
+
+  ' Test 8-bit clear
+  FIELD[ptr8bit][7] := 255
+  FIELD[ptr8bit][7]~
+  val := FIELD[ptr8bit][7]            ' Should be 0
+  result := val
+
+PRI TestSetAllBits() | val
+  ' Initialize to 0
+  FIELD[ptr4bit][8] := 0
+
+  ' Set all bits
+  FIELD[ptr4bit][8]~~
+  val := FIELD[ptr4bit][8]            ' Should be %1111 (15)
+  result := val
+
+  ' Test 8-bit set all
+  FIELD[ptr8bit][8] := 0
+  FIELD[ptr8bit][8]~~
+  val := FIELD[ptr8bit][8]            ' Should be $FF (255)
+  result := val

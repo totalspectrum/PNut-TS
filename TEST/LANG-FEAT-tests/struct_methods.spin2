@@ -1,0 +1,123 @@
+{Spin2_v45}
+' struct_methods.spin2
+' STRUCT method parameter and return value tests
+'
+' Tests covered:
+'   - Struct as method parameter (pass by value)
+'   - Struct as return value
+'   - Multiple struct return values
+'   - Struct local variables
+'   - Struct array parameters
+
+CON
+  _clkfreq = 200_000_000
+
+  STRUCT point(x, y)
+  STRUCT line(point start, point finish)
+  STRUCT rect(point topLeft, WORD width, WORD height)
+
+VAR
+  point globalPoint
+  line globalLine
+  rect globalRect
+  LONG result
+
+PUB Main() | point localPt, line localLn
+
+  ' Test struct as parameter
+  TestStructParameter()
+
+  ' Test struct return value
+  TestStructReturn()
+
+  ' Test multiple returns
+  TestMultipleReturns()
+
+  ' Test local struct variables
+  localPt.x := 42
+  localPt.y := 84
+  result := localPt.x
+  result := localPt.y
+
+  localLn.start.x := 0
+  localLn.start.y := 0
+  localLn.finish.x := 100
+  localLn.finish.y := 100
+  result := localLn.finish.x
+
+PRI TestStructParameter()
+  ' Initialize point
+  globalPoint := 100, 200
+
+  ' Pass struct by value
+  ProcessPoint(globalPoint)
+
+  ' Point should be unchanged (passed by value)
+  result := globalPoint.x               ' Still 100
+  result := globalPoint.y               ' Still 200
+
+  ' Pass line with nested points
+  globalLine.start := 0, 0
+  globalLine.finish := 50, 50
+  ProcessLine(globalLine)
+
+PRI ProcessPoint(point p) | dist
+  ' Work with copy of point
+  result := p.x
+  result := p.y
+
+  ' Modifying p doesn't affect original
+  p.x := 999
+  p.y := 888
+
+PRI ProcessLine(line ln)
+  ' Access nested struct members
+  result := ln.start.x
+  result := ln.start.y
+  result := ln.finish.x
+  result := ln.finish.y
+
+  ' Calculate length components
+  result := ln.finish.x - ln.start.x
+  result := ln.finish.y - ln.start.y
+
+PRI TestStructReturn() | point p
+  ' Get struct return value
+  p := GetOrigin()
+
+  result := p.x                         ' 0
+  result := p.y                         ' 0
+
+  ' Get point at specific location
+  p := CreatePoint(150, 250)
+
+  result := p.x                         ' 150
+  result := p.y                         ' 250
+
+PRI GetOrigin() : point result
+  ' Return origin point
+  result.x := 0
+  result.y := 0
+
+PRI CreatePoint(LONG px, LONG py) : point result
+  ' Create point from parameters
+  result.x := px
+  result.y := py
+
+PRI TestMultipleReturns() | point startPt, point endPt
+  ' Initialize a line
+  globalLine.start := 10, 20
+  globalLine.finish := 110, 120
+
+  ' Get both endpoints
+  startPt, endPt := GetEndpoints(globalLine)
+
+  result := startPt.x                   ' 10
+  result := startPt.y                   ' 20
+  result := endPt.x                     ' 110
+  result := endPt.y                     ' 120
+
+PRI GetEndpoints(line ln) : point startResult, point endResult
+  ' Return both endpoints
+  startResult := ln.start
+  endResult := ln.finish

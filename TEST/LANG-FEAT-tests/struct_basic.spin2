@@ -1,0 +1,109 @@
+{Spin2_v45}
+' struct_basic.spin2
+' Basic STRUCT tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Basic struct definition
+'   - Default LONG members
+'   - Typed members (BYTE, WORD, LONG)
+'   - Mixed type members
+'   - Struct variable declaration
+'   - Member access with dot notation
+'   - SIZEOF operator
+
+CON
+  _clkfreq = 200_000_000
+
+  ' Basic point struct (default LONG members)
+  STRUCT point(x, y)
+
+  ' Typed point structs
+  STRUCT tinyPoint(BYTE x, BYTE y)
+  STRUCT smallPoint(WORD x, WORD y)
+  STRUCT fullPoint(LONG x, LONG y)
+
+  ' Mixed type struct
+  STRUCT sensor(BYTE id, WORD value, LONG timestamp)
+
+  ' Struct with multiple typed members
+  STRUCT colorPoint(WORD x, WORD y, BYTE r, BYTE g, BYTE b)
+
+VAR
+  point myPoint
+  tinyPoint tinyPt
+  smallPoint smallPt
+  fullPoint fullPt
+  sensor mySensor
+  colorPoint colorPt
+  LONG result
+
+PUB Main()
+
+  TestBasicPoint()
+  TestTypedPoints()
+  TestMixedStruct()
+  TestSizeOf()
+
+PRI TestBasicPoint()
+  ' Test default LONG member access
+  myPoint.x := 100
+  myPoint.y := 200
+
+  ' Read back
+  result := myPoint.x                   ' Should be 100
+  result := myPoint.y                   ' Should be 200
+
+  ' Modify
+  myPoint.x := myPoint.x + 50           ' Should be 150
+  result := myPoint.x
+
+PRI TestTypedPoints()
+  ' Test BYTE point (2 bytes total)
+  tinyPt.x := 127
+  tinyPt.y := 255
+  result := tinyPt.x
+  result := tinyPt.y
+
+  ' Test WORD point (4 bytes total)
+  smallPt.x := 1000
+  smallPt.y := 65535
+  result := smallPt.x
+  result := smallPt.y
+
+  ' Test LONG point (8 bytes total)
+  fullPt.x := 100_000
+  fullPt.y := 200_000
+  result := fullPt.x
+  result := fullPt.y
+
+PRI TestMixedStruct()
+  ' Test sensor struct with mixed types
+  mySensor.id := 42
+  mySensor.value := 1024
+  mySensor.timestamp := 1_000_000
+
+  result := mySensor.id                 ' BYTE: 42
+  result := mySensor.value              ' WORD: 1024
+  result := mySensor.timestamp          ' LONG: 1000000
+
+  ' Test colorPoint with multiple types
+  colorPt.x := 320
+  colorPt.y := 240
+  colorPt.r := 255
+  colorPt.g := 128
+  colorPt.b := 64
+
+  result := colorPt.x
+  result := colorPt.y
+  result := colorPt.r
+  result := colorPt.g
+  result := colorPt.b
+
+PRI TestSizeOf()
+  ' Test SIZEOF operator with struct types
+  result := SIZEOF(point)               ' 8 bytes (2 LONGs)
+  result := SIZEOF(tinyPoint)           ' 2 bytes (2 BYTEs)
+  result := SIZEOF(smallPoint)          ' 4 bytes (2 WORDs)
+  result := SIZEOF(fullPoint)           ' 8 bytes (2 LONGs)
+  result := SIZEOF(sensor)              ' 7 bytes (BYTE + WORD + LONG)
+  result := SIZEOF(colorPoint)          ' 7 bytes (2 WORDs + 3 BYTEs)

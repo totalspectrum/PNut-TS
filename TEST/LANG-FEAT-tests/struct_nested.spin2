@@ -1,0 +1,165 @@
+{Spin2_v45}
+' struct_nested.spin2
+' Nested STRUCT tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Nested struct definitions
+'   - Chained member access
+'   - Nested struct arrays
+'   - Complex nested structures
+'   - Struct aliases
+
+CON
+  _clkfreq = 200_000_000
+
+  ' Base point struct
+  STRUCT point(x, y)
+
+  ' Line contains two points
+  STRUCT line(point a, point b)
+
+  ' Rectangle contains two points
+  STRUCT rect(point topLeft, point bottomRight)
+
+  ' Triangle contains three points
+  STRUCT triangle(point p1, point p2, point p3)
+
+  ' Struct alias
+  STRUCT coordinate = point
+
+  ' 128-bit value (4 LONGs)
+  STRUCT bigNum(n[4])
+
+  ' Complex nested: command with 128-bit jerk
+  STRUCT motorCmd(cycl, bigNum jerk)
+
+  ' Array of nested structs
+  STRUCT cmdQueue(motorCmd cmds[4])
+
+VAR
+  line myLine
+  rect myRect
+  triangle myTri
+  coordinate myCoord
+  bigNum big
+  motorCmd cmd
+  cmdQueue queue
+  LONG result
+
+PUB Main()
+
+  TestLineStruct()
+  TestRectStruct()
+  TestTriangleStruct()
+  TestStructAlias()
+  TestDeepNesting()
+  TestNestedArrays()
+
+PRI TestLineStruct()
+  ' Test line struct with nested points
+  myLine.a.x := 0
+  myLine.a.y := 0
+  myLine.b.x := 100
+  myLine.b.y := 100
+
+  ' Read nested members
+  result := myLine.a.x                  ' 0
+  result := myLine.a.y                  ' 0
+  result := myLine.b.x                  ' 100
+  result := myLine.b.y                  ' 100
+
+  ' Verify SIZEOF
+  result := SIZEOF(line)                ' 16 bytes (2 points * 8 bytes)
+
+PRI TestRectStruct()
+  ' Test rectangle with two points
+  myRect.topLeft.x := 10
+  myRect.topLeft.y := 10
+  myRect.bottomRight.x := 200
+  myRect.bottomRight.y := 150
+
+  ' Calculate width and height
+  result := myRect.bottomRight.x - myRect.topLeft.x     ' 190
+  result := myRect.bottomRight.y - myRect.topLeft.y     ' 140
+
+PRI TestTriangleStruct()
+  ' Test triangle with three points
+  myTri.p1.x := 0
+  myTri.p1.y := 0
+  myTri.p2.x := 100
+  myTri.p2.y := 0
+  myTri.p3.x := 50
+  myTri.p3.y := 87                      ' Approximate equilateral
+
+  ' Read all vertices
+  result := myTri.p1.x
+  result := myTri.p1.y
+  result := myTri.p2.x
+  result := myTri.p2.y
+  result := myTri.p3.x
+  result := myTri.p3.y
+
+  ' SIZEOF should be 24 bytes (3 points * 8)
+  result := SIZEOF(triangle)
+
+PRI TestStructAlias()
+  ' Test struct alias (coordinate = point)
+  myCoord.x := 500
+  myCoord.y := 600
+
+  result := myCoord.x
+  result := myCoord.y
+
+  ' SIZEOF should match point
+  result := SIZEOF(coordinate)          ' 8 bytes
+
+PRI TestDeepNesting()
+  ' Test 128-bit number
+  big.n[0] := $12345678
+  big.n[1] := $9ABCDEF0
+  big.n[2] := $11111111
+  big.n[3] := $22222222
+
+  result := big.n[0]
+  result := big.n[3]
+
+  ' Test motorCmd with nested bigNum
+  cmd.cycl := 1000
+  cmd.jerk.n[0] := $FFFFFFFF
+  cmd.jerk.n[1] := $00000001
+  cmd.jerk.n[2] := 0
+  cmd.jerk.n[3] := 0
+
+  result := cmd.cycl
+  result := cmd.jerk.n[0]
+  result := cmd.jerk.n[1]
+
+  ' SIZEOF: 4 (cycl) + 16 (bigNum) = 20 bytes
+  result := SIZEOF(motorCmd)
+
+PRI TestNestedArrays() | i
+  ' Test cmdQueue with array of motorCmd
+
+  ' Initialize first command
+  queue.cmds[0].cycl := 100
+  queue.cmds[0].jerk.n[0] := 1000
+
+  ' Initialize second command
+  queue.cmds[1].cycl := 200
+  queue.cmds[1].jerk.n[0] := 2000
+
+  ' Initialize all commands
+  repeat i from 0 to 3
+    queue.cmds[i].cycl := (i + 1) * 100
+    queue.cmds[i].jerk.n[0] := (i + 1) * 1000
+    queue.cmds[i].jerk.n[1] := 0
+    queue.cmds[i].jerk.n[2] := 0
+    queue.cmds[i].jerk.n[3] := 0
+
+  ' Read back
+  repeat i from 0 to 3
+    result := queue.cmds[i].cycl
+    result := queue.cmds[i].jerk.n[0]
+
+  ' SIZEOF: 4 motorCmds * 20 bytes = 80 bytes
+  result := SIZEOF(cmdQueue)

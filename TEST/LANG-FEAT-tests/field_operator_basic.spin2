@@ -1,0 +1,115 @@
+' field_operator_basic.spin2
+' Basic FIELD operator tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Field pointer creation with ^@
+'   - 1-bit fields (flags)
+'   - 2-bit fields (states)
+'   - 4-bit fields (nibbles)
+'   - 8-bit fields
+'   - Reading and writing fields
+'   - Different storage types (BYTE, WORD)
+
+CON
+  _clkfreq = 200_000_000
+
+  ' Test constants
+  FLAG_COUNT = 32           ' Number of 1-bit flags
+  STATE_COUNT = 16          ' Number of 2-bit states
+  NIBBLE_COUNT = 8          ' Number of 4-bit nibbles
+
+  ' State values for 2-bit fields
+  ST_FREE = %00
+  ST_TEMP = %01
+  ST_HEAD = %10
+  ST_BODY = %11
+
+DAT
+  ' Storage for 1-bit fields (32 flags = 4 bytes)
+  flagStorage     BYTE    0[4]
+
+  ' Storage for 2-bit fields (16 states = 4 bytes)
+  stateStorage    BYTE    0[4]
+
+  ' Storage for 4-bit fields (8 nibbles = 4 bytes)
+  nibbleStorage   BYTE    0[4]
+
+  ' Storage for 8-bit fields
+  byteStorage     BYTE    0[8]
+
+VAR
+  LONG  flagPtr           ' Field pointer to 1-bit flags
+  LONG  statePtr          ' Field pointer to 2-bit states
+  LONG  nibblePtr         ' Field pointer to 4-bit nibbles
+  LONG  bytePtr           ' Field pointer to 8-bit values
+  LONG  result
+
+PUB Main() | i, val
+
+  ' Initialize field pointers
+  InitializePointers()
+
+  ' Test 1-bit fields
+  TestOneBitFields()
+
+  ' Test 2-bit fields
+  TestTwoBitFields()
+
+  ' Test 4-bit fields
+  TestFourBitFields()
+
+  ' Test 8-bit fields
+  TestEightBitFields()
+
+PRI InitializePointers()
+  ' Create field pointers with ^@ operator
+  flagPtr   := ^@flagStorage.[0]        ' 1-bit fields
+  statePtr  := ^@stateStorage.[1..0]    ' 2-bit fields
+  nibblePtr := ^@nibbleStorage.[3..0]   ' 4-bit fields
+  bytePtr   := ^@byteStorage.[7..0]     ' 8-bit fields
+
+PRI TestOneBitFields() | i, val
+  ' Write flags
+  repeat i from 0 to FLAG_COUNT - 1
+    FIELD[flagPtr][i] := i & 1          ' Alternating 0, 1, 0, 1...
+
+  ' Read and verify flags
+  repeat i from 0 to FLAG_COUNT - 1
+    val := FIELD[flagPtr][i]
+    result := val                        ' Store result
+
+PRI TestTwoBitFields() | i, val
+  ' Write all four possible states
+  repeat i from 0 to STATE_COUNT - 1
+    FIELD[statePtr][i] := i & %11       ' Cycle through 0, 1, 2, 3
+
+  ' Read and verify states
+  repeat i from 0 to STATE_COUNT - 1
+    val := FIELD[statePtr][i]
+    result := val
+
+  ' Test specific state values
+  FIELD[statePtr][0] := ST_FREE
+  FIELD[statePtr][1] := ST_TEMP
+  FIELD[statePtr][2] := ST_HEAD
+  FIELD[statePtr][3] := ST_BODY
+
+PRI TestFourBitFields() | i, val
+  ' Write values 0-15
+  repeat i from 0 to NIBBLE_COUNT - 1
+    FIELD[nibblePtr][i] := i * 2        ' 0, 2, 4, 6, 8, 10, 12, 14
+
+  ' Read values
+  repeat i from 0 to NIBBLE_COUNT - 1
+    val := FIELD[nibblePtr][i]
+    result := val
+
+PRI TestEightBitFields() | i, val
+  ' Write byte values
+  repeat i from 0 to 7
+    FIELD[bytePtr][i] := i * 32         ' 0, 32, 64, 96, 128, 160, 192, 224
+
+  ' Read byte values
+  repeat i from 0 to 7
+    val := FIELD[bytePtr][i]
+    result := val

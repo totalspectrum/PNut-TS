@@ -1,0 +1,138 @@
+{Spin2_v45}
+' struct_arrays.spin2
+' STRUCT array tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Array members within structs
+'   - Arrays of struct instances
+'   - Combined array and member access
+'   - BYTE/WORD/LONG arrays in structs
+
+CON
+  _clkfreq = 200_000_000
+
+  MAX_ITEMS = 4
+
+  ' Struct with array members
+  STRUCT buffer(BYTE data[16])
+
+  ' Struct with typed array members
+  STRUCT wordBuffer(WORD values[8])
+
+  ' Struct with LONG array (default)
+  STRUCT longBuffer(items[4])
+
+  ' Struct with multiple arrays
+  STRUCT multiArray(BYTE bytes[4], WORD words[4], items[2])
+
+  ' Simple point for array testing
+  STRUCT point(x, y)
+
+VAR
+  buffer myBuffer
+  wordBuffer wBuffer
+  longBuffer lBuffer
+  multiArray mArray
+
+  point points[MAX_ITEMS]               ' Array of 4 points
+  LONG result
+
+PUB Main()
+
+  TestByteArrayMember()
+  TestWordArrayMember()
+  TestLongArrayMember()
+  TestMultipleArrayMembers()
+  TestStructArray()
+
+PRI TestByteArrayMember() | i
+  ' Write to byte array member
+  repeat i from 0 to 15
+    myBuffer.data[i] := i * 16          ' 0, 16, 32, 48...
+
+  ' Read back
+  repeat i from 0 to 15
+    result := myBuffer.data[i]
+
+  ' Test first and last
+  result := myBuffer.data[0]            ' Should be 0
+  result := myBuffer.data[15]           ' Should be 240
+
+PRI TestWordArrayMember() | i
+  ' Write to word array member
+  repeat i from 0 to 7
+    wBuffer.values[i] := i * 1000       ' 0, 1000, 2000...
+
+  ' Read back
+  repeat i from 0 to 7
+    result := wBuffer.values[i]
+
+  ' Test boundary values
+  wBuffer.values[0] := 0
+  wBuffer.values[7] := 65535
+  result := wBuffer.values[0]
+  result := wBuffer.values[7]
+
+PRI TestLongArrayMember() | i
+  ' Write to long array member
+  repeat i from 0 to 3
+    lBuffer.items[i] := i * 100_000
+
+  ' Read back
+  repeat i from 0 to 3
+    result := lBuffer.items[i]
+
+  ' Test large values
+  lBuffer.items[0] := 0
+  lBuffer.items[3] := 1_000_000_000
+  result := lBuffer.items[0]
+  result := lBuffer.items[3]
+
+PRI TestMultipleArrayMembers() | i
+  ' Test struct with multiple different array types
+
+  ' Write bytes
+  repeat i from 0 to 3
+    mArray.bytes[i] := i * 50
+
+  ' Write words
+  repeat i from 0 to 3
+    mArray.words[i] := i * 10_000
+
+  ' Write longs
+  mArray.items[0] := 500_000
+  mArray.items[1] := 1_000_000
+
+  ' Read all back
+  repeat i from 0 to 3
+    result := mArray.bytes[i]
+
+  repeat i from 0 to 3
+    result := mArray.words[i]
+
+  result := mArray.items[0]
+  result := mArray.items[1]
+
+PRI TestStructArray() | i
+  ' Test array of struct instances
+
+  ' Initialize all points
+  repeat i from 0 to MAX_ITEMS - 1
+    points[i].x := i * 10
+    points[i].y := i * 20
+
+  ' Read back
+  repeat i from 0 to MAX_ITEMS - 1
+    result := points[i].x
+    result := points[i].y
+
+  ' Test specific element access
+  points[0].x := 100
+  points[0].y := 200
+  points[3].x := 300
+  points[3].y := 400
+
+  result := points[0].x                 ' 100
+  result := points[0].y                 ' 200
+  result := points[3].x                 ' 300
+  result := points[3].y                 ' 400

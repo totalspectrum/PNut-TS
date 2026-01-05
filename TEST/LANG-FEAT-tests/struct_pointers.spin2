@@ -1,0 +1,142 @@
+{Spin2_v45}
+' struct_pointers.spin2
+' STRUCT pointer tests for PNut-TS regression testing
+'
+' Tests covered:
+'   - Pointer declaration with ^
+'   - Getting address with @
+'   - Member access through pointers
+'   - Pointer dereference with []
+'   - Pointer increment/decrement
+'   - Pointer as parameter
+'   - Pointer as return value
+
+CON
+  _clkfreq = 200_000_000
+
+  NUM_POINTS = 4
+
+  STRUCT point(x, y)
+  STRUCT line(point a, point b)
+
+VAR
+  point storage
+  point points[NUM_POINTS]
+  line myLine
+  ^point pPoint
+  ^line pLine
+  LONG result
+
+PUB Main()
+
+  TestPointerBasic()
+  TestPointerMemberAccess()
+  TestPointerDereference()
+  TestPointerArithmetic()
+  TestPointerParameter(@storage)
+  TestPointerReturn()
+
+PRI TestPointerBasic()
+  ' Initialize storage
+  storage.x := 100
+  storage.y := 200
+
+  ' Get pointer to storage
+  pPoint := @storage
+
+  ' Read through pointer
+  result := pPoint.x                    ' 100
+  result := pPoint.y                    ' 200
+
+  ' Write through pointer
+  pPoint.x := 150
+  pPoint.y := 250
+
+  ' Verify storage changed
+  result := storage.x                   ' 150
+  result := storage.y                   ' 250
+
+PRI TestPointerMemberAccess()
+  ' Point to line struct
+  myLine.a.x := 0
+  myLine.a.y := 0
+  myLine.b.x := 100
+  myLine.b.y := 100
+
+  pLine := @myLine
+
+  ' Access nested members through pointer
+  result := pLine.a.x                   ' 0
+  result := pLine.a.y                   ' 0
+  result := pLine.b.x                   ' 100
+  result := pLine.b.y                   ' 100
+
+  ' Modify through pointer
+  pLine.a.x := 10
+  pLine.b.y := 90
+
+  result := myLine.a.x                  ' 10
+  result := myLine.b.y                  ' 90
+
+PRI TestPointerDereference()
+  ' Initialize storage
+  storage := 500, 600
+
+  ' Get pointer
+  pPoint := @storage
+
+  ' Dereference to get entire structure
+  result := [pPoint].x                  ' 500
+  result := [pPoint].y                  ' 600
+
+  ' Create a temp point and assign through dereference
+  ' [pPoint] := anotherPoint would copy the whole struct
+
+PRI TestPointerArithmetic() | i
+  ' Initialize array of points
+  repeat i from 0 to NUM_POINTS - 1
+    points[i].x := i * 10
+    points[i].y := i * 20
+
+  ' Point to first element
+  pPoint := @points[0]
+
+  ' Access first element
+  result := pPoint.x                    ' 0
+  result := pPoint.y                    ' 0
+
+  ' Post-increment: access current, then advance
+  result := pPoint[++].x                ' 0 (access), then advance
+  result := pPoint.x                    ' 10 (now at second element)
+
+  ' Pre-increment: advance, then access
+  result := [++]pPoint.x                ' 20 (advance to third, then access)
+
+  ' Post-decrement: access current, then go back
+  result := pPoint[--].x                ' 20 (access), then go back
+
+  ' Pre-decrement: go back, then access
+  result := [--]pPoint.x                ' 10 (go back, then access at second)
+
+  ' Manual increment
+  pPoint := @points[0]
+  pPoint++                              ' Advance by SIZEOF(point) = 8 bytes
+  result := pPoint.x                    ' 10 (second element)
+
+  pPoint--                              ' Go back by 8 bytes
+  result := pPoint.x                    ' 0 (first element)
+
+PRI TestPointerParameter(^point p)
+  ' Modify struct through pointer parameter
+  p.x := 999
+  p.y := 888
+
+  ' Read through parameter
+  result := p.x                         ' 999
+  result := p.y                         ' 888
+
+PRI TestPointerReturn() : ^point ptr
+  ' Return pointer to storage
+  ptr := @storage
+
+  ' Caller can use: result := TestPointerReturn().x
