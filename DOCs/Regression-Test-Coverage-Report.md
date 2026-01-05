@@ -24,7 +24,7 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 
 | Feature Category | Tested | Total | Coverage |
 |-----------------|--------|-------|----------|
-| **PASM2 Instructions** | 250+ | 276 | **91%** |
+| **PASM2 Instructions** | 276 | 276 | **100%** |
 | **PASM2 Operand Forms** | 31 | 31 | **100%** |
 | **Conditional Prefixes (IF_*)** | 65 | 65 | **100%** |
 | **Smart Pin Constants (P_*)** | 116 | 116 | **100%** |
@@ -458,7 +458,7 @@ This allows test suites to contain both types of tests with correct compilation 
 | Test Categories | 18 |
 | PUB Methods Tested | 2,104+ |
 | PRI Methods Tested | 1,179+ |
-| PASM Instructions | 250+ (91%) |
+| PASM Instructions | 276 (100%) |
 | PASM Operand Forms | 31 (100%) |
 | Built-in Constants | 250+ |
 | Files with Debug | 150+ |

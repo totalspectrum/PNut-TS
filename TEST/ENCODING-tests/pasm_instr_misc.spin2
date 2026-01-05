@@ -4,6 +4,7 @@
 ' Tests: SETDACS, SETPAT, SETPIV, SPLITB, SPLITW, STALLI
 ' Tests: WMLONG, WRC, WRNC, WRNZ, WRZ, XORO32
 ' Tests: SETD, SETR, SETS, MODC, MODZ, ASMCLK
+' Tests: COGID, COGINIT, COGSTOP, HUBSET
 
 PUB go()
   COGINIT(0, @test_code, 0)
@@ -132,6 +133,22 @@ m_mask  LONG    $FF00FF00
 
         ' === ASMCLK - Assert clock signal ===
         ASMCLK                  ' Assert clock for synchronization
+
+        ' === COGID - Get Cog ID ===
+        COGID   result          ' Get current cog ID into result
+        COGID   result      WC  ' With carry flag
+
+        ' === COGINIT - Initialize a Cog ===
+        ' COGINIT D, {#}S {WC} - Start a cog with PTRA=S, cog=D
+        COGINIT counter, result WC  ' Start cog, C=1 if successful
+
+        ' === COGSTOP - Stop a Cog ===
+        COGSTOP result          ' Stop cog specified by result
+        COGSTOP #0              ' Stop cog 0
+
+        ' === HUBSET - Configure Hub Settings ===
+        HUBSET  m_data          ' Configure hub from register
+        HUBSET  #0              ' Immediate hub configuration
 
         RET
 
