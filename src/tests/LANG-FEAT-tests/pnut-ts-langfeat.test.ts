@@ -17,8 +17,8 @@ const directories = [
 
 // Helper function to run compilation test
 function runCompilationTest(file: string): void {
-  // Use -d for debug support in these language feature tests
-  const options: string = '-d -v -l -O --regression element --';
+  // Match options used by other test runners (no -d flag)
+  const options: string = '-v -l -O --regression element --';
   const basename = path.basename(file, '.spin2');
 
   const listingFSpec = path.join(testDirPath, `${basename}.lst`);
