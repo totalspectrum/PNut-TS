@@ -1,0 +1,122 @@
+' pasm_encoding_relative.spin2 - Tests hub-relative addressing and extended jumps
+' Tests: #\ hub-relative addressing, LOC with hub addresses, extended relative jumps
+
+CON
+    _clkfreq = 20_000_000
+
+PUB go()
+  COGINIT(0, @cog_code, 0)
+
+DAT
+                org     0
+
+cog_code
+' ============================================================================
+' Test data area
+' ============================================================================
+
+result          long    0
+addr            long    0
+
+' ============================================================================
+' LOC - Load hub address into register
+' The #\ syntax specifies hub-relative addressing
+' ============================================================================
+
+' Load hub address of label into PA
+t_loc_pa        loc     pa, #\hub_data1
+
+' Load hub address into PB
+t_loc_pb        loc     pb, #\hub_data2
+
+' Load hub address into PTRA
+t_loc_ptra      loc     ptra, #\hub_data1
+
+' Load hub address into PTRB
+t_loc_ptrb      loc     ptrb, #\hub_data2
+
+' Note: LOC only works with PA/PB/PTRA/PTRB, not regular registers
+' So we demonstrate using PA then copying to a regular register
+t_loc_copy      loc     pa, #\hub_data1
+                mov     addr, pa            ' Copy hub address to regular register
+
+' ============================================================================
+' Using LOC addresses for hub memory access
+' ============================================================================
+
+' Load address then read
+t_loc_rd        loc     ptra, #\hub_data1
+                rdlong  result, ptra
+
+' Load address then write
+t_loc_wr        loc     ptra, #\hub_data2
+                wrlong  result, ptra
+
+' ============================================================================
+' Multiple LOC operations
+' ============================================================================
+
+t_multi_loc1    loc     pa, #\hub_data1
+t_multi_loc2    loc     pb, #\hub_data2
+t_multi_loc3    loc     ptra, #\hub_array
+t_multi_loc4    loc     ptrb, #\hub_array + 16
+
+' ============================================================================
+' LOC with forward references
+' ============================================================================
+
+t_loc_fwd       loc     ptra, #\fwd_data
+                jmp     #skip_fwd
+fwd_data        long    0
+skip_fwd
+
+' ============================================================================
+' Extended relative jumps using #\
+' ============================================================================
+
+' Jump to hub address
+t_jmp_hub       jmp     #\hub_code
+
+' Call to hub address
+t_call_hub      call    #\hub_sub
+
+' ============================================================================
+' CALLD with hub-relative target
+' ============================================================================
+
+t_calld_hub     calld   pa, #\hub_sub
+
+' ============================================================================
+' Conditional jumps (relative, not hub-relative)
+' Note: TJNZ/TJZ use cog-relative jumps, not hub addresses
+' ============================================================================
+
+t_tjnz_cog      tjnz    result, #cog_target
+t_tjz_cog       tjz     result, #cog_target2
+
+cog_target      nop
+cog_target2     nop
+
+' ============================================================================
+' End of cog code
+' ============================================================================
+
+                ret
+
+                fit     $1F0
+
+' ============================================================================
+' Hub code and data section
+' ============================================================================
+
+                orgh    $400
+
+hub_data1       long    $11111111
+hub_data2       long    $22222222
+hub_array       long    $33333333, $44444444, $55555555, $66666666
+
+hub_code        rdlong  result, ptra
+                ret
+
+hub_sub         nop
+                ret

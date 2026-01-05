@@ -167,6 +167,20 @@ t_brighten      addpix  pixel1, ##$20202020
 t_darken        mulpix  pixel1, ##$C0C0C0C0
 
 ' ============================================================================
+' SETCQ - Set Colorspace Q Parameter
+' ============================================================================
+
+t_setcq_reg     setcq   pixel1          ' Set Q from register
+t_setcq_imm     setcq   #$80            ' Set Q immediate
+
+' ============================================================================
+' SETCY - Set Colorspace Y Parameter
+' ============================================================================
+
+t_setcy_reg     setcy   pixel1          ' Set Y from register
+t_setcy_imm     setcy   #$FF            ' Set Y immediate
+
+' ============================================================================
 ' End marker
 ' ============================================================================
 

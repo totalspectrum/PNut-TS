@@ -1,6 +1,7 @@
 ' pasm_instr_signed_mux.spin2 - Tests signed operations and mux instructions
 ' Tests: ADDS, SUBS, CMPS, FGE, FGES, FLE, FLES, MULS
 ' Tests: MUXC, MUXNC, MUXNZ, MUXZ, MUXQ, MUXNIBS, MUXNITS
+' Tests: NEGC, NEGNC, NEGNZ, NEGZ, SUBR
 
 PUB go()
   COGINIT(0, @test_code, 0)
@@ -90,6 +91,29 @@ bits    LONG    $12345678
         ' MUXNITS - Mux bit pairs
         MOV     s_dst, #0
         MUXNITS s_dst, bits     ' Mux bit pairs based on flags
+
+        ' === Conditional NEG instructions ===
+        MOV     s_dst, val2
+
+        ' NEGC - Negate if C is set
+        MODCZ   _SET, 0     WC  ' Set C
+        NEGC    s_dst, s_dst    ' Negate if C set
+
+        ' NEGNC - Negate if C is clear
+        MODCZ   _CLR, 0     WC  ' Clear C
+        NEGNC   s_dst, s_dst    ' Negate if C clear
+
+        ' NEGZ - Negate if Z is set
+        MODCZ   0, _SET     WZ  ' Set Z
+        NEGZ    s_dst, s_dst    ' Negate if Z set
+
+        ' NEGNZ - Negate if Z is clear
+        MODCZ   0, _CLR     WZ  ' Clear Z
+        NEGNZ   s_dst, s_dst    ' Negate if Z clear
+
+        ' === SUBR - Reverse subtract (S - D) ===
+        MOV     s_dst, val1
+        SUBR    s_dst, val2     ' s_dst = val2 - s_dst
 
         RET
 

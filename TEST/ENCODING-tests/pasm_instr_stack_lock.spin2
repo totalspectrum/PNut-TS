@@ -1,5 +1,5 @@
 ' pasm_instr_stack_lock.spin2 - Tests stack and lock instructions
-' Tests: POP, PUSH
+' Tests: POP, POPA, POPB, PUSH, PUSHA, PUSHB
 ' Tests: LOCKNEW, LOCKREL, LOCKRET, LOCKTRY
 
 PUB go()
@@ -30,6 +30,18 @@ lockid  LONG    0
         PUSH    #$AA
         POP     reg1
         POP     reg2
+
+        ' === PUSHA/POPA - Push/Pop using PA register ===
+        MOV     PA, #$12
+        PUSHA   PA              ' Push PA value
+        MOV     PA, #0
+        POPA    PA              ' Pop into PA
+
+        ' === PUSHB/POPB - Push/Pop using PB register ===
+        MOV     PB, #$34
+        PUSHB   PB              ' Push PB value
+        MOV     PB, #0
+        POPB    PB              ' Pop into PB
 
         ' === LOCKNEW - Acquire a new lock ===
         LOCKNEW lockid      WC  ' Get new lock, C=1 if none available

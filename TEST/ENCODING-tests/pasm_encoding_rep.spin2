@@ -1,0 +1,185 @@
+' pasm_encoding_rep.spin2 - Tests REP instruction block variations
+' Tests: REP with immediate count, register count, various block sizes
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+counter         long    10
+sum             long    0
+value           long    1
+array           long    0[16]
+result          long    0
+
+' ============================================================================
+' REP with immediate count and immediate block size
+' REP #end_label, #count
+' ============================================================================
+
+' Repeat 5 times, 1 instruction
+t_rep_5x1       rep     @.end1, #5
+                add     sum, #1
+.end1
+
+' Repeat 10 times, 1 instruction
+t_rep_10x1      rep     @.end2, #10
+                add     sum, value
+.end2
+
+' Repeat 3 times, 2 instructions
+t_rep_3x2       rep     @.end3, #3
+                add     sum, #1
+                sub     counter, #1
+.end3
+
+' Repeat 4 times, 3 instructions
+t_rep_4x3       rep     @.end4, #4
+                mov     result, sum
+                add     result, #1
+                mov     sum, result
+.end4
+
+' ============================================================================
+' REP with register count
+' REP #end_label, register
+' ============================================================================
+
+' Count from register
+t_rep_reg       mov     counter, #8
+                rep     @.end5, counter
+                add     sum, #2
+.end5
+
+' Another register count
+t_rep_reg2      mov     counter, #6
+                rep     @.end6, counter
+                add     sum, value
+                add     value, #1
+.end6
+
+' ============================================================================
+' REP with zero count (should execute 0 times)
+' ============================================================================
+
+t_rep_zero      mov     counter, #0
+                rep     @.end7, counter
+                add     sum, #100       ' Should not execute
+.end7
+
+' ============================================================================
+' REP with count of 1
+' ============================================================================
+
+t_rep_one       rep     @.end8, #1
+                add     sum, #50
+.end8
+
+' ============================================================================
+' REP with larger block sizes
+' ============================================================================
+
+' 4 instruction block
+t_rep_4instr    rep     @.end9, #2
+                mov     result, #0
+                add     result, sum
+                shl     result, #1
+                mov     sum, result
+.end9
+
+' 5 instruction block
+t_rep_5instr    rep     @.end10, #2
+                mov     result, sum
+                add     result, #1
+                add     result, #2
+                add     result, #3
+                mov     sum, result
+.end10
+
+' ============================================================================
+' Nested-style patterns (outer loop different from inner)
+' ============================================================================
+
+' Outer and inner patterns
+t_rep_outer     mov     counter, #3
+                rep     @.outer_end, counter
+                add     sum, #10
+                add     value, #1
+.outer_end
+
+' ============================================================================
+' REP with array operations
+' ============================================================================
+
+' Fill array with incrementing values
+t_rep_array     mov     counter, #0
+                loc     ptra, #\hub_array
+                rep     @.arr_end, #8
+                add     counter, #1
+                wrlong  counter, ptra++
+.arr_end
+
+' ============================================================================
+' REP with conditional operations inside
+' ============================================================================
+
+t_rep_cond      mov     counter, #4
+                rep     @.cond_end, counter
+                add     sum, #1
+                test    sum, #1     wz
+        if_z    add     result, #1
+.cond_end
+
+' ============================================================================
+' REP with different instruction types
+' ============================================================================
+
+' Shift operations
+t_rep_shift     mov     value, #1
+                rep     @.shift_end, #4
+                shl     value, #1
+.shift_end
+
+' Rotate operations
+rot_init        long    $80000001           ' Large value in data section
+t_rep_rotate    mov     value, rot_init
+                rep     @.rot_end, #8
+                rol     value, #1
+.rot_end
+
+' ============================================================================
+' Maximum practical count
+' ============================================================================
+
+t_rep_max       rep     @.max_end, #255
+                nop
+.max_end
+
+' ============================================================================
+' REP immediately followed by another REP
+' ============================================================================
+
+t_rep_seq1      rep     @.seq1_end, #2
+                add     sum, #1
+.seq1_end
+
+t_rep_seq2      rep     @.seq2_end, #2
+                add     sum, #2
+.seq2_end
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
+                fit     $1F0
+
+' Hub data for array test
+                orgh    $400
+hub_array       long    0[16]

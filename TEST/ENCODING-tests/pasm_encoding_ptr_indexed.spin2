@@ -1,0 +1,102 @@
+' pasm_encoding_ptr_indexed.spin2 - Tests register-indexed PTR addressing
+' Tests: PTRA[S] where S is a register containing the index
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+index           long    0
+index2          long    4
+index3          long    8
+result          long    0
+value           long    $DEADBEEF
+
+' ============================================================================
+' PTRA indexed by register: PTRA[reg]
+' Address = PTRA + (reg * scale)
+' ============================================================================
+
+' Index from register (index = 0)
+t_idx_0         rdlong  result, ptra[index]
+
+' Index from register (index2 = 4)
+t_idx_4         rdlong  result, ptra[index2]
+
+' Index from register (index3 = 8)
+t_idx_8         rdlong  result, ptra[index3]
+
+' ============================================================================
+' PTRB indexed by register
+' ============================================================================
+
+' Index from register
+t_ptrb_idx_0    rdlong  result, ptrb[index]
+t_ptrb_idx_4    rdlong  result, ptrb[index2]
+t_ptrb_idx_8    rdlong  result, ptrb[index3]
+
+' ============================================================================
+' Write operations with register index
+' ============================================================================
+
+' Write using register index
+t_wr_idx_0      wrlong  value, ptra[index]
+t_wr_idx_4      wrlong  value, ptra[index2]
+t_wr_idx_8      wrlong  value, ptra[index3]
+
+' PTRB write with register index
+t_wrb_idx_0     wrlong  value, ptrb[index]
+t_wrb_idx_4     wrlong  value, ptrb[index2]
+
+' ============================================================================
+' Byte and word operations with register index
+' ============================================================================
+
+' Byte read with register index
+t_byte_idx      rdbyte  result, ptra[index]
+t_byte_idx2     rdbyte  result, ptra[index2]
+
+' Byte write with register index
+t_wrbyte_idx    wrbyte  value, ptra[index]
+
+' Word read with register index
+t_word_idx      rdword  result, ptra[index]
+t_word_idx2     rdword  result, ptra[index2]
+
+' Word write with register index
+t_wrword_idx    wrword  value, ptra[index]
+
+' ============================================================================
+' Dynamic index modification
+' ============================================================================
+
+' Read, modify index, read again
+t_dyn_rd1       rdlong  result, ptra[index]
+t_dyn_add       add     index, #1
+t_dyn_rd2       rdlong  result, ptra[index]
+t_dyn_add2      add     index, #1
+t_dyn_rd3       rdlong  result, ptra[index]
+
+' ============================================================================
+' Negative index values
+' ============================================================================
+
+neg_idx         long    -1
+neg_idx2        long    -4
+
+' Read with negative register index
+t_neg_idx       rdlong  result, ptra[neg_idx]
+t_neg_idx2      rdlong  result, ptra[neg_idx2]
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
+                fit     $1F0

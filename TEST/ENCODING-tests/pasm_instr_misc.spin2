@@ -3,6 +3,7 @@
 ' Tests: GETXACC, GETSCP, SETSCP, MOVBYTS, SETCFRQ, SETCI, SETCMOD
 ' Tests: SETDACS, SETPAT, SETPIV, SPLITB, SPLITW, STALLI
 ' Tests: WMLONG, WRC, WRNC, WRNZ, WRZ, XORO32
+' Tests: SETD, SETR, SETS, MODC, MODZ, ASMCLK
 
 PUB go()
   COGINIT(0, @test_code, 0)
@@ -105,6 +106,32 @@ m_mask  LONG    $FF00FF00
         ' === XORO32 - XOR with random 32-bit value ===
         MOV     result, #0
         XORO32  result          ' XOR with random value
+
+        ' === SETD - Set D field in instruction ===
+        SETD    m_data, counter ' Set D field of m_data from counter
+
+        ' === SETR - Set R field (alias for SETD in some contexts) ===
+        SETR    m_data, counter ' Set R/D field
+
+        ' === SETS - Set S field in instruction ===
+        SETS    m_data, counter ' Set S field of m_data from counter
+
+        ' === MODC - Modify C flag only ===
+        MODC    _SET            ' Set C flag
+        MODC    _CLR            ' Clear C flag
+        MODC    _NC             ' Set C to !C
+        MODC    _C              ' Keep C as is
+        MODC    _Z              ' Set C to Z
+
+        ' === MODZ - Modify Z flag only ===
+        MODZ    _SET            ' Set Z flag
+        MODZ    _CLR            ' Clear Z flag
+        MODZ    _NZ             ' Set Z to !Z
+        MODZ    _Z              ' Keep Z as is
+        MODZ    _C              ' Set Z to C
+
+        ' === ASMCLK - Assert clock signal ===
+        ASMCLK                  ' Assert clock for synchronization
 
         RET
 

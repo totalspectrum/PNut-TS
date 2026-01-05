@@ -1,0 +1,132 @@
+' pasm_encoding_regexpr.spin2 - Tests register expression addressing
+' Tests: D+n, D-n, S+n, S-n forms for adjacent register access
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area - contiguous registers for expression testing
+' ============================================================================
+
+base_reg        long    $11111111
+reg_plus1       long    $22222222
+reg_plus2       long    $33333333
+reg_plus3       long    $44444444
+reg_plus4       long    $55555555
+
+result          long    0
+
+' ============================================================================
+' D+n - Destination register plus offset
+' Access registers relative to base
+' ============================================================================
+
+' MOV to adjacent register
+t_d_plus1       mov     base_reg+1, #$AA    ' Write to reg_plus1
+t_d_plus2       mov     base_reg+2, #$BB    ' Write to reg_plus2
+t_d_plus3       mov     base_reg+3, #$CC    ' Write to reg_plus3
+t_d_plus4       mov     base_reg+4, #$DD    ' Write to reg_plus4
+
+' ============================================================================
+' D-n - Destination register minus offset
+' ============================================================================
+
+' MOV to previous register
+t_d_minus1      mov     reg_plus4-1, #$EE   ' Write to reg_plus3
+t_d_minus2      mov     reg_plus4-2, #$FF   ' Write to reg_plus2
+t_d_minus3      mov     reg_plus4-3, #$11   ' Write to reg_plus1
+
+' ============================================================================
+' S+n - Source register plus offset
+' Read from adjacent registers
+' ============================================================================
+
+' Read from adjacent register
+t_s_plus1       mov     result, base_reg+1  ' Read from reg_plus1
+t_s_plus2       mov     result, base_reg+2  ' Read from reg_plus2
+t_s_plus3       mov     result, base_reg+3  ' Read from reg_plus3
+
+' ============================================================================
+' S-n - Source register minus offset
+' ============================================================================
+
+' Read from previous register
+t_s_minus1      mov     result, reg_plus4-1 ' Read from reg_plus3
+t_s_minus2      mov     result, reg_plus4-2 ' Read from reg_plus2
+t_s_minus3      mov     result, reg_plus4-3 ' Read from reg_plus1
+
+' ============================================================================
+' Combined D and S expressions
+' ============================================================================
+
+' Both D and S use expressions
+t_both_plus     mov     base_reg+1, base_reg+2  ' Copy reg_plus2 to reg_plus1
+t_both_minus    mov     reg_plus4-1, reg_plus4-2
+
+' Mixed positive and negative
+t_mixed         mov     base_reg+2, reg_plus4-1
+
+' ============================================================================
+' ALU operations with register expressions
+' ============================================================================
+
+' ADD with register expressions
+t_add_expr      add     base_reg+1, base_reg+2
+
+' SUB with register expressions
+t_sub_expr      sub     base_reg+2, base_reg+1
+
+' AND with register expressions
+t_and_expr      and     base_reg+1, base_reg+3
+
+' OR with register expressions
+t_or_expr       or      base_reg+2, base_reg+4
+
+' XOR with register expressions
+t_xor_expr      xor     base_reg+3, base_reg+1
+
+' ============================================================================
+' Comparison with register expressions
+' ============================================================================
+
+t_cmp_expr      cmp     base_reg+1, base_reg+2  wcz
+t_cmps_expr     cmps    base_reg+2, base_reg+3  wcz
+t_test_expr     test    base_reg+1, base_reg+4  wz
+
+' ============================================================================
+' Shift operations with register expressions
+' ============================================================================
+
+t_shl_expr      shl     base_reg+1, base_reg+2
+t_shr_expr      shr     base_reg+2, base_reg+1
+t_rol_expr      rol     base_reg+3, base_reg+1
+t_ror_expr      ror     base_reg+4, base_reg+2
+
+' ============================================================================
+' Register expressions with effects
+' ============================================================================
+
+t_mov_wc        mov     base_reg+1, base_reg+2  wc
+t_add_wcz       add     base_reg+2, base_reg+3  wcz
+t_sub_wz        sub     base_reg+3, base_reg+4  wz
+
+' ============================================================================
+' Larger offsets
+' ============================================================================
+
+far_base        long    0
+                long    0, 0, 0, 0, 0, 0, 0     ' 7 longs padding
+far_target      long    $ABCDEF01
+
+t_large_offset  mov     result, far_base+8      ' Access far_target
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
+                fit     $1F0

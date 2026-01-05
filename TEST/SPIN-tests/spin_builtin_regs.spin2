@@ -1,0 +1,82 @@
+{Spin2_v45}
+' spin_builtin_regs.spin2 - Tests GETREGS and SETREGS built-in methods
+' Tests: GETREGS(hubaddr, cogaddr, count), SETREGS(hubaddr, cogaddr, count)
+
+VAR
+  LONG  hub_buffer[16]
+  LONG  results[10]
+
+PUB go() | i
+
+  ' === SETREGS - Copy from hub memory to cog registers ===
+  ' SETREGS(hubaddr, cogaddr, count)
+  ' Copies 'count' longs from hub memory to cog registers
+
+  ' Initialize hub buffer with test values
+  REPEAT i FROM 0 TO 7
+    hub_buffer[i] := $11111111 * (i + 1)
+
+  ' Copy 4 longs from hub to cog registers starting at $1E0
+  SETREGS(@hub_buffer, $1E0, 4)
+
+  ' Store a marker to verify operation
+  results[0] := $5E71EE51   ' SETREGS1 marker
+
+  ' Copy 8 longs
+  SETREGS(@hub_buffer, $1D0, 8)
+  results[1] := $5E71EE52   ' SETREGS2 marker
+
+  ' === GETREGS - Copy from cog registers to hub memory ===
+  ' GETREGS(hubaddr, cogaddr, count)
+  ' Copies 'count' longs from cog registers to hub memory
+
+  ' Clear destination buffer
+  REPEAT i FROM 8 TO 15
+    hub_buffer[i] := 0
+
+  ' Copy 4 longs from cog registers to hub
+  GETREGS(@hub_buffer[8], $1E0, 4)
+  results[2] := hub_buffer[8]
+  results[3] := hub_buffer[9]
+  results[4] := hub_buffer[10]
+  results[5] := hub_buffer[11]
+
+  ' Copy 2 longs
+  GETREGS(@hub_buffer[12], $1D0, 2)
+  results[6] := hub_buffer[12]
+  results[7] := hub_buffer[13]
+
+  ' === Round-trip test ===
+  ' Write known values, read them back
+
+  ' Set specific pattern
+  hub_buffer[0] := $DEADBEEF
+  hub_buffer[1] := $CAFEBABE
+  hub_buffer[2] := $12345678
+  hub_buffer[3] := $87654321
+
+  ' Copy to cog
+  SETREGS(@hub_buffer, $1F0, 4)
+
+  ' Clear hub buffer
+  hub_buffer[0] := 0
+  hub_buffer[1] := 0
+  hub_buffer[2] := 0
+  hub_buffer[3] := 0
+
+  ' Copy back from cog
+  GETREGS(@hub_buffer, $1F0, 4)
+
+  ' Verify round-trip
+  results[8] := hub_buffer[0]   ' Should be $DEADBEEF
+  results[9] := hub_buffer[1]   ' Should be $CAFEBABE
+
+  ' === Single long operations ===
+
+  ' Copy single long to cog
+  hub_buffer[0] := $FFFFFFFF
+  SETREGS(@hub_buffer, $1EF, 1)
+
+  ' Copy single long from cog
+  hub_buffer[4] := 0
+  GETREGS(@hub_buffer[4], $1EF, 1)

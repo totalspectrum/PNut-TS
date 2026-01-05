@@ -1,0 +1,161 @@
+' pasm_encoding_pa_pb.spin2 - Tests PA/PB special register addressing
+' Tests: PA and PB as call targets, return addresses, and general registers
+
+CON
+    _clkfreq = 20_000_000
+
+DAT
+                org     0
+
+' ============================================================================
+' Test data area
+' ============================================================================
+
+result          long    0
+value           long    $12345678
+target_addr     long    0
+
+' ============================================================================
+' PA/PB as general purpose registers
+' ============================================================================
+
+' MOV to/from PA
+t_mov_to_pa     mov     pa, value           ' Load value into PA
+t_mov_from_pa   mov     result, pa          ' Read PA into result
+
+' MOV to/from PB
+t_mov_to_pb     mov     pb, value           ' Load value into PB
+t_mov_from_pb   mov     result, pb          ' Read PB into result
+
+' Immediate to PA/PB
+t_imm_to_pa     mov     pa, #$55
+t_imm_to_pb     mov     pb, #$AA
+
+' ============================================================================
+' ALU operations with PA/PB
+' ============================================================================
+
+' ADD with PA
+t_add_pa_s      add     result, pa          ' result += PA
+t_add_pa_d      add     pa, value           ' PA += value
+
+' ADD with PB
+t_add_pb_s      add     result, pb          ' result += PB
+t_add_pb_d      add     pb, value           ' PB += value
+
+' SUB with PA/PB
+t_sub_pa        sub     pa, #1
+t_sub_pb        sub     pb, #1
+
+' AND/OR/XOR with PA/PB
+t_and_pa        and     result, pa
+t_or_pb         or      result, pb
+t_xor_pa        xor     pa, pb
+
+' ============================================================================
+' CALL with return address in PA
+' ============================================================================
+
+' CALL stores return in PA
+t_call_pa       call    #sub1               ' Return address -> PA
+                nop
+
+' CALLA explicitly uses PA
+t_calla         calla   #sub2               ' Return address -> PA
+                nop
+
+' ============================================================================
+' CALL with return address in PB
+' ============================================================================
+
+' CALLB explicitly uses PB
+t_callb         callb   #sub3               ' Return address -> PB
+                nop
+
+' ============================================================================
+' Return via PA/PB
+' ============================================================================
+
+' Subroutines that return via PA/PB
+sub1            ret                         ' Returns via PA (default)
+
+sub2            reta                        ' Explicit return via PA
+
+sub3            retb                        ' Explicit return via PB
+
+' ============================================================================
+' CALLD with PA/PB as destination
+' ============================================================================
+
+' CALLD stores return address in specified register
+t_calld_pa      calld   pa, #sub4           ' Return address -> PA
+                nop
+
+t_calld_pb      calld   pb, #sub4           ' Return address -> PB
+                nop
+
+sub4            ret
+
+' ============================================================================
+' PA/PB with LOC instruction
+' ============================================================================
+
+' LOC loads address into PA/PB
+t_loc_pa        loc     pa, #target1
+t_loc_pb        loc     pb, #target2
+
+target1         long    0
+target2         long    0
+
+' ============================================================================
+' JMP via PA/PB
+' ============================================================================
+
+' Load address and jump
+t_jmp_via_pa    loc     pa, #jmp_target1
+                jmp     pa                  ' Jump to address in PA
+
+jmp_target1     nop
+
+t_jmp_via_pb    loc     pb, #jmp_target2
+                jmp     pb                  ' Jump to address in PB
+
+jmp_target2     nop
+
+' ============================================================================
+' Comparison with PA/PB
+' ============================================================================
+
+t_cmp_pa        cmp     pa, value       wcz
+t_cmp_pb        cmp     pb, value       wcz
+t_cmps_pa       cmps    pa, pb          wcz
+t_test_pa       test    pa, #$FF        wz
+
+' ============================================================================
+' Shift operations with PA/PB
+' ============================================================================
+
+t_shl_pa        shl     pa, #4
+t_shr_pb        shr     pb, #4
+t_rol_pa        rol     pa, #8
+t_ror_pb        ror     pb, #8
+
+' ============================================================================
+' PA/PB in memory operations
+' ============================================================================
+
+' Use PA as hub address
+t_rd_via_pa     rdlong  result, pa
+t_wr_via_pa     wrlong  value, pa
+
+' Use PB as hub address
+t_rd_via_pb     rdlong  result, pb
+t_wr_via_pb     wrlong  value, pb
+
+' ============================================================================
+' End marker
+' ============================================================================
+
+                ret
+
+                fit     $1F0

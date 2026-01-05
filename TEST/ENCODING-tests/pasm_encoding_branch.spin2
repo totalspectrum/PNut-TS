@@ -41,6 +41,17 @@ t_calla_reg     calla   $10                 ' Call via register, return in PA
 t_callb_reg     callb   $10                 ' Call via register, return in PB
 
 ' ============================================================================
+' CALLPA/CALLPB - Call with PA/PB as Target Address
+' ============================================================================
+
+t_callpa_imm    callpa  #sub4, #sub_ret     ' Call PA with return in sub_ret
+t_callpb_imm    callpb  #sub4, #sub_ret2    ' Call PB with return in sub_ret2
+
+sub4            ret
+sub_ret         long    0
+sub_ret2        long    0
+
+' ============================================================================
 ' CALLD - Call with Return in Destination Register
 ' ============================================================================
 
@@ -87,6 +98,20 @@ t_djnz_reg      djnz    $10, $20            ' Loop with address in register
 
 t_djz_rel       djz     $10, #djz_tgt
 djz_tgt         nop
+
+' ============================================================================
+' DJF - Decrement and Jump if False (based on C/Z flags)
+' ============================================================================
+
+t_djf_rel       djf     $10, #djf_tgt
+djf_tgt         nop
+
+' ============================================================================
+' DJNF - Decrement and Jump if Not False
+' ============================================================================
+
+t_djnf_rel      djnf    $10, #djnf_tgt
+djnf_tgt        nop
 
 ' ============================================================================
 ' TJNZ - Test and Jump if Not Zero

@@ -1,8 +1,8 @@
 # PNut-TS Regression Test Coverage Report
 
 **Version:** v1.51.7
-**Generated:** December 2025
-**Test Suite:** 351 Spin2/PASM2 source files across 18 test categories
+**Generated:** January 2026
+**Test Suite:** 357 Spin2/PASM2 source files across 18 test categories
 
 ---
 
@@ -24,8 +24,8 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 
 | Feature Category | Tested | Total | Coverage |
 |-----------------|--------|-------|----------|
-| **PASM2 Instructions** | 220+ | 276 | **80%+** |
-| **PASM2 Operand Forms** | 28 | 31 | **90%** |
+| **PASM2 Instructions** | 250+ | 276 | **91%** |
+| **PASM2 Operand Forms** | 31 | 31 | **100%** |
 | **Conditional Prefixes (IF_*)** | 65 | 65 | **100%** |
 | **Smart Pin Constants (P_*)** | 116 | 116 | **100%** |
 | **Streamer Constants (X_*)** | 78 | 78 | **100%** |
@@ -55,12 +55,16 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 - PTRA++/PTRA-- post-increment/decrement
 - ++PTRA/--PTRA pre-increment/decrement
 - PTRA[n] indexed addressing
+- PTRA[reg] register-indexed addressing
 - ++PTRA[n]/PTRA[n]++ combined modes
 - WC/WZ/WCZ flag effects (comprehensive)
 - WC-only instructions (MUL, MULS, SCA, SCAS)
 - WCZ-only instructions (40+ BIT*, DIR*, DRV*, FLT*, OUT* instructions)
 - Special TESTB/TESTBN effects (ANDC, ANDZ, ORC, ORZ, XORC, XORZ)
-- PA/PB return address registers
+- PA/PB special registers (as operands, call targets, return addresses)
+- Register expressions (D+n, D-n, S+n, S-n for adjacent register access)
+- Hub-relative addressing (#\ syntax with LOC, JMP, CALL)
+- REP instruction block forms (immediate count, register count, various block sizes)
 - All 16 IF_* conditional execution prefixes
 
 ### Spin2 Language Coverage
@@ -98,10 +102,10 @@ The PNut-TS regression test suite validates compiler compatibility with the orig
 |----------|-------|---------|
 | **LARGE-tests** | 91 | Real-world projects validating comprehensive feature interaction |
 | **OBJ-tests** | 27 | Object inheritance, child objects, and multi-file compilation |
-| **ENCODING-tests** | 29 | PASM2 instruction and operand encoding validation |
+| **ENCODING-tests** | 34 | PASM2 instruction and operand encoding validation |
 | **DBG-tests** | 27 | DEBUG statement processing and display types |
 | **COV-tests** | 24 | Targeted code path coverage tests |
-| **SPIN-tests** | 15 | Core Spin2 language features |
+| **SPIN-tests** | 16 | Core Spin2 language features |
 | **LANG-VER-tests** | 15 | Language version-specific features (v43-v51) |
 | **CON-tests** | 9 | Built-in constant definitions |
 | **DAT-PASM-tests** | 9 | Pure PASM assembly programs |
@@ -168,6 +172,7 @@ The test suite covers built-in methods across categories:
 - `BYTEMOVE`, `BYTEFILL`, `WORDMOVE`, `WORDFILL`, `LONGMOVE`, `LONGFILL`
 - `BYTE[]`, `WORD[]`, `LONG[]` array access
 - `@` (address-of), `@@` (hub address), `^@` (cog register)
+- `GETREGS`, `SETREGS` (cog register block transfers)
 
 #### Timing
 - `WAITMS`, `WAITUS`, `WAITX`, `WAITCT`
@@ -191,18 +196,23 @@ The test suite covers built-in methods across categories:
 
 ## PASM2 Instruction Coverage
 
-### Encoding Tests (29 files)
+### Encoding Tests (34 files)
 
 The ENCODING-tests directory validates instruction binary encoding across multiple dimensions:
 
-#### Encoding Dimension Tests (7 files)
+#### Encoding Dimension Tests (13 files)
 
 | Test File | Encoding Dimension |
 |-----------|-------------------|
-| `pasm_encoding_branch.spin2` | JMP, CALL, CALLA, CALLB, CALLD, RET, RETA, RETB, RETI0-3, DJNZ, DJZ, TJNZ, TJZ, TJNS, TJS, TJF, TJNF, TJV, IJNZ, IJZ, REP, LOC, SKIP, SKIPF, EXECF, MODCZ, POLLCT, WAITCT, JMPREL |
+| `pasm_encoding_branch.spin2` | JMP, CALL, CALLA, CALLB, CALLD, CALLPA, CALLPB, RET, RETA, RETB, RETI0-3, DJNZ, DJZ, DJF, DJNF, TJNZ, TJZ, TJNS, TJS, TJF, TJNF, TJV, IJNZ, IJZ, REP, LOC, SKIP, SKIPF, EXECF, MODCZ, POLLCT, WAITCT, JMPREL |
 | `pasm_encoding_conditional.spin2` | All 16 IF_* condition prefixes (IF_C, IF_NC, IF_Z, IF_NZ, IF_C_AND_Z, etc.) |
 | `pasm_encoding_immediate.spin2` | 9-bit immediates (#), 32-bit immediates (##), AUGS/AUGD prefixes |
 | `pasm_encoding_ptr.spin2` | PTRA/PTRB addressing modes (++, --, [n], ++[n]) |
+| `pasm_encoding_ptr_indexed.spin2` | Register-indexed PTR addressing (PTRA[reg], PTRB[reg]) |
+| `pasm_encoding_relative.spin2` | Hub-relative addressing (#\ syntax), LOC with hub addresses, extended relative jumps |
+| `pasm_encoding_regexpr.spin2` | Register expressions (D+n, D-n, S+n, S-n) for adjacent register access |
+| `pasm_encoding_pa_pb.spin2` | PA/PB special registers as operands, call targets, and return addresses |
+| `pasm_encoding_rep.spin2` | REP instruction block forms (immediate count, register count, various block sizes) |
 | `pasm_encoding_wc.spin2` | WC (write carry) effect testing |
 | `pasm_encoding_wz.spin2` | WZ (write zero) effect testing |
 | `pasm_encoding_wcz.spin2` | WCZ (write both) effect testing |
@@ -220,7 +230,7 @@ The ENCODING-tests directory validates instruction binary encoding across multip
 | `pasm_instr_pin.spin2` | Smart pin operations (WRPIN, WXPIN, WYPIN, RDPIN, RQPIN, AKPIN, FLT*, DRV*, OUT*, DIR*, TESTP, TESTPN) |
 | `pasm_instr_pixel.spin2` | Pixel operations (ADDPIX, MULPIX, BLNPIX, MIXPIX, SETPIX, MOVBYTS, MERGEB, SPLITB, MERGEW, SPLITW) |
 | `pasm_instr_rotate.spin2` | Rotate and bit manipulation (ROL, ROR, RCL, RCR, SAL, SAR, SHL, SHR, REV, RCZL, RCZR, TESTB, TESTN) |
-| `pasm_instr_stack.spin2` | Stack operations (PUSH, POP, PUSHA, POPA, PUSHB, POPB) |
+| `pasm_instr_stack_lock.spin2` | Stack and lock operations (PUSH, POP, PUSHA, POPA, PUSHB, POPB, LOCKNEW, LOCKRET, LOCKSET, LOCKCLR, LOCKTRY, LOCKREL) |
 | `pasm_instr_streamer.spin2` | Streamer operations (XINIT, XZERO, XCONT, XSTOP, SETXFRQ, RDFAST, WRFAST, FBLOCK, RF*, WF*, GETPTR, GETBRK, BRK) |
 | `pasm_instr_hub_memory.spin2` | Hub memory operations (RDBYTE, RDWORD, RDLONG, WRBYTE, WRWORD, WRLONG, WMLONG) |
 | `pasm_instr_fifo.spin2` | FIFO operations (RFBYTE, RFWORD, RFLONG, RFVAR, RFVARS, WFBYTE, WFWORD, WFLONG) |
@@ -236,7 +246,7 @@ The ENCODING-tests directory validates instruction binary encoding across multip
 | `pasm_instr_alt.spin2` | ALT Instructions | ALTS, ALTD, ALTR, ALTB, ALTI, ALTA, ALTGN, ALTGW, ALTSN, ALTSW |
 | `pasm_instr_cordic.spin2` | CORDIC | QMUL, QDIV, QFRAC, QSQRT, QROTATE, QVECTOR |
 | `pasm_instr_counter.spin2` | Counters | GETCT, ADDCT1/2/3, POLLCT1/2/3, WAITCT1/2/3 |
-| `pasm_instr_event.spin2` | Events | SETSE1-4, POLLSE1-4, WAITSE1-4 |
+| `pasm_instr_event.spin2` | Events | SETSE1-4, POLLSE1-4, WAITSE1-4, POLLQMT |
 | `pasm_instr_lut.spin2` | LUT Operations | RDLUT, WRLUT, SETLUTS |
 | `pasm_instr_pixel.spin2` | Pixel/Color | SETPIX, SETPIV, SETCQ, SETCY, MERGEW, MERGES |
 | `pasm_instr_streamer.spin2` | Streamer | XINIT, XSTOP, XZERO, XCONT, RDFAST, RFBYTE, RFWORD, RFLONG, WFBYTE, WFWORD, WFLONG |
@@ -443,12 +453,13 @@ This allows test suites to contain both types of tests with correct compilation 
 
 | Metric | Value |
 |--------|-------|
-| Total Test Files | 351 |
-| Total GOLD Reference Files | 959 |
+| Total Test Files | 357 |
+| Total GOLD Reference Files | 975+ |
 | Test Categories | 18 |
 | PUB Methods Tested | 2,104+ |
 | PRI Methods Tested | 1,179+ |
-| PASM Instructions | 205+ (74%+) |
+| PASM Instructions | 250+ (91%) |
+| PASM Operand Forms | 31 (100%) |
 | Built-in Constants | 250+ |
 | Files with Debug | 150+ |
 | Files with Objects | 141+ |
