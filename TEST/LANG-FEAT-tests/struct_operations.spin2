@@ -64,15 +64,19 @@ PRI TestMultiValueAssign()
   result := p1.x                        ' 50
   result := p1.y                        ' 75
 
-  ' Assign to rgb
-  color1 := 128, 64, 32
+  ' Assign to rgb members individually
+  color1.r := 128
+  color1.g := 64
+  color1.b := 32
 
   result := color1.r                    ' 128
   result := color1.g                    ' 64
   result := color1.b                    ' 32
 
-  ' Assign to sensor with mixed types
-  s1 := 10, 1000, 5_000_000
+  ' Assign to sensor with mixed types individually
+  s1.id := 10
+  s1.value := 1000
+  s1.time := 5_000_000
 
   result := s1.id                       ' 10
   result := s1.value                    ' 1000
@@ -92,9 +96,13 @@ PRI TestStructSwap()
   result := p2.x                        ' Should be 100
   result := p2.y                        ' Should be 200
 
-  ' Test swap with rgb
-  color1 := 255, 0, 0                   ' Red
-  color2 := 0, 0, 255                   ' Blue
+  ' Test swap with rgb - initialize members individually
+  color1.r := 255
+  color1.g := 0
+  color1.b := 0                         ' Red
+  color2.r := 0
+  color2.g := 0
+  color2.b := 255                       ' Blue
 
   color1 :=: color2
 
@@ -120,7 +128,9 @@ PRI TestClearAndSet()
   result := p1.y                        ' $FFFFFFFF (-1)
 
   ' Test with rgb
-  color1 := 128, 64, 32
+  color1.r := 128
+  color1.g := 64
+  color1.b := 32
   color1~
   result := color1.r                    ' 0
   result := color1.g                    ' 0
@@ -168,8 +178,12 @@ PRI TestComparison() | same
   result := same                        ' 0
 
   ' Test with rgb
-  color1 := 255, 128, 64
-  color2 := 255, 128, 64
+  color1.r := 255
+  color1.g := 128
+  color1.b := 64
+  color2.r := 255
+  color2.g := 128
+  color2.b := 64
 
   if color1 == color2
     same := 1

@@ -94,15 +94,15 @@ PRI TestStructReturn() | point p
   result := p.x                         ' 150
   result := p.y                         ' 250
 
-PRI GetOrigin() : point result
+PRI GetOrigin() : point pt
   ' Return origin point
-  result.x := 0
-  result.y := 0
+  pt.x := 0
+  pt.y := 0
 
-PRI CreatePoint(LONG px, LONG py) : point result
+PRI CreatePoint(xval, yval) : point pt
   ' Create point from parameters
-  result.x := px
-  result.y := py
+  pt.x := xval
+  pt.y := yval
 
 PRI TestMultipleReturns() | point startPt, point endPt
   ' Initialize a line
@@ -117,7 +117,7 @@ PRI TestMultipleReturns() | point startPt, point endPt
   result := endPt.x                     ' 110
   result := endPt.y                     ' 120
 
-PRI GetEndpoints(line ln) : point startResult, point endResult
+PRI GetEndpoints(line ln) : point startPt, point endPt
   ' Return both endpoints
-  startResult := ln.start
-  endResult := ln.finish
+  startPt := ln.start
+  endPt := ln.finish

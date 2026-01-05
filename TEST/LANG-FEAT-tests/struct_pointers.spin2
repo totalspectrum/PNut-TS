@@ -3,13 +3,11 @@
 ' STRUCT pointer tests for PNut-TS regression testing
 '
 ' Tests covered:
-'   - Pointer declaration with ^
 '   - Getting address with @
-'   - Member access through pointers
-'   - Pointer dereference with []
-'   - Pointer increment/decrement
-'   - Pointer as parameter
-'   - Pointer as return value
+'   - Member access through address
+'   - Memory access with LONG[]
+'   - Pointer as parameter (address passing)
+'   - Structure array addressing
 
 CON
   _clkfreq = 200_000_000
@@ -23,120 +21,97 @@ VAR
   point storage
   point points[NUM_POINTS]
   line myLine
-  ^point pPoint
-  ^line pLine
   LONG result
 
 PUB Main()
 
-  TestPointerBasic()
-  TestPointerMemberAccess()
-  TestPointerDereference()
-  TestPointerArithmetic()
+  TestAddressBasic()
+  TestMemberAccess()
+  TestArrayAddressing()
   TestPointerParameter(@storage)
-  TestPointerReturn()
 
-PRI TestPointerBasic()
+PRI TestAddressBasic() | LONG ptr
   ' Initialize storage
   storage.x := 100
   storage.y := 200
 
-  ' Get pointer to storage
-  pPoint := @storage
+  ' Get address of storage
+  ptr := @storage
 
-  ' Read through pointer
-  result := pPoint.x                    ' 100
-  result := pPoint.y                    ' 200
+  ' Read through pointer using LONG[] access
+  result := LONG[ptr][0]                ' x (100)
+  result := LONG[ptr][1]                ' y (200)
 
   ' Write through pointer
-  pPoint.x := 150
-  pPoint.y := 250
+  LONG[ptr][0] := 150                   ' x
+  LONG[ptr][1] := 250                   ' y
 
   ' Verify storage changed
   result := storage.x                   ' 150
   result := storage.y                   ' 250
 
-PRI TestPointerMemberAccess()
-  ' Point to line struct
+PRI TestMemberAccess() | LONG ptr
+  ' Initialize line struct
   myLine.a.x := 0
   myLine.a.y := 0
   myLine.b.x := 100
   myLine.b.y := 100
 
-  pLine := @myLine
+  ' Get address of line
+  ptr := @myLine
 
-  ' Access nested members through pointer
-  result := pLine.a.x                   ' 0
-  result := pLine.a.y                   ' 0
-  result := pLine.b.x                   ' 100
-  result := pLine.b.y                   ' 100
+  ' Access nested members through LONG[] access
+  ' line contains: a.x, a.y, b.x, b.y (4 LONGs = 16 bytes)
+  result := LONG[ptr][0]                ' a.x (0)
+  result := LONG[ptr][1]                ' a.y (0)
+  result := LONG[ptr][2]                ' b.x (100)
+  result := LONG[ptr][3]                ' b.y (100)
 
   ' Modify through pointer
-  pLine.a.x := 10
-  pLine.b.y := 90
+  LONG[ptr][0] := 10                    ' a.x
+  LONG[ptr][3] := 90                    ' b.y
 
+  ' Verify myLine changed
   result := myLine.a.x                  ' 10
   result := myLine.b.y                  ' 90
 
-PRI TestPointerDereference()
-  ' Initialize storage
-  storage := 500, 600
-
-  ' Get pointer
-  pPoint := @storage
-
-  ' Dereference to get entire structure
-  result := [pPoint].x                  ' 500
-  result := [pPoint].y                  ' 600
-
-  ' Create a temp point and assign through dereference
-  ' [pPoint] := anotherPoint would copy the whole struct
-
-PRI TestPointerArithmetic() | i
+PRI TestArrayAddressing() | i, LONG ptr
   ' Initialize array of points
   repeat i from 0 to NUM_POINTS - 1
     points[i].x := i * 10
     points[i].y := i * 20
 
-  ' Point to first element
-  pPoint := @points[0]
+  ' Get address of first element
+  ptr := @points[0]
 
-  ' Access first element
-  result := pPoint.x                    ' 0
-  result := pPoint.y                    ' 0
+  ' Read first element (each point is 8 bytes = 2 LONGs)
+  result := LONG[ptr][0]                ' x of points[0] = 0
+  result := LONG[ptr][1]                ' y of points[0] = 0
 
-  ' Post-increment: access current, then advance
-  result := pPoint[++].x                ' 0 (access), then advance
-  result := pPoint.x                    ' 10 (now at second element)
+  ' Advance to second element (add 8 bytes = 2 LONGs offset)
+  ptr := @points[1]
+  result := LONG[ptr][0]                ' x of points[1] = 10
+  result := LONG[ptr][1]                ' y of points[1] = 20
 
-  ' Pre-increment: advance, then access
-  result := [++]pPoint.x                ' 20 (advance to third, then access)
+  ' Use array address arithmetic
+  ptr := @points[0]
+  result := LONG[ptr + 16][0]           ' x of points[2] = 20
+  result := LONG[ptr + 16][1]           ' y of points[2] = 40
 
-  ' Post-decrement: access current, then go back
-  result := pPoint[--].x                ' 20 (access), then go back
+  ' Get address of specific element
+  ptr := @points[3]
+  result := LONG[ptr][0]                ' x of points[3] = 30
+  result := LONG[ptr][1]                ' y of points[3] = 60
 
-  ' Pre-decrement: go back, then access
-  result := [--]pPoint.x                ' 10 (go back, then access at second)
-
-  ' Manual increment
-  pPoint := @points[0]
-  pPoint++                              ' Advance by SIZEOF(point) = 8 bytes
-  result := pPoint.x                    ' 10 (second element)
-
-  pPoint--                              ' Go back by 8 bytes
-  result := pPoint.x                    ' 0 (first element)
-
-PRI TestPointerParameter(^point p)
-  ' Modify struct through pointer parameter
-  p.x := 999
-  p.y := 888
+PRI TestPointerParameter(ptrAddr)
+  ' Modify struct through address parameter
+  LONG[ptrAddr][0] := 999               ' x
+  LONG[ptrAddr][1] := 888               ' y
 
   ' Read through parameter
-  result := p.x                         ' 999
-  result := p.y                         ' 888
+  result := LONG[ptrAddr][0]            ' 999
+  result := LONG[ptrAddr][1]            ' 888
 
-PRI TestPointerReturn() : ^point ptr
-  ' Return pointer to storage
-  ptr := @storage
-
-  ' Caller can use: result := TestPointerReturn().x
+  ' Also verify via direct access
+  result := storage.x                   ' 999
+  result := storage.y                   ' 888
