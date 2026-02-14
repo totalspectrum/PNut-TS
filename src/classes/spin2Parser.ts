@@ -599,7 +599,7 @@ export class Spin2Parser {
     const var_longs = 0x3c;
     const clkmode_hub = 0x40;
     const clkfreq_hub = 0x44;
-    const _debugnop_ = 0xf2c; // this changes with interpreter changes
+    const _debugnop_ = 0xf34; // this changes with interpreter changes (v52a: 0xf2c -> 0xf34)
 
     // determine initial pub index
     this.logMessage(`  -- scan pubs`);

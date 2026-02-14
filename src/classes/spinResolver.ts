@@ -2967,6 +2967,10 @@ export class SpinResolver {
       this.logMessage(`* checkInstruction() flexCode=(${this.currElement.flexByteCode})[${eByteCode[this.currElement.flexByteCode]}]`);
       needAsmLookup = true;
       switch (this.currElement.flexByteCode) {
+        // v52a: MOVBYTS as first entry (now both Spin2 function and PASM2 instruction)
+        case eByteCode.bc_movbyts:
+          instructionValue = eAsmcode.ac_movbyts;
+          break;
         case eByteCode.bc_hubset:
           instructionValue = eAsmcode.ac_hubset;
           break;
@@ -5813,60 +5817,113 @@ export class SpinResolver {
 
   private ci_next_quit() {
     // Compile instruction - 'next'/'quit'
+    // v52a: NEXT/QUIT now supports optional level parameter (1..15)
     // PNut ci_next_quit:
     const isQuit: boolean = this.currElement.bigintValue == 1n ? true : false; // T/F where T means quit=1 vs. next=0
     const isNext: boolean = isQuit == false;
+
+    // Parse optional level parameter
+    let remainingLevels: number = 0; // 0 = target innermost REPEAT, N = skip N REPEAT blocks
+    if (this.nextElementType() != eElementType.type_end) {
+      // There's something after NEXT/QUIT - parse the level
+      const levelResult = this.getValue(eMode.BM_IntOnly, eResolve.BR_Must);
+      const level: number = Number(levelResult.value);
+      if (level < 1 || level > 15) {
+        // [error_nqlcmb]
+        throw new Error('NEXT/QUIT level must be from 1 to 15');
+      }
+      remainingLevels = level;
+    }
+
     let nestLevel: number = this.blockStack.topIndex; // this is PNut [ecx]
-    let popCount: number = 0; // this is PNut [edx]
-    let byteCode: eByteCode;
+    let popCount: number = 0; // accumulated pop byte count (this is PNut [edx])
+    let byteCode: eByteCode = eByteCode.bc_jmp;
+
     const topItem: string = nestLevel != -1 ? eElementType[this.blockStack.typeAtLevel(nestLevel)] : '-emptyStack-';
-    this.logMessage(`* ci_next_quit() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
+    this.logMessage(`* ci_next_quit() nestLevel=(${nestLevel}), topItemType=[${topItem}], remainingLevels=(${remainingLevels})`);
+
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // if topIndex was -1..  if we have empty blockStack
       if (nestLevel < 0) {
-        // [error_tioawarb]
-        throw new Error('This instruction is only allowed within a REPEAT block');
+        // [error_nqinsn] - replaces error_tioawarb in v52a
+        throw new Error('NEXT/QUIT is not sufficiently nested within REPEAT block(s)');
       }
+
       const nestType: eElementType = this.blockStack.typeAtLevel(nestLevel);
-      byteCode = eByteCode.bc_jmp;
+      byteCode = eByteCode.bc_jmp; // reset default each iteration
+
       if (nestType == eElementType.type_repeat) {
+        // Plain REPEAT - no stack cleanup needed
+        if (remainingLevels > 0) {
+          // Intermediate level - skip this REPEAT and continue searching
+          remainingLevels--;
+          nestLevel--;
+          continue;
+        }
+        // Target level reached
         break;
       } else if (nestType == eElementType.type_repeat_var || nestType == eElementType.type_repeat_count_var) {
-        if (isQuit) {
-          popCount += 4 * 4;
+        // REPEAT-VAR / REPEAT-COUNT-VAR has 4 longs on stack (from, to, step, var)
+        if (isQuit || remainingLevels > 0) {
+          // QUIT always pops; intermediate levels also pop
+          popCount += 4 * 4; // 16 bytes
         }
+        if (remainingLevels > 0) {
+          // Intermediate level - skip this REPEAT and continue searching
+          remainingLevels--;
+          nestLevel--;
+          continue;
+        }
+        // Target level reached
         break;
       } else if (nestType == eElementType.type_repeat_count) {
-        byteCode = eByteCode.bc_jnz;
+        // REPEAT-COUNT has 1 long on stack
+        if (remainingLevels > 0) {
+          // Intermediate level - pop the count and continue searching
+          popCount += 1 * 4; // 4 bytes
+          remainingLevels--;
+          nestLevel--;
+          continue;
+        }
+        // Target level reached
+        if (isQuit) {
+          // bc_jnz pops the non-zero count value
+          byteCode = eByteCode.bc_jnz;
+        }
+        // NEXT needs no pops at target level
         break;
       } else if (nestType == eElementType.type_case) {
-        popCount += 2 * 4;
+        // CASE has 2 longs on stack - always intermediate (not a REPEAT)
+        popCount += 2 * 4; // 8 bytes
       } else if (nestType == eElementType.type_case_fast) {
-        popCount += 1 * 4;
+        // CASE_FAST has 1 long on stack - always intermediate
+        popCount += 1 * 4; // 4 bytes
       } else if (nestType == eElementType.type_if) {
-        // nothing to do...
+        // IF has nothing on stack - just continue
       } else {
         // [error_internal]
         throw new Error('Internal error! - ci_next_quit()');
       }
       nestLevel--;
     }
-    // here is @@got
+
+    // Emit pop instructions if needed
     if (popCount > 0) {
       if (popCount == 1 * 4) {
         this.objImage.appendByte(eByteCode.bc_pop);
       } else {
         this.objImage.appendByte(eByteCode.bc_pop_rfvar);
-        this.compileRfvar(BigInt(popCount - 1 * 4));
+        this.compileRfvar(BigInt(popCount - 1 * 4)); // -4 because interpreter does final pop
       }
     }
-    // here is @@nopops:
+
+    // Emit branch to target address
     if (isNext) {
-      const address: number = this.blockStack.readAtLevel(nestLevel, 0);
+      const address: number = this.blockStack.readAtLevel(nestLevel, 0); // NEXT address
       this.compileBranch(eByteCode.bc_jmp, address);
     } else {
-      const address: number = this.blockStack.readAtLevel(nestLevel, 1);
+      const address: number = this.blockStack.readAtLevel(nestLevel, 1); // QUIT address
       this.compileBranch(byteCode, address);
     }
   }

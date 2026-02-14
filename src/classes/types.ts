@@ -858,7 +858,11 @@ export enum eByteCode {
   bc_taskcont = 220, // 0xdc
   bc_taskchk = 222, // 0xde
   bc_taskid = 224, // 0xe0
-  bc_task_return = 226 // 0xe2
+  bc_task_return = 226, // 0xe2
+  // v52a new bytecodes
+  bc_movbyts = 228, // 0xe4 - hub bytecodes, miscellaneous routines
+  bc_endianl = 230, // 0xe6
+  bc_endianw = 232 // 0xe8
 }
 
 export enum eFlexcode {
@@ -926,6 +930,10 @@ export enum eFlexcode {
   fc_rotxy,
   fc_polxy,
   fc_xypol,
+  // v52a new flexcodes
+  fc_movbyts,
+  fc_endianl,
+  fc_endianw,
   fc_nan,
   fc_round,
   fc_trunc,

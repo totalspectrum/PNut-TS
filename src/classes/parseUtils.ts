@@ -1004,6 +1004,13 @@ enum SYMBOLS_V51 {
   EXP = 'EXP'
 }
 
+// v52a new symbols
+enum SYMBOLS_V52 {
+  ENDIANL = 'ENDIANL',
+  ENDIANW = 'ENDIANW',
+  DEBUG_END_SESSION = 'DEBUG_END_SESSION'
+}
+
 function setAsmcodeValue(v1: number, v2: number, v3: number): number {
   // calculate the actual asm code value from given parts
   //
@@ -1062,6 +1069,7 @@ export class SpinSymbolTables {
   private automatic_symbols_v47 = new Map<string, iBaseSymbolInfo>();
   private automatic_symbols_v50 = new Map<string, iBaseSymbolInfo>();
   private automatic_symbols_v51 = new Map<string, iBaseSymbolInfo>();
+  private automatic_symbols_v52 = new Map<string, iBaseSymbolInfo>(); // v52a
   private flexcodeValues = new Map<eFlexcode, number>();
   private asmcodeValues = new Map<eAsmcode, number>();
   private opcodeValues = new Map<eOpcode, number>();
@@ -1684,6 +1692,10 @@ export class SpinSymbolTables {
     this.flexcodeValues.set(eFlexcode.fc_rotxy, setFlexcodeValue(eByteCode.bc_rotxy, 3, 2, 0, 1));
     this.flexcodeValues.set(eFlexcode.fc_polxy, setFlexcodeValue(eByteCode.bc_polxy, 2, 2, 0, 1));
     this.flexcodeValues.set(eFlexcode.fc_xypol, setFlexcodeValue(eByteCode.bc_xypol, 2, 2, 0, 1));
+    // v52a new flexcodes
+    this.flexcodeValues.set(eFlexcode.fc_movbyts, setFlexcodeValue(eByteCode.bc_movbyts, 2, 1, 0, 1)); // (also asm instruction)
+    this.flexcodeValues.set(eFlexcode.fc_endianl, setFlexcodeValue(eByteCode.bc_endianl, 1, 1, 0, 1));
+    this.flexcodeValues.set(eFlexcode.fc_endianw, setFlexcodeValue(eByteCode.bc_endianw, 1, 1, 0, 1));
     this.flexcodeValues.set(eFlexcode.fc_float, setFlexcodeValue(eByteCode.bc_float, 1, 1, 0, 1));
     this.flexcodeValues.set(eFlexcode.fc_round, setFlexcodeValue(eByteCode.bc_round, 1, 1, 0, 1));
     this.flexcodeValues.set(eFlexcode.fc_trunc, setFlexcodeValue(eByteCode.bc_trunc, 1, 1, 0, 1));
@@ -2175,7 +2187,8 @@ export class SpinSymbolTables {
     this.automatic_symbols.set(SYMBOLS.MUXNITS, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_muxnits) });
     this.automatic_symbols.set(SYMBOLS.MUXNIBS, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_muxnibs) });
     this.automatic_symbols.set(SYMBOLS.MUXQ, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_muxq) });
-    this.automatic_symbols.set(SYMBOLS.MOVBYTS, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_movbyts) });
+    // v52a: MOVBYTS reclassified from type_asm_inst to type_i_flex (now both Spin2 function and PASM2 instruction)
+    this.automatic_symbols.set(SYMBOLS.MOVBYTS, { type: eElementType.type_i_flex, value: this.flexValue(eFlexcode.fc_movbyts) });
 
     this.automatic_symbols.set(SYMBOLS.MUL, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_mul) });
     this.automatic_symbols.set(SYMBOLS.MULS, { type: eElementType.type_asm_inst, value: this.asmcodeValue(eAsmcode.ac_muls) });
@@ -2882,6 +2895,13 @@ export class SpinSymbolTables {
     this.automatic_symbols_v51.set(SYMBOLS_V51.EXP10, { type: eElementType.type_op, value: this.opcodeValue(eOpcode.oc_exp10) });
     this.automatic_symbols_v51.set(SYMBOLS_V51.EXP, { type: eElementType.type_op, value: this.opcodeValue(eOpcode.oc_exp) });
 
+    //
+    // HAND generated Automatic symbols table load v52
+    // ---------------------------------------------------------------------------------------
+    this.automatic_symbols_v52.set(SYMBOLS_V52.ENDIANL, { type: eElementType.type_i_flex, value: this.flexValue(eFlexcode.fc_endianl) });
+    this.automatic_symbols_v52.set(SYMBOLS_V52.ENDIANW, { type: eElementType.type_i_flex, value: this.flexValue(eFlexcode.fc_endianw) });
+    this.automatic_symbols_v52.set(SYMBOLS_V52.DEBUG_END_SESSION, { type: eElementType.type_con_int, value: 27 });
+
     // Populate the reverse map
     for (const [fcValue, value] of this.flexcodeValues) {
       const bcValue: number = value & 0xff;
@@ -3008,6 +3028,16 @@ export class SpinSymbolTables {
         const symbolInfo: iBaseSymbolInfo | undefined = this.automatic_symbols_v51.get(symbolName);
         if (symbolInfo !== undefined) {
           this.logMessage(`- builtInSymbolV51(${symbolName}) = (${symbolInfo.value})`);
+          findResult = { symbol: symbolName, type: symbolInfo.type, value: symbolInfo.value };
+        }
+      }
+    }
+
+    if (this.currSpinVersion >= 52) {
+      if (this.automatic_symbols_v52.has(symbolName)) {
+        const symbolInfo: iBaseSymbolInfo | undefined = this.automatic_symbols_v52.get(symbolName);
+        if (symbolInfo !== undefined) {
+          this.logMessage(`- builtInSymbolV52(${symbolName}) = (${symbolInfo.value})`);
           findResult = { symbol: symbolName, type: symbolInfo.type, value: symbolInfo.value };
         }
       }

@@ -135,7 +135,7 @@ export class SpinDocument {
   private nonDocNestCount: number = 0;
   // PNut-ts version number handling for this .spin2 file
   private defaultVersion: number = 41;
-  private legalVersions: number[] = [41, 43, 44, 45, 46, 47, 48, 49, 50, 51];
+  private legalVersions: number[] = [41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52];
   private requiredVersion: number = 0;
   // errors reported while processing file
   private errorsfound: iError[] = [];
@@ -498,9 +498,18 @@ export class SpinDocument {
             this.reportError(`#elseifdef found before #ifdef/#ifndef`, lineIdx, 0);
           } else {
             ifState.setInIf();
-            if (wasEmitting == false) {
-              // we were in ifdef and not emitting so ignore this whole ifdef
-              ifState.setIgnoreIfdef();
+            if (isElseForm) {
+              // For #elseifdef: if a previous branch already emitted (wasEmitting true),
+              // skip this branch. Don't skip just because wasEmitting is false - that means
+              // no previous branch matched yet, so we should evaluate this one.
+              if (wasEmitting == true) {
+                ifState.setIgnoreIfdef();
+              }
+            } else {
+              // For #ifdef: if we're in a non-emitting outer block, skip this nested ifdef
+              if (wasEmitting == false) {
+                ifState.setIgnoreIfdef();
+              }
             }
             if (isElseForm == false || this.inIfDef()) {
               // this.logMessage(`SpinPP: (DBG) inPreProcIxForIFNOT=(${inPrePxrocIForIFNOT})`);
@@ -541,9 +550,18 @@ export class SpinDocument {
             this.reportError(`#elseifndef found before #ifdef/#ifndef`, lineIdx, 0);
           } else {
             ifState.setInIf();
-            if (wasEmitting == false) {
-              // we were in ifdef and not emitting so ignore this whole ifdef
-              ifState.setIgnoreIfdef();
+            if (isElseForm) {
+              // For #elseifndef: if a previous branch already emitted (wasEmitting true),
+              // skip this branch. Don't skip just because wasEmitting is false - that means
+              // no previous branch matched yet, so we should evaluate this one.
+              if (wasEmitting == true) {
+                ifState.setIgnoreIfdef();
+              }
+            } else {
+              // For #ifndef: if we're in a non-emitting outer block, skip this nested ifndef
+              if (wasEmitting == false) {
+                ifState.setIgnoreIfdef();
+              }
             }
             if (isElseForm == false || this.inIfDef()) {
               // this.logMessage(`SpinPP: (DBG) inPreProcIxForIFNOT=(${inPreProcIFxorIFNOT})`);
