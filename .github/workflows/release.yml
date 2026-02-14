@@ -206,7 +206,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           # Use --break-system-packages for Homebrew-managed Python on macOS
-          python3 -m pip install --upgrade pip --break-system-packages
+          # Skip pip upgrade - Homebrew-managed pip can't be uninstalled
           python3 -m pip install Pillow --break-system-packages
 
       - name: List downloaded packages
