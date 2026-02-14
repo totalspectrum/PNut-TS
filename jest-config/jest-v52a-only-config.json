@@ -1,0 +1,6 @@
+{
+  "displayName": "V52A features suite of tests",
+  "roots": ["<rootDir>/../dist/tests/V52A-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}

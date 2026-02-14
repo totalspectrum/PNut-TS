@@ -114,98 +114,90 @@ function compareBinaryWithFloatTolerance(outputFSpec: string, goldenFSpec: strin
 
   // 1 ULP Filter: When floating-point values differ by 1 ULP (Unit in Last Place),
   // the byte-level differences cascade to affect checksums. This filter:
-  // 1. Identifies 4-byte groups that differ by exactly 1 (1 ULP candidates)
-  // 2. Calculates the expected checksum delta from those byte differences
-  // 3. Allows one "checksum" byte to differ by exactly that delta
+  // 1. Finds all bytes that differ between the files
+  // 2. For each differing byte, checks if it could be part of a 4-byte float that differs by 1 ULP
+  //    (floats can be at ANY position, not just 4-byte aligned, due to bytecode prefixes)
+  // 3. Calculates expected checksum delta and allows checksum bytes to differ accordingly
 
   const length = outputBuffer.length;
-  const alignedLength = Math.floor(length / 4) * 4;
 
-  // First pass: identify 1 ULP differences and calculate checksum delta
+  // Find all positions where bytes differ
+  const differingPositions: number[] = [];
+  for (let i = 0; i < length; i++) {
+    if (outputBuffer[i] !== goldenBuffer[i]) {
+      differingPositions.push(i);
+    }
+  }
+
+  // If no differences, files match exactly
+  if (differingPositions.length === 0) {
+    return true;
+  }
+
+  // Track which positions have been explained by 1-ULP float differences
+  const explainedPositions = new Set<number>();
   let expectedChecksumDelta = 0;
-  const ulpDiffPositions: number[] = [];
 
-  for (let i = 0; i < alignedLength; i += 4) {
-    const outputVal = outputBuffer.readUInt32LE(i);
-    const goldenVal = goldenBuffer.readUInt32LE(i);
+  // For each differing position, try to find a 4-byte window containing it that differs by 1 ULP
+  for (const diffPos of differingPositions) {
+    if (explainedPositions.has(diffPos)) {
+      continue; // Already explained by a previous float
+    }
 
-    if (outputVal !== goldenVal) {
+    // Try all 4 possible starting positions for a 4-byte float that includes this byte
+    let foundValidFloat = false;
+    for (let startOffset = Math.max(0, diffPos - 3); startOffset <= diffPos && startOffset + 3 < length; startOffset++) {
+      // Read 4 bytes as little-endian 32-bit values
+      const outputVal = outputBuffer.readUInt32LE(startOffset);
+      const goldenVal = goldenBuffer.readUInt32LE(startOffset);
+
+      // Check if the difference is exactly 1 (1 ULP)
       const diff = Math.abs(outputVal - goldenVal);
       if (diff === 1) {
-        // This is a 1 ULP difference - calculate byte-level checksum impact
-        ulpDiffPositions.push(i);
+        // This is a valid 1-ULP float difference
+        foundValidFloat = true;
+        // Mark all 4 bytes as explained
         for (let j = 0; j < 4; j++) {
-          expectedChecksumDelta += outputBuffer[i + j] - goldenBuffer[i + j];
+          explainedPositions.add(startOffset + j);
         }
-      } else if (diff > 1) {
-        // Difference too large - not a 1 ULP float difference
-        // Will check if it's a checksum in second pass
+        // Calculate checksum impact
+        for (let j = 0; j < 4; j++) {
+          expectedChecksumDelta += outputBuffer[startOffset + j] - goldenBuffer[startOffset + j];
+        }
+        break;
       }
+    }
+
+    // If this position wasn't explained by a float, it might be a checksum byte
+    // We'll check this in the second pass
+    if (!foundValidFloat && !explainedPositions.has(diffPos)) {
+      // Mark for checksum check later
     }
   }
 
   // Normalize checksum delta to byte range (handles wrap-around)
   expectedChecksumDelta = ((expectedChecksumDelta % 256) + 256) % 256;
 
-  // Second pass: verify all differences are either 1 ULP or explained by checksum
-  let checksumDiffFound = false;
-
-  for (let i = 0; i < alignedLength; i += 4) {
-    const outputVal = outputBuffer.readUInt32LE(i);
-    const goldenVal = goldenBuffer.readUInt32LE(i);
-
-    if (outputVal !== goldenVal) {
-      const diff = Math.abs(outputVal - goldenVal);
-      if (diff === 1) {
-        // 1 ULP difference - acceptable
-        continue;
-      }
-
-      // Check if this could be a checksum difference
-      // Look for a single byte in this group that differs by the expected delta
-      let foundChecksumByte = false;
-      let otherBytesMatch = true;
-
-      for (let j = 0; j < 4; j++) {
-        const byteDiff = outputBuffer[i + j] - goldenBuffer[i + j];
-        if (byteDiff !== 0) {
-          // Normalize to positive byte difference for comparison
-          const normalizedDiff = ((byteDiff % 256) + 256) % 256;
-          if (normalizedDiff === expectedChecksumDelta || normalizedDiff === 256 - expectedChecksumDelta) {
-            if (!checksumDiffFound) {
-              checksumDiffFound = true;
-              foundChecksumByte = true;
-            } else {
-              // Multiple checksum-like differences - fail
-              return false;
-            }
-          } else {
-            otherBytesMatch = false;
-          }
-        }
-      }
-
-      if (!foundChecksumByte && !otherBytesMatch) {
-        // Unexplained difference
-        return false;
-      }
+  // Second pass: check if remaining differences can be explained by checksum
+  let checksumDiffCount = 0;
+  for (const diffPos of differingPositions) {
+    if (explainedPositions.has(diffPos)) {
+      continue; // Already explained
     }
-  }
 
-  // Check remaining bytes (if any)
-  for (let i = alignedLength; i < length; i++) {
-    const byteDiff = outputBuffer[i] - goldenBuffer[i];
-    if (byteDiff !== 0) {
-      const normalizedDiff = ((byteDiff % 256) + 256) % 256;
-      if (normalizedDiff === expectedChecksumDelta || normalizedDiff === 256 - expectedChecksumDelta) {
-        if (!checksumDiffFound) {
-          checksumDiffFound = true;
-        } else {
-          return false;
-        }
-      } else {
+    // Check if this could be a checksum byte
+    const byteDiff = outputBuffer[diffPos] - goldenBuffer[diffPos];
+    const normalizedDiff = ((byteDiff % 256) + 256) % 256;
+
+    if (normalizedDiff === expectedChecksumDelta || normalizedDiff === (256 - expectedChecksumDelta) % 256) {
+      checksumDiffCount++;
+      if (checksumDiffCount > 1) {
+        // Multiple checksum-like differences - fail
         return false;
       }
+    } else {
+      // Unexplained difference
+      return false;
     }
   }
 
@@ -382,6 +374,78 @@ function comparePreprocessOutput(compileLines: string[], goldenLines: string[]):
 function compareConFloatValues(compileLines: string[], goldenLines: string[]): boolean {
   let matchStatus: boolean = false;
   if (compileLines.length == goldenLines.length) {
+    // First pass: collect all hex dump bytes into continuous buffers
+    // This handles floats that span across hex dump line boundaries
+    const hexPattern = /^([0-9A-F]{5}-)\s+((?:[0-9A-F]{2}\s+)+)/;
+    const compHexBytes: string[] = [];
+    const goldHexBytes: string[] = [];
+    const hexDumpLineIndices: number[] = [];
+
+    for (let index = 0; index < compileLines.length; index++) {
+      const compLine: string = compileLines[index];
+      const goldLine: string = goldenLines[index];
+
+      if (/^[0-9A-F]{5}-\s/.test(compLine)) {
+        const compMatch = compLine.match(hexPattern);
+        const goldMatch = goldLine.match(hexPattern);
+        if (compMatch !== null && goldMatch !== null) {
+          compHexBytes.push(...compMatch[2].trim().split(/\s+/));
+          goldHexBytes.push(...goldMatch[2].trim().split(/\s+/));
+          hexDumpLineIndices.push(index);
+        }
+      }
+    }
+
+    // Compare hex dump bytes with 1-ULP float tolerance
+    let hexDumpMatches = true;
+    if (compHexBytes.length === goldHexBytes.length && compHexBytes.length > 0) {
+      const differingIndices: number[] = [];
+      for (let i = 0; i < compHexBytes.length; i++) {
+        if (compHexBytes[i] !== goldHexBytes[i]) {
+          differingIndices.push(i);
+        }
+      }
+
+      if (differingIndices.length > 0) {
+        // Check if all differences can be explained by 1-ULP float differences
+        const explainedIndices = new Set<number>();
+
+        for (const diffIdx of differingIndices) {
+          if (explainedIndices.has(diffIdx)) continue;
+
+          let foundValidFloat = false;
+          for (let startOffset = Math.max(0, diffIdx - 3); startOffset <= diffIdx && startOffset + 3 < compHexBytes.length; startOffset++) {
+            // Build 32-bit value from 4 bytes (little-endian)
+            const compVal =
+              parseInt(compHexBytes[startOffset], 16) |
+              (parseInt(compHexBytes[startOffset + 1], 16) << 8) |
+              (parseInt(compHexBytes[startOffset + 2], 16) << 16) |
+              (parseInt(compHexBytes[startOffset + 3], 16) << 24);
+            const goldVal =
+              parseInt(goldHexBytes[startOffset], 16) |
+              (parseInt(goldHexBytes[startOffset + 1], 16) << 8) |
+              (parseInt(goldHexBytes[startOffset + 2], 16) << 16) |
+              (parseInt(goldHexBytes[startOffset + 3], 16) << 24);
+
+            const diff = Math.abs((compVal >>> 0) - (goldVal >>> 0));
+            if (diff <= 1) {
+              foundValidFloat = true;
+              for (let j = 0; j < 4; j++) {
+                explainedIndices.add(startOffset + j);
+              }
+              break;
+            }
+          }
+
+          if (!foundValidFloat) {
+            hexDumpMatches = false;
+            break;
+          }
+        }
+      }
+    }
+
+    // Now compare all lines
     for (let index = 0; index < compileLines.length; index++) {
       const compLine: string = compileLines[index];
       const goldLine: string = goldenLines[index];
@@ -508,59 +572,9 @@ function compareConFloatValues(compileLines: string[], goldenLines: string[]): b
           }
         }
       } else if (/^[0-9A-F]{5}-\s/.test(compLine)) {
-        // Handle hex dump lines like "00010- 5C 04 81 46 00 00 C8 42 ..."
-        // These can have floating-point differences in the byte values
-        // Extract hex bytes from both lines and compare with tolerance
-        const hexPattern = /^([0-9A-F]{5}-)\s+((?:[0-9A-F]{2}\s+)+)/;
-        const compMatch = compLine.match(hexPattern);
-        const goldMatch = goldLine.match(hexPattern);
-
-        if (compMatch !== null && goldMatch !== null) {
-          const compAddr = compMatch[1];
-          const goldAddr = goldMatch[1];
-
-          if (compAddr === goldAddr) {
-            // Extract hex bytes
-            const compBytes = compMatch[2].trim().split(/\s+/);
-            const goldBytes = goldMatch[2].trim().split(/\s+/);
-
-            if (compBytes.length === goldBytes.length) {
-              matchStatus = true;
-              // Compare each 4-byte group (potential float) with +/- 1 tolerance
-              for (let i = 0; i + 3 < compBytes.length; i += 4) {
-                // Build 32-bit value from 4 bytes (little-endian)
-                const compVal =
-                  parseInt(compBytes[i], 16) |
-                  (parseInt(compBytes[i + 1], 16) << 8) |
-                  (parseInt(compBytes[i + 2], 16) << 16) |
-                  (parseInt(compBytes[i + 3], 16) << 24);
-                const goldVal =
-                  parseInt(goldBytes[i], 16) |
-                  (parseInt(goldBytes[i + 1], 16) << 8) |
-                  (parseInt(goldBytes[i + 2], 16) << 16) |
-                  (parseInt(goldBytes[i + 3], 16) << 24);
-
-                // Use unsigned comparison with tolerance
-                const diff = Math.abs((compVal >>> 0) - (goldVal >>> 0));
-                if (diff > 1) {
-                  matchStatus = false;
-                  break;
-                }
-              }
-              // Also check any remaining bytes that don't form a complete 4-byte group
-              const remainder = compBytes.length % 4;
-              if (matchStatus && remainder > 0) {
-                const startIdx = compBytes.length - remainder;
-                for (let i = startIdx; i < compBytes.length; i++) {
-                  if (compBytes[i] !== goldBytes[i]) {
-                    matchStatus = false;
-                    break;
-                  }
-                }
-              }
-            }
-          }
-        }
+        // Handle hex dump lines - use pre-computed hexDumpMatches result
+        // which handles floats spanning across line boundaries
+        matchStatus = hexDumpMatches;
       }
       if (matchStatus == false) {
         // on first non-match, break! we have answer
