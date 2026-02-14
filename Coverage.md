@@ -23,6 +23,26 @@ The current coverage status is versioned at our repository. To view the full det
 - Click on `src/classes` to get to the various class files making up PNut TS
 - Click on `spinResolver.ts` to view the coverage for **SpinResolver Class** which does nearly all of our code generation
 
+## Coverage Status v1.52.x
+
+
+This is our coverage stataus at the v1.52.0 release.  Since the last release we've increased coverage of PASM instructions and constants in the compiler.
+
+### Page: Top level
+
+Here are the coverage categories:
+
+![Patreon](./DOCs/images/v1.52.1-top.png)<br>**FIGURE 1.52-1**: v1.52.1 `top-level` coverage report view.
+
+This page shows that there are three pages below this one (`src`, `src/classes`, and `src/Utils` each with their own page of details.  Click on one of the three names to view the page for that group.
+
+### Page: src/classes
+Here is the `src/classes` status:
+
+![Patreon](./DOCs/images/v1.52.1-classes.png)<br>**FIGURE 1.52-2**: v1.52.1 `src/classes` coverage report view.
+
+Again, this is our results at v1.52.1 for our release build.
+
 ## Coverage Status v1.51.x
 
 
