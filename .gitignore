@@ -271,9 +271,22 @@ TEST/MAP-tests/.vscode/settings.json
 # Local packaging scripts (not versioned - used for manual builds)
 scripts-pkg-macos/
 scripts-pkg/
+
+# v52a upgrade reference materials (not versioned)
+REF-V52A/
+DOCs/roadmaps/v52a-IMPLEMENTATION/
 TEST/LANG-VER-tests/Spin2_v50_step.elemOLD
 TEST/SHORT/tablesTESTs/p2com.LST
 REF/p2com.LST
 
 # Devcontainer local overrides (user-specific mounts)
 .devcontainer/docker-compose.override.yml
+
+# v52 GOLD file rebuild folders (temporary - for Windows compilation)
+*-rebuild-v52/
+
+# Bug investigation folders (temporary working directories)
+BUG-*/
+
+# Temporary test output directories
+TEST/LANG-VER-tests/tmp/

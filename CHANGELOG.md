@@ -19,6 +19,15 @@ Work to appear in upcoming releases:
 - Add User Reqeuested enhancements
 - Keep up with PNut changes soon after they are released.
 
+## [1.52.1] 2026-02-14
+
+- Add language version support through `{Spin2_v52}`
+- Compatible with PNut versions through PNut_v52a.exe (PNut_v44.exe is not supported)
+
+**Version Numbering**: The 1.52.x series aligns with PNut v52:
+- 1.52.0 represents the base v52 language specification
+- 1.52.1 corresponds to PNut_v52a.exe compatibility
+
 ## [1.51.7] 2025-12-26
 
 ### Added
