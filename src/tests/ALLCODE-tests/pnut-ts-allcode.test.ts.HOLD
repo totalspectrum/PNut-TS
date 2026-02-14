@@ -21,6 +21,15 @@ import {
 // test lives in <rootDir>/src/tests/FULL
 const testDirPath = path.resolve(__dirname, '../../../TEST/ALLCODE-tests');
 const toolPath = path.resolve(__dirname, '../../../dist');
+
+// Files that require debug compilation but don't match the standard prefix patterns
+const explicitDebugFiles = [
+  'coverage_003_v44.spin2',
+  'coverage_clock_003.spin2',
+  'v46_test_debug_mask.spin2',
+  'v50_test_conditional_debug.spin2',
+  'v52a_test_debug_end_session.spin2'
+];
 const directories = [
   {
     name: 'Test directory',
@@ -60,6 +69,13 @@ describe('PNut_ts compiles .spin2 w/debug() correctly', () => {
     files = globSync(`${testDirPath}/{debug_,isp_,coverage_debug_,jm_debug,Spin2_v,math_}*.spin2`);
   } catch (error) {
     console.error('ERROR: glob issue:', error);
+  }
+  // Add explicit debug files that don't match prefix patterns
+  for (const debugFile of explicitDebugFiles) {
+    const fullPath = path.join(testDirPath, debugFile);
+    if (fs.existsSync(fullPath) && !files.includes(fullPath)) {
+      files.push(fullPath);
+    }
   }
   if (files.length > 1) {
     // Don't compile preprocessor intermediate files (both naming conventions)!
@@ -221,6 +237,8 @@ describe('PNut_ts compiles .spin2 w/o debug() correctly', () => {
   if (files.length > 1) {
     // Don't compile preprocessor intermediate files (both naming conventions)!
     files = files.filter((file) => !file.includes('__pre.spin2') && !file.includes('-pre.spin2'));
+    // Filter out explicit debug files (they're compiled in the debug section)
+    files = files.filter((file) => !explicitDebugFiles.includes(path.basename(file)));
     // add these files if they exist
     let specificFile: string = path.join(testDirPath, 'isp_dummy_flash_rpi.spin2');
     if (fs.existsSync(specificFile)) {
