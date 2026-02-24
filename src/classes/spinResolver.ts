@@ -480,9 +480,9 @@ export class SpinResolver {
     this.overrideSymbolTable = overrideSymbolTable;
     const filename: string = this.srcFile === undefined ? '?unk?' : this.srcFile.fileName;
     if (overrideSymbolTable === undefined) {
-      this.logMessageOutline(`++ compile1(${filename}) No CON Overrides provided`);
+      if (this.isLoggingOutline) this.logMessageOutline(`++ compile1(${filename}) No CON Overrides provided`);
     } else {
-      this.logMessageOutline(`++ compile1(${filename}) Using ${this.overrideSymbolTable?.length} CON Overrides`);
+      if (this.isLoggingOutline) this.logMessageOutline(`++ compile1(${filename}) Using ${this.overrideSymbolTable?.length} CON Overrides`);
     }
     this.mainSymbols.reset();
     this.localSymbols.reset();
@@ -507,17 +507,18 @@ export class SpinResolver {
     //this.isLogging = true;
     const startTime = Date.now();
     const filename: string = this.srcFile === undefined ? '?unk?' : this.srcFile.fileName;
-    this.logMessageOutline(`++ compile2(${filename}, isTopLevel=(${isTopLevel}))- ENTRY`);
-    this.logMessage(
-      `  -- OPTS elem(${this.context.logOptions.logElementizer}), parse(${this.context.logOptions.logParser}), comp(${this.context.logOptions.logCompile}), resolv(${this.context.logOptions.logResolver}), preproc(${this.context.logOptions.logPreprocessor})`
-    );
+    if (this.isLoggingOutline) this.logMessageOutline(`++ compile2(${filename}, isTopLevel=(${isTopLevel}))- ENTRY`);
+    if (this.isLogging)
+      this.logMessage(
+        `  -- OPTS elem(${this.context.logOptions.logElementizer}), parse(${this.context.logOptions.logParser}), comp(${this.context.logOptions.logCompile}), resolv(${this.context.logOptions.logResolver}), preproc(${this.context.logOptions.logPreprocessor})`
+      );
     this.compile_obj_symbols();
     this.determine_clock();
     this.compile_con_blocks_2nd();
     this.determine_bauds_pins();
     this.determine_debug_enables();
     if (this.context.passOptions.afterConBlock == false) {
-      this.logMessage('* continue compilation after CON pass');
+      if (this.isLogging) this.logMessage('* continue compilation after CON pass');
       if (this.pasmMode == false) {
         this.compile_var_blocks();
       }
@@ -533,7 +534,7 @@ export class SpinResolver {
     }
     const endTime = Date.now();
     const elapsedTimeMS = endTime - startTime;
-    this.logMessageOutline(`++ compile2(${filename}, isTopLevel=(${isTopLevel}))- EXIT (executed in ${elapsedTimeMS} ms)`);
+    if (this.isLoggingOutline) this.logMessageOutline(`++ compile2(${filename}, isTopLevel=(${isTopLevel}))- EXIT (executed in ${elapsedTimeMS} ms)`);
   }
 
   public testResolveExp(mode: eMode, resolve: eResolve, precedence: number) {
@@ -546,7 +547,7 @@ export class SpinResolver {
   public regressionTestResolver(parmA: number, parmB: number, operation: eOperationType, isFloatInConBlock: boolean): number {
     // forward to whaterever the name becomes...
     const endingValue: number = Number(this.resolveOperation(BigInt(parmA), BigInt(parmB), operation, isFloatInConBlock));
-    this.logMessage(`regressionTestResolver(${parmA}, ${parmB}, ${operation}, ${isFloatInConBlock}) => (${endingValue})`);
+    if (this.isLogging) this.logMessage(`regressionTestResolver(${parmA}, ${parmB}, ${operation}, ${isFloatInConBlock}) => (${endingValue})`);
     return endingValue;
   }
 
@@ -554,16 +555,16 @@ export class SpinResolver {
     // true here means very-first pass!
     const FIRST_PASS: boolean = true;
     this.objectStructureSet.reset();
-    this.logMessage('*==* COMPILE_con_blocks_1st() 1of2');
+    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_1st() 1of2');
     this.compile_con_blocks(eResolve.BR_Try, FIRST_PASS);
-    this.logMessage('*==* COMPILE_con_blocks_1st() 2of2');
+    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_1st() 2of2');
     this.compile_con_blocks(eResolve.BR_Try);
   }
 
   private compile_con_blocks_2nd() {
-    this.logMessage('*==* COMPILE_con_blocks_2nd() 1of2');
+    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_2nd() 1of2');
     this.compile_con_blocks(eResolve.BR_Try);
-    this.logMessage('*==* COMPILE_con_blocks_2nd() 2of2');
+    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_2nd() 2of2');
     this.compile_con_blocks(eResolve.BR_Must);
   }
 
@@ -589,14 +590,14 @@ export class SpinResolver {
       }
     } while (element.type != eElementType.type_end_file);
     this.isLogging = savedLogState;
-    this.logMessage(`* determinePasmMode() => (${pasmModeStatus})`);
+    if (this.isLogging) this.logMessage(`* determinePasmMode() => (${pasmModeStatus})`);
     return pasmModeStatus;
   }
 
   private compile_var_blocks() {
     // Compile var blocks
     // PNut compile_var_blocks:
-    this.logMessageOutline('++ compile_var_blocks()');
+    if (this.isLoggingOutline) this.logMessageOutline('++ compile_var_blocks()');
     this.varPtr = 4; // start variable pointer at 4 to accommodate long pointer to object
     this.logRestoredElementLocation(0); // start from first in list
 
@@ -612,7 +613,7 @@ export class SpinResolver {
         if (this.currElement.type == eElementType.type_end_file) {
           break;
         }
-        //this.logMessage(`  -- compile_var_blocks() at elem=[${this.currElement.toString()}]`);
+        //if (this.isLogging) this.logMessage(`  -- compile_var_blocks() at elem=[${this.currElement.toString()}]`);
         // allow an EMPTY VAR block
         if (this.currElement.type == eElementType.type_block) {
           this.backElement(); // put back for while loop to find...
@@ -643,7 +644,7 @@ export class SpinResolver {
 
           // handle structure
           if (this.currElement.type == eElementType.type_con_struct) {
-            //this.logMessage(`** == * comp_var_blks() have STRUCT...`);
+            //if (this.isLogging) this.logMessage(`** == * comp_var_blks() have STRUCT...`);
             structId = this.currElement.numberValue;
             // get struct size in bytes
             variableSize = this.objectStructureSet.getStructureSizeForID(structId);
@@ -653,14 +654,14 @@ export class SpinResolver {
 
           // handle ^var  pointer variable
           if (this.checkPtr()) {
-            //this.logMessage(`** == * comp_var_blks() have PTR...`);
+            //if (this.isLogging) this.logMessage(`** == * comp_var_blks() have PTR...`);
             variableSize = 4; // all pointers
             if (this.currElement.type == eElementType.type_size) {
               const sizeEncoded: number = Number(this.currElement.value); // NOTE: this matches our enum values
               variableType = eElementType.type_var_byte_ptr + sizeEncoded;
               this.getElementObj(); // move to name
             } else {
-              //this.logMessage(`** == * comp_var_blks() have PTR to struct...`);
+              //if (this.isLogging) this.logMessage(`** == * comp_var_blks() have PTR to struct...`);
               // here with type = type_con_struct
               structId = this.currElement.numberValue;
               variableType = eElementType.type_var_struct_ptr;
@@ -672,7 +673,7 @@ export class SpinResolver {
           if (this.currElement.isTypeUndefined) {
             this.backElement();
           } else {
-            //this.logMessage(`** == * comp_var_blks() NOT undefined...`);
+            //if (this.isLogging) this.logMessage(`** == * comp_var_blks() NOT undefined...`);
             // our symbol/element was NOT undefined!
             // [error_eauvnsa]
             throw new Error('Expected a unique variable name, STRUCT name, BYTE, WORD, LONG, "^", ALIGNW, or ALIGNL (m240)');
@@ -714,7 +715,7 @@ export class SpinResolver {
       } while (this.nextElementType() != eElementType.type_block);
     }
     this.alignVar(0b11); // align to next long for start of next instance
-    this.logMessageOutline(`  -- compile_var_blocks() EXIT w/varPtr=(${this.varPtr})(${hexLong(this.varPtr, '0x')})`);
+    if (this.isLoggingOutline) this.logMessageOutline(`  -- compile_var_blocks() EXIT w/varPtr=(${this.varPtr})(${hexLong(this.varPtr, '0x')})`);
   }
 
   private isStruct(type: eElementType): boolean {
@@ -812,7 +813,7 @@ export class SpinResolver {
 
   private compile_dat_blocks_fn() {
     // PNut compile_dat_blocks_fn:
-    this.logMessage('*==* COMPILE_dat_blocks_fn()');
+    if (this.isLogging) this.logMessage('*==* COMPILE_dat_blocks_fn()');
 
     this.spinFiles.clearDataFiles();
     this.logRestoredElementLocation(0); // start at first element
@@ -831,7 +832,7 @@ export class SpinResolver {
         if (this.currElement.type == eElementType.type_file) {
           const fileElementIndex = this.logSavedElementLocation();
           const fileName = this.getFilename();
-          this.logMessage(`* cdb_fn() have type_file filename=(${fileName})`);
+          if (this.isLogging) this.logMessage(`* cdb_fn() have type_file filename=(${fileName})`);
           if (this.spinFiles.dataFileExists(fileName) == false) {
             // have new file, register it
             const fileExists = this.spinFiles.addDataFile(fileName, fileElementIndex);
@@ -844,13 +845,13 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage('*==* COMPILE_dat_blocks_fn() EXIT');
+    if (this.isLogging) this.logMessage('*==* COMPILE_dat_blocks_fn() EXIT');
   }
 
   private getFilename(): string {
     let filename: string = '';
     const savedLogState: boolean = this.isLogging;
-    this.logMessage(`* getFilename() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* getFilename() - ENTRY`);
     do {
       //this.isLogging = false;
       this.getElement();
@@ -871,7 +872,7 @@ export class SpinResolver {
       this.isLogging = false; // disable again for checkComma()
     } while (this.checkComma());
     this.isLogging = savedLogState; // restore so we can exit
-    this.logMessage(`* getFilename() - EXIT`);
+    if (this.isLogging) this.logMessage(`* getFilename() - EXIT`);
     return filename;
   }
 
@@ -929,7 +930,7 @@ export class SpinResolver {
       }
     }
 
-    this.logMessage(`* determine_clock() _clkfreq=(${_clkFreq})`);
+    if (this.isLogging) this.logMessage(`* determine_clock() _clkfreq=(${_clkFreq})`);
 
     // make sure neither CLKMODE_ nor CLKFREQ_ were declared
     if (symbolsFoundBits & 0b11000000) {
@@ -1227,7 +1228,7 @@ export class SpinResolver {
           _found = true;
           _error = _abse;
           // set PLL mode: set the PLL-enable bit, set the divider field, set the multiplier field, set the post divider field
-          this.logMessage(`* pllCalc() _divd=(${_divd}), _mult=(${_mult}), _pppp=(${_pppp})`);
+          if (this.isLogging) this.logMessage(`* pllCalc() _divd=(${_divd}), _mult=(${_mult}), _pppp=(${_pppp})`);
           _mode = (1 << 24) | ((_divd - 1) << 18) | ((_mult - 1) << 8) | (((_pppp - 1) & 0b1111) << 4);
           // set PLL frequency
           _freq = _fout;
@@ -1240,7 +1241,8 @@ export class SpinResolver {
       // [error_pllscnba]
       throw new Error('PLL settings could not be achieved per _CLKFREQ');
     }
-    this.logMessage(`* pllCalc(${inputFrequency}, ${requestedFrequency}, ${allowedError}) -> [_mode=(${hexString(_mode)}), _freq=(${_freq})]`);
+    if (this.isLogging)
+      this.logMessage(`* pllCalc(${inputFrequency}, ${requestedFrequency}, ${allowedError}) -> [_mode=(${hexString(_mode)}), _freq=(${_freq})]`);
     return [_mode, _freq];
   }
 
@@ -1257,8 +1259,8 @@ export class SpinResolver {
     // compile all DAT blocks in file
     // PNut compile_dat_blocks:
     //const startTime = Date.now();
-    //this.logMessageOutline(`++ compile_dat_blocks(inLineMode=(${inLineMode})) - ENTRY`);
-    this.logMessage(`*==* COMPILE_dat_blocks() inLineMode=(${inLineMode})`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`++ compile_dat_blocks(inLineMode=(${inLineMode})) - ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* COMPILE_dat_blocks() inLineMode=(${inLineMode})`);
     this.inlineModeForGetConstant = inLineMode;
     if (inLineMode) {
       this.activeSymbolTable = eSymbolTableId.STI_INLINE;
@@ -1275,7 +1277,7 @@ export class SpinResolver {
     let pass: number = 0;
     do {
       // PASS Loop
-      this.logMessage(`LOOP: pass=${pass} TOP`);
+      if (this.isLogging) this.logMessage(`LOOP: pass=${pass} TOP`);
       this.pasmResolveMode = pass == 0 ? eResolve.BR_Try : eResolve.BR_Must;
       this.objImage.setOffsetTo(startingObjOffset);
       this.asmLocal = startingAsmLocal;
@@ -1305,7 +1307,7 @@ export class SpinResolver {
       }
       do {
         // NEXT BLOCK Loop
-        this.logMessage(`LOOP: next block TOP`);
+        if (this.isLogging) this.logMessage(`LOOP: next block TOP`);
         if (inLineMode === false) {
           this.nextBlock(eBlockType.block_dat);
         }
@@ -1314,10 +1316,10 @@ export class SpinResolver {
 
         // NEXT LINE in BLOCK Loop
         do {
-          this.logMessage(`LOOP: next line TOP`);
+          if (this.isLogging) this.logMessage(`LOOP: next line TOP`);
           //
           this.getElementObj(); // create copy of element in our global
-          this.logMessage(`* DAT NEXTLINE LOOP currElement=[${this.currElement.toString()}]`);
+          if (this.isLogging) this.logMessage(`* DAT NEXTLINE LOOP currElement=[${this.currElement.toString()}]`);
           if (this.currElement.type == eElementType.type_end_file) {
             if (this.dittoIsActive) {
               // [error_edend]
@@ -1333,9 +1335,10 @@ export class SpinResolver {
           const [didFindLocal, symbol] = this.checkLocalSymbol();
           if (didFindLocal) {
             // we have a local symbol... (must be undef or is storage type)
-            this.logMessage(`* FOUND local symbol name=[${symbol.name}], type=[${eElementType[symbol.type]}], value=[${symbol.value}]`);
+            if (this.isLogging)
+              this.logMessage(`* FOUND local symbol name=[${symbol.name}], type=[${eElementType[symbol.type]}], value=[${symbol.value}]`);
           }
-          this.logMessage(`* compile_dat_blocks() inLineMode=(${inLineMode}) e=[${this.currElement.toString()}]`);
+          if (this.isLogging) this.logMessage(`* compile_dat_blocks() inLineMode=(${inLineMode}) e=[${this.currElement.toString()}]`);
           this.weHaveASymbol = this.currElement.isTypeUndefined;
           const isDatStorage: boolean = this.isDatStorageType();
           if ((this.weHaveASymbol || isDatStorage) && !didFindLocal) {
@@ -1347,15 +1350,15 @@ export class SpinResolver {
           }
           const tmpSymbolName: string = didFindLocal ? String(symbol.value) : this.currElement.stringValue;
           this.symbolName = this.weHaveASymbol ? tmpSymbolName : '';
-          this.logMessage(`* compile_dat_blocks() symbolName=[${this.symbolName}]`);
+          if (this.isLogging) this.logMessage(`* compile_dat_blocks() symbolName=[${this.symbolName}]`);
 
           if (this.weHaveASymbol || isDatStorage) {
             this.getElementObj(); // moving on to next (past this symbol)
-            this.logMessage(`*  SYM/STORAGE  next element=[${this.currElement.toString()}]`);
+            if (this.isLogging) this.logMessage(`*  SYM/STORAGE  next element=[${this.currElement.toString()}]`);
           }
 
           if (this.currElement.type == eElementType.type_end) {
-            this.logMessage(`* compile_dat_blocks() enter symbol [${this.symbolName}]`);
+            if (this.isLogging) this.logMessage(`* compile_dat_blocks() enter symbol [${this.symbolName}]`);
             this.enterDatSymbol(); // at end of line
             // back to top of loop to get first elem of new line
             continue;
@@ -1374,9 +1377,10 @@ export class SpinResolver {
               const structId: number = this.currElement.numberValue;
               const symbolValue: bigint = BigInt((structId << 20) | this.objImage.offset);
               const symbolType: eElementType = eElementType.type_dat_struct;
-              this.logMessage(`* enterDatSymbol value=(${float32ToHexString(symbolValue)}) upper=(${symbolValue.toString(16).toUpperCase()})`);
+              if (this.isLogging)
+                this.logMessage(`* enterDatSymbol value=(${float32ToHexString(symbolValue)}) upper=(${symbolValue.toString(16).toUpperCase()})`);
               const newSymbol: iSymbol = { name: this.symbolName, type: symbolType, value: symbolValue };
-              //this.logMessage(`* enterDatSymbol() calling record symbol [${newSymbol}]`);
+              //if (this.isLogging) this.logMessage(`* enterDatSymbol() calling record symbol [${newSymbol}]`);
               this.recordSymbol(newSymbol);
             }
             this.getEndOfLine();
@@ -1389,7 +1393,7 @@ export class SpinResolver {
           let dittoHandledThisGet: boolean = false;
           let fitToSize: boolean = this.currElement.type == eElementType.type_size_fit;
           if (this.currElement.type == eElementType.type_size || fitToSize) {
-            this.logMessage(`* HANDLE size found element=[${this.currElement.toString()}]`);
+            if (this.isLogging) this.logMessage(`* HANDLE size found element=[${this.currElement.toString()}]`);
             this.wordSize = Number(this.currElement.value); // NOTE: this matches our enum values
             this.enterDatSymbol(); // process pending symbol
             do {
@@ -1444,12 +1448,12 @@ export class SpinResolver {
             continue;
           } else if (this.currElement.type == eElementType.type_asm_dir) {
             // HANDLE pasm directive
-            this.logMessage(`* compDATblks() -- have pasm directive`);
+            if (this.isLogging) this.logMessage(`* compDATblks() -- have pasm directive`);
 
             const pasmDirective: number = Number(this.currElement.value);
             this.wordSize = eWordSize.WS_Long;
             if (pasmDirective == eValueType.dir_ditto) {
-              this.logMessage(`* compDATblks() have pasm DITTO directive`);
+              if (this.isLogging) this.logMessage(`* compDATblks() have pasm DITTO directive`);
               dittoHandledThisGet = true;
               // PNut @@dirditto:
               if (this.dittoIsActive) {
@@ -1460,7 +1464,7 @@ export class SpinResolver {
                   // [error_eend]
                   throw new Error('Expected END (m271)');
                 }
-                this.logMessage(`* compDATblks() found ditto end`);
+                if (this.isLogging) this.logMessage(`* compDATblks() found ditto end`);
                 this.getEndOfLine();
                 let dittoCompleted: boolean = false;
                 if (this.dittoCount == 0) {
@@ -1477,12 +1481,12 @@ export class SpinResolver {
                 if (dittoCompleted) {
                   // PNut @@dittodone:
                   this.dittoIsActive = false;
-                  this.logMessage(`* compDATblks() DITTO active is ${this.dittoIsActive}`);
+                  if (this.isLogging) this.logMessage(`* compDATblks() DITTO active is ${this.dittoIsActive}`);
                   this.enterDatSymbol(); // process pending symbol
                 }
                 // fall thru to nextline...
               } else {
-                this.logMessage(`* compDATblks() have pasm DITTO start`);
+                if (this.isLogging) this.logMessage(`* compDATblks() have pasm DITTO start`);
                 // starting DITTO (two lines after @@dirditto:)
                 this.enterDatSymbol(); // process pending symbol
                 // retrieve the DITTO repeat count
@@ -1493,7 +1497,7 @@ export class SpinResolver {
                 }
                 this.getEndOfLine();
                 this.dittoIsActive = true;
-                this.logMessage(`* compDATblks() DITTO active is ${this.dittoIsActive}`);
+                if (this.isLogging) this.logMessage(`* compDATblks() DITTO active is ${this.dittoIsActive}`);
                 this.dittoIndex = 0;
                 this.dittoCount = Number(repeatCountResult.value);
                 this.dittoElementIndex = this.logSavedElementLocation();
@@ -1555,7 +1559,7 @@ export class SpinResolver {
             } else if (pasmDirective == eValueType.dir_org) {
               //
               // ORG [{address}[,{limit}]]- (for COG ram)
-              this.logMessage(`  -- compDatBlocks() have ORG`);
+              if (this.isLogging) this.logMessage(`  -- compDatBlocks() have ORG`);
               if (inLineMode) {
                 // [error_onawiac]
                 throw new Error('ORG not allowed within inline assembly code');
@@ -1665,7 +1669,7 @@ export class SpinResolver {
             }
           } else if (this.isThereAnInstruction()) {
             //
-            this.logMessage(`  -- have instruction`);
+            if (this.isLogging) this.logMessage(`  -- have instruction`);
             // HANDLE if-condition, and/or instruction
             // write symbol if present
             this.advanceToNextCogLong();
@@ -1674,7 +1678,7 @@ export class SpinResolver {
             this.assembleInstructionFromLine(pass);
             this.getEndOfLine();
           } else if (inLineMode) {
-            this.logMessage(`  -- NO instruction but INLINE mode, so must be pasm 'END' elem=[${this.currElement.toString()}]`);
+            if (this.isLogging) this.logMessage(`  -- NO instruction but INLINE mode, so must be pasm 'END' elem=[${this.currElement.toString()}]`);
             //
             // HANDLE DITTO must have DITTO end
             if (this.dittoIsActive) {
@@ -1709,9 +1713,10 @@ export class SpinResolver {
             if (foundFile) {
               const [offset, dataLength] = this.datFileData.getOffsetAndLengthForFilename(filename);
               if (dataLength > 0) {
-                this.logMessageOutline(
-                  `++ DAT FILE Resolver [dfd=${this.datFileData.id}] [${filename}], idx=(${fileIndex}), ofs=(${offset}), len=(${dataLength})(${hexLong(dataLength, '0x')})`
-                );
+                if (this.isLoggingOutline)
+                  this.logMessageOutline(
+                    `++ DAT FILE Resolver [dfd=${this.datFileData.id}] [${filename}], idx=(${fileIndex}), ofs=(${offset}), len=(${dataLength})(${hexLong(dataLength, '0x')})`
+                  );
                 ///*
                 // ensure fits
                 const initialObjOffset = this.objImage.offset;
@@ -1761,13 +1766,13 @@ export class SpinResolver {
             break;
           }
           // eslint-disable-next-line no-constant-condition
-          this.logMessage(`LOOP: next line BOTTOM`);
+          if (this.isLogging) this.logMessage(`LOOP: next line BOTTOM`);
         } while (this.nextElementType() != eElementType.type_block); // NEXT LINE in BLOCK...
-        this.logMessage(`LOOP: next block BOTTOM`);
+        if (this.isLogging) this.logMessage(`LOOP: next block BOTTOM`);
         // eslint-disable-next-line no-constant-condition
       } while (this.nextElementType() == eElementType.type_block); // NEXT BLOCK...
     } while (++pass < 2);
-    this.logMessage(`* compile_dat_blocks() done, cleaning up inlineMode`);
+    if (this.isLogging) this.logMessage(`* compile_dat_blocks() done, cleaning up inlineMode`);
     if (inLineMode) {
       this.inlineSymbols.reset();
       this.activeSymbolTable = eSymbolTableId.STI_LOCAL;
@@ -1776,7 +1781,7 @@ export class SpinResolver {
     this.inlineModeForGetConstant = false;
     //const endTime = Date.now();
     //const elapsedTimeMS = endTime - startTime;
-    //this.logMessageOutline(`++ compile_dat_blocks(inLineMode=(${inLineMode})) - EXIT (executed in ${elapsedTimeMS} ms)`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`++ compile_dat_blocks(inLineMode=(${inLineMode})) - EXIT (executed in ${elapsedTimeMS} ms)`);
   }
 
   private advanceToNextCogLong() {
@@ -1790,7 +1795,7 @@ export class SpinResolver {
   }
 
   private isThereAnInstruction(): boolean {
-    this.logMessage(`* isThereAnInstruction() e=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* isThereAnInstruction() e=[${this.currElement.toString()}]`);
     let instructionFoundStatus: boolean = false;
     if (this.currElement.type == eElementType.type_asm_cond) {
       this.getElement(); // place next in current
@@ -1809,7 +1814,7 @@ export class SpinResolver {
   }
 
   private assembleInstructionFromLine(pass: number) {
-    this.logMessage(`* assembleInstructionFromLine(${pass}) e=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* assembleInstructionFromLine(${pass}) e=[${this.currElement.toString()}]`);
     let asmCondition: number = eValueType.if_always;
     let instructionValue: number;
     if (this.currElement.type == eElementType.type_asm_cond) {
@@ -1838,13 +1843,14 @@ export class SpinResolver {
     let allowedEffects: number = (instructionValue >> 9) & 0x03;
     this.instructionImage = asmCondition << 28;
     this.instructionImage |= operandType >= eValueType.operand_d ? 0x0d600000 | instructionBinary : instructionBinary << 19;
-    this.logMessage(
-      `* assembleInstructionFromLine() instructionBinary=(0x${instructionBinary.toString(16).toUpperCase()}), operandType=(0x${operandType.toString(16).toUpperCase()}), allowedEffects=(0b${allowedEffects.toString(2)})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* assembleInstructionFromLine() instructionBinary=(0x${instructionBinary.toString(16).toUpperCase()}), operandType=(0x${operandType.toString(16).toUpperCase()}), allowedEffects=(0b${allowedEffects.toString(2)})`
+      );
     // handle operands
     // NOTE: tryD() gets the next element, before it does anything
     let skipInstructionGeneration: boolean = false;
-    this.logMessage(`  -- AInstruFmLn() operandType=([${eValueType[operandType]}](${operandType}))`);
+    if (this.isLogging) this.logMessage(`  -- AInstruFmLn() operandType=([${eValueType[operandType]}](${operandType}))`);
     switch (operandType) {
       case eValueType.operand_ds:
         // inst d,s/#
@@ -2030,7 +2036,7 @@ export class SpinResolver {
         break;
       case eValueType.operand_dsp:
         // inst d,s/#/ptra/ptrb
-        this.logMessage(`* operand_dsp: we got one!`);
+        if (this.isLogging) this.logMessage(`* operand_dsp: we got one!`);
         this.tryD();
         this.getComma();
         this.tryPtraPtrb();
@@ -2044,25 +2050,25 @@ export class SpinResolver {
       case eValueType.operand_rep:
         // rep d/#/@,s/#
         // here is @@op_rep:
-        this.logMessage(`  -- OP_REP: inlineModeForGetConstant=(${this.inlineModeForGetConstant})`);
+        if (this.isLogging) this.logMessage(`  -- OP_REP: inlineModeForGetConstant=(${this.inlineModeForGetConstant})`);
         if (this.checkAt()) {
           // rep @,s/#
-          this.logMessage(`* rep @,s/#!`);
+          if (this.isLogging) this.logMessage(`* rep @,s/#!`);
           this.instructionImage |= 1 << 19;
           const instructionCountResult: iValueReturn = this.getValue(eMode.BM_OperandIntOnly, this.pasmResolveMode);
           let instructionCount: number = Number(instructionCountResult.value);
-          this.logMessage(`  -- OP_REP: instructionCount=(${hexLong(instructionCount, '0x')})`);
+          if (this.isLogging) this.logMessage(`  -- OP_REP: instructionCount=(${hexLong(instructionCount, '0x')})`);
           this.getComma();
           this.trySImmediate(); // get repetition count
           if (this.pasmResolveMode == eResolve.BR_Must) {
             instructionCount = this.hubMode ? instructionCount - this.hubOrg : (instructionCount << 2) - this.cogOrg;
-            this.logMessage(`  -- OP_REP: MUST RESOLVE instructionCount=(${hexLong(instructionCount, '0x')})`);
+            if (this.isLogging) this.logMessage(`  -- OP_REP: MUST RESOLVE instructionCount=(${hexLong(instructionCount, '0x')})`);
             if (instructionCount & 0b11) {
               // [error_rbeiooa]
               throw new Error('REP block end is out of alignment');
             }
             instructionCount = (instructionCount >> 2) - 1;
-            this.logMessage(`  -- OP_REP: MUST RESOLVE 2 instructionCount=(${hexLong(instructionCount, '0x')})`);
+            if (this.isLogging) this.logMessage(`  -- OP_REP: MUST RESOLVE 2 instructionCount=(${hexLong(instructionCount, '0x')})`);
             if (instructionCount < 0 || instructionCount > 0x1ff) {
               // [error_rbeioor]
               throw new Error('REP block end is out of range');
@@ -2071,7 +2077,7 @@ export class SpinResolver {
           }
         } else {
           // rep d/#,s/#
-          this.logMessage(`* rep d/#,s/#`);
+          if (this.isLogging) this.logMessage(`* rep d/#,s/#`);
           this.tryDImmediate(19);
           this.getComma();
           this.trySImmediate();
@@ -2080,7 +2086,7 @@ export class SpinResolver {
       case eValueType.operand_jmp:
         //  jmp # <or> jmp d
         if (this.checkPound()) {
-          this.logMessage(`* in jmp, have #!`);
+          if (this.isLogging) this.logMessage(`* in jmp, have #!`);
           this.branchImmediateOrRelative();
         } else {
           // reg, make jmp d instruction
@@ -2204,7 +2210,7 @@ export class SpinResolver {
           // the following getValue() can set this.locOrghSymbolFlag
           const addressResult = this.getValue(eMode.BM_OperandIntOnly, this.pasmResolveMode);
           const address: number = Number(addressResult.value);
-          this.logMessage(`* operand_loc: dRegister=[${hexString(dRegister)}], address=[${hexString(address)}]`);
+          if (this.isLogging) this.logMessage(`* operand_loc: dRegister=[${hexString(dRegister)}], address=[${hexString(address)}]`);
           if (address > 0xfffff) {
             // [error_amnex]
             throw new Error('Address must not exceed $FFFFF (m000)');
@@ -2409,7 +2415,7 @@ export class SpinResolver {
         // nop
         {
           //const currInstruValue: number = (this.instructionImage >> 28) & 0xf;
-          //this.logMessage(`* operand_nop: instructionImage=[${hexString(currInstruValue)}]`);
+          //if (this.isLogging) this.logMessage(`* operand_nop: instructionImage=[${hexString(currInstruValue)}]`);
           if (((this.instructionImage >> 28) & 0b1111) != eValueType.if_always) {
             // [error_nchcor]
             throw new Error('NOP cannot have a condition or _RET_');
@@ -2419,14 +2425,14 @@ export class SpinResolver {
         break;
       case eValueType.operand_debug: // we have break register 0
         {
-          this.logMessage(`  -- at operand_debug:`);
+          if (this.isLogging) this.logMessage(`  -- at operand_debug:`);
           if (!this.debugStatementWillEmitCode()) {
             // above removed square brackets of debug[0..31](...) if found
-            this.logMessage(`  -- DEBUG is OFF`);
+            if (this.isLogging) this.logMessage(`  -- DEBUG is OFF`);
             this.skipToEndOfLine();
             skipInstructionGeneration = true;
           } else {
-            this.logMessage(`  -- DEBUG is ON`);
+            if (this.isLogging) this.logMessage(`  -- DEBUG is ON`);
             // here debug() in assembly code
             const asmCondition = (this.instructionImage >> 28) & 0x0f;
             if (asmCondition != 0x0 && asmCondition != 0xf) {
@@ -2439,12 +2445,12 @@ export class SpinResolver {
             if (this.checkLeftParen() == false) {
               // have 'debug' without ()
               // keeping condition value, convert to BRK #0 (break immediate 0)
-              this.logMessage(`  -- NO open paren`);
+              if (this.isLogging) this.logMessage(`  -- NO open paren`);
               this.instructionImage |= 1 << 18;
               this.getEndOfLine(); // throw exception if NOT end of line!
               this.backElement(); // allow our effects check to work but do nothing!
             } else {
-              this.logMessage(`  -- found open paren pass=(${pass})`);
+              if (this.isLogging) this.logMessage(`  -- found open paren pass=(${pass})`);
               // here is debug() - PNut @@debugleft:
               if (pass == 0) {
                 this.skipToEndOfLine();
@@ -2470,7 +2476,7 @@ export class SpinResolver {
         break;
     }
     // end of line or have effect?
-    this.logMessage(`  -- AInstruFmLn() should be at end - elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  -- AInstruFmLn() should be at end - elem=[${this.currElement.toString()}]`);
     if (this.nextElementType() != eElementType.type_end) {
       // we have an effect!
       this.getElementObj();
@@ -2608,7 +2614,8 @@ export class SpinResolver {
         if (this.pasmResolveMode == eResolve.BR_Must) {
           this.checkCogHubCrossing(Number(valueResult.value));
           branchAddress = (this.hubMode ? Number(valueResult.value) - this.hubOrg : (Number(valueResult.value) << 2) - this.cogOrg) - 4;
-          this.logMessage(`* trySRel() hubMode=(${this.hubMode}) value=${hexString(valueResult.value)}, branchAddress=${hexString(branchAddress)}`);
+          if (this.isLogging)
+            this.logMessage(`* trySRel() hubMode=(${this.hubMode}) value=${hexString(valueResult.value)}, branchAddress=${hexString(branchAddress)}`);
           if (branchAddress & 0b11) {
             // [error_rainawi]
             throw new Error('Relative address is not aligned with instruction (m501)');
@@ -2641,7 +2648,8 @@ export class SpinResolver {
       throw new Error('Address must not exceed $FFFFF (m001)');
     }
     foundRelativeStatus = backslashFound ? false : this.hubMode ? address >= 0x400 : address < 0x400;
-    this.logMessage(`tryImmediateOrRelative() foundBack=(${backslashFound}), foundRelative=(${foundRelativeStatus}), address=(${address})`);
+    if (this.isLogging)
+      this.logMessage(`tryImmediateOrRelative() foundBack=(${backslashFound}), foundRelative=(${foundRelativeStatus}), address=(${address})`);
     return [foundRelativeStatus, address];
   }
 
@@ -2711,7 +2719,7 @@ export class SpinResolver {
         ptrFound = false;
       }
     }
-    this.logMessage(`* tryPtraPtrb() ptrBits=[${hexString(ptrBits)}], ptrFound=(${ptrFound})`);
+    if (this.isLogging) this.logMessage(`* tryPtraPtrb() ptrBits=[${hexString(ptrBits)}], ptrFound=(${ptrFound})`);
     if (ptrFound) {
       // @@trys_imm_pab:
       ptrBits |= (1 << 18) | 0x100;
@@ -2807,12 +2815,13 @@ export class SpinResolver {
         foundPtr = true;
       }
     }
-    this.logMessage(`* checkPtrAB() regValue=[${hexString(this.currElement.value)}], ptrSelectBit=[${ptrSelectBit}], foundPtr=(${foundPtr})`);
+    if (this.isLogging)
+      this.logMessage(`* checkPtrAB() regValue=[${hexString(this.currElement.value)}], ptrSelectBit=[${ptrSelectBit}], foundPtr=(${foundPtr})`);
     return [foundPtr, ptrSelectBit];
   }
 
   private checkCogHubCrossing(address: number) {
-    this.logMessage(`  -- checkCogHubCrossing(${hexLong(address, '0x')})`);
+    if (this.isLogging) this.logMessage(`  -- checkCogHubCrossing(${hexLong(address, '0x')})`);
     if (this.hubMode ? address < 0x400 : address >= 0x400) {
       // [error_racc]
       throw new Error('Relative addresses cannot cross between cog and hub domains');
@@ -2870,13 +2879,13 @@ export class SpinResolver {
 
   private tryValueCon(): number {
     // return value [0-511]
-    this.logMessage(`* tryValueCon() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* tryValueCon() - ENTRY`);
     const valueResult = this.getValue(eMode.BM_OperandIntOnly, this.pasmResolveMode);
     if (valueResult.value > 511n) {
       // [error_cmbf0t511]
       throw new Error('Constant must be from 0 to 511 (m130)');
     }
-    this.logMessage(`* tryValueCon() - EXIT`);
+    if (this.isLogging) this.logMessage(`* tryValueCon() - EXIT`);
     return Number(valueResult.value);
   }
 
@@ -2964,7 +2973,8 @@ export class SpinResolver {
         }
       }
     } else if (this.currElement.type == eElementType.type_i_flex) {
-      this.logMessage(`* checkInstruction() flexCode=(${this.currElement.flexByteCode})[${eByteCode[this.currElement.flexByteCode]}]`);
+      if (this.isLogging)
+        this.logMessage(`* checkInstruction() flexCode=(${this.currElement.flexByteCode})[${eByteCode[this.currElement.flexByteCode]}]`);
       needAsmLookup = true;
       switch (this.currElement.flexByteCode) {
         // v52a: MOVBYTS as first entry (now both Spin2 function and PASM2 instruction)
@@ -3046,7 +3056,8 @@ export class SpinResolver {
       // get asmCode values for type_op, and type_i_flex
       instructionValue = this.spinSymbolTables.asmcodeValue(instructionValue);
     }
-    this.logMessage(`* checkInstruction() instructionFoundStatus=(${instructionFoundStatus}), instructionValue=(${hexString(instructionValue)})`);
+    if (this.isLogging)
+      this.logMessage(`* checkInstruction() instructionFoundStatus=(${instructionFoundStatus}), instructionValue=(${hexString(instructionValue)})`);
     return [instructionFoundStatus, instructionValue];
   }
 
@@ -3069,7 +3080,7 @@ export class SpinResolver {
 
   private enterData(value: bigint, currSize: eWordSize, multiplier: number, fitToSize: boolean) {
     // TODO: possible rename to emitData
-    //this.logMessage(`  -- enterData() - ENTRY`);
+    //if (this.isLogging) this.logMessage(`  -- enterData() - ENTRY`);
     if (multiplier > 0) {
       if (fitToSize) {
         const isNegative = value & BigInt(0x80000000);
@@ -3114,15 +3125,15 @@ export class SpinResolver {
         }
       }
     }
-    //this.logMessage(`  -- enterData() - EXIT`);
+    //if (this.isLogging) this.logMessage(`  -- enterData() - EXIT`);
   }
 
   private compile_sub_blocks_id() {
     // Compile sub blocks - id only
     // PNut compile_sub_blocks_id:
-    //this.logMessage(`** compile_sub_blocks_id() pasmMode=(${this.pasmMode}) - ENTRY`);
+    //if (this.isLogging) this.logMessage(`** compile_sub_blocks_id() pasmMode=(${this.pasmMode}) - ENTRY`);
     if (this.pasmMode == false) {
-      this.logMessage('*==* COMPILE_sub_blocks_id()');
+      if (this.isLogging) this.logMessage('*==* COMPILE_sub_blocks_id()');
       const subStartIndex: number = this.objImage.offset >> 2;
       // compile PUB blocks
       const pubsFound = this.compilePubPriBlocksId(eBlockType.block_pub, subStartIndex);
@@ -3135,13 +3146,13 @@ export class SpinResolver {
       this.compilePubPriBlocksId(eBlockType.block_pri, subStartIndex);
       this.objImage.appendLong(0); // enter 0 (future size) into index
     }
-    //this.logMessage(`** compile_sub_blocks_id() pasmMode=(${this.pasmMode}) - EXIT`);
+    //if (this.isLogging) this.logMessage(`** compile_sub_blocks_id() pasmMode=(${this.pasmMode}) - EXIT`);
   }
 
   private compilePubPriBlocksId(blockType: eBlockType, subStartIndex: number): boolean {
     // here is compile_sub_blocks_id: @@compile
     // this locates PUB and PRI blocks, validates and emits symbols and obj public interface
-    //this.logMessage(`** compilePubPriBlocksId() - ENTRY`);
+    //if (this.isLogging) this.logMessage(`** compilePubPriBlocksId() - ENTRY`);
     let foundBlocksStatus: boolean = false;
     let parameterCount: number = 0;
     let resultCount: number = 0;
@@ -3271,7 +3282,7 @@ export class SpinResolver {
       }
       const symMethodDetails: number = (parameterCount << 24) | (resultCount << 20) | subIndex;
       const newSymbol: iSymbol = { name: symbolName, type: eElementType.type_method, value: BigInt(symMethodDetails) };
-      //this.logMessage(`* compilePubPriBlocksId() calling record symbol [${newSymbol}]`);
+      //if (this.isLogging) this.logMessage(`* compilePubPriBlocksId() calling record symbol [${newSymbol}]`);
       this.recordSymbol(newSymbol); // PUB/PRI symbol name
       const objMethodDetails: number = 0x80000000 | (parameterCount << 24) | (resultCount << 20);
       this.objImage.appendLong(objMethodDetails);
@@ -3284,7 +3295,7 @@ export class SpinResolver {
       foundBlocksStatus = true;
     }
 
-    //this.logMessage(`** compilePubPriBlocksId() - EXIT w/(${foundBlocksStatus})`);
+    //if (this.isLogging) this.logMessage(`** compilePubPriBlocksId() - EXIT w/(${foundBlocksStatus})`);
     return foundBlocksStatus;
   }
 
@@ -3337,7 +3348,7 @@ export class SpinResolver {
       // [error_easn]
       throw new Error('Expected a structure name (m200)');
     }
-    this.logMessage(`* getStructVar() returning [${JSON.stringify(variableReturn, null, 2)}]`);
+    if (this.isLogging) this.logMessage(`* getStructVar() returning [${JSON.stringify(variableReturn, null, 2)}]`);
     return variableReturn;
   }
 
@@ -3356,7 +3367,7 @@ export class SpinResolver {
     // Compile sub blocks
     // PNut compile_sub_blocks:
     if (this.pasmMode == false) {
-      this.logMessageOutline('++ compile_sub_blocks()');
+      if (this.isLoggingOutline) this.logMessageOutline('++ compile_sub_blocks()');
       // compile PUB blocks
       const lastPubSymbolValue = this.compilePubPriBlocks(eBlockType.block_pub);
       // compile PRI blocks
@@ -3377,7 +3388,7 @@ export class SpinResolver {
     let localVariableOffset: number = 0;
     let methodDetails: number = 0; // this is @@sub
 
-    this.logMessageOutline(`++ compilePubPriBlocks(${eBlockType[blockType]}) - ENTRY`);
+    if (this.isLoggingOutline) this.logMessageOutline(`++ compilePubPriBlocks(${eBlockType[blockType]}) - ENTRY`);
 
     this.logRestoredElementLocation(0); // start from first in list
     while (this.nextBlock(blockType)) {
@@ -3426,7 +3437,7 @@ export class SpinResolver {
             throw new Error('Expected a unique parameter name (m221)');
           }
           const newParameterSymbol: iSymbol = { name: this.currElement.stringValue, type: paramType, value: BigInt((structID << 20) | localOffset) };
-          //this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
+          //if (this.isLogging) this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
           this.recordSymbol(newParameterSymbol); // parameter symbol name
           localOffset += paramSizeInBytes; // we wrote this size...
         } while (this.getCommaOrRightParen());
@@ -3466,7 +3477,7 @@ export class SpinResolver {
             throw new Error('Expected a unique result name (m231)');
           }
           const newReturnSymbol: iSymbol = { name: this.currElement.stringValue, type: resultType, value: BigInt((structID << 20) | localOffset) };
-          //this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
+          //if (this.isLogging) this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
           this.recordSymbol(newReturnSymbol); // return symbol name
           localOffset += resultSizeInBytes; // we wrote LONG
         } while (this.checkComma());
@@ -3522,7 +3533,7 @@ export class SpinResolver {
             throw new Error('Expected a unique variable name, STRUCT name, BYTE, WORD, LONG, "^", ALIGNW, or ALIGNL (m242)');
           }
           const newLocalSymbol: iSymbol = { name: this.currElement.stringValue, type: localType, value: BigInt((structID << 20) | localOffset) };
-          //this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
+          //if (this.isLogging) this.logMessage(`* compilePubPriBlocks() calling record symbol [${newSymbol}]`);
           this.recordSymbol(newLocalSymbol); // return symbol name
           let currArraySize: number = 1;
           // if array index, skip it
@@ -3553,11 +3564,11 @@ export class SpinResolver {
       this.activeSymbolTable = eSymbolTableId.STI_MAIN;
       //const blockEndTime = Date.now();
       //const blockElapsedTimeMS = blockEndTime - blockStartTime;
-      //this.logMessageOutline(`  -- compile (${eBlockType[blockType]}) ${methodElement.toString()} --  (executed in ${blockElapsedTimeMS} ms)`);
+      //if (this.isLoggingOutline) this.logMessageOutline(`  -- compile (${eBlockType[blockType]}) ${methodElement.toString()} --  (executed in ${blockElapsedTimeMS} ms)`);
     }
     //const endTime = Date.now();
     //const elapsedTimeMS = endTime - startTime;
-    //this.logMessageOutline(`++ compilePubPriBlocks(${eBlockType[blockType]}) - EXIT (executed in ${elapsedTimeMS} ms)`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`++ compilePubPriBlocks(${eBlockType[blockType]}) - EXIT (executed in ${elapsedTimeMS} ms)`);
     return methodDetails;
   }
 
@@ -3568,12 +3579,12 @@ export class SpinResolver {
   private compileTopBlock() {
     // Compile instruction block
     // PNut compile_top_block:
-    this.logMessage(`*==* compileTopBlock()`);
+    if (this.isLogging) this.logMessage(`*==* compileTopBlock()`);
     this.blockStack.reset();
     this.setScopeColumn(0); // effectively -1
     this.compileBlock(this.scopeColumn); // effectively -1
     this.objImage.appendByte(eByteCode.bc_return_results);
-    this.logMessage(`* compileTopBlock() endBlock at offset=(${this.objImage.offsetHex})`);
+    if (this.isLogging) this.logMessage(`* compileTopBlock() endBlock at offset=(${this.objImage.offsetHex})`);
   }
 
   private compileBlock(startingColumn: number) {
@@ -3582,7 +3593,7 @@ export class SpinResolver {
     this.setScopeColumn(startingColumn); // effectively -1
 
     const nextElement: SpinElement = this.peekNextElement();
-    this.logMessage(`*==* compileBlock() start=(${this.scopeColumn}) elem=[${nextElement.toString()}] - ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* compileBlock() start=(${this.scopeColumn}) elem=[${nextElement.toString()}] - ENTRY`);
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // here is cb_loop:
@@ -3597,7 +3608,7 @@ export class SpinResolver {
       }
       this.getColumn(); // set this.lineColumn from currentElement
       if (this.lineColumn <= savedScopeColumn) {
-        this.logMessage(`* cb_loop: ln=(${this.lineColumn}) <= srt=(${savedScopeColumn}) BREAK OUT!???`);
+        if (this.isLogging) this.logMessage(`* cb_loop: ln=(${this.lineColumn}) <= srt=(${savedScopeColumn}) BREAK OUT!???`);
         //this.logMessageForced(`* cb_loop: ln=(${this.lineColumn}) <= srt=(${savedScopeColumn}) BREAK OUT!???`);
         this.backElement();
         break;
@@ -3625,20 +3636,20 @@ export class SpinResolver {
     }
     // restore column we had at entry
     this.setScopeColumn(savedScopeColumn);
-    this.logMessage(`*==* compileBlock() - EXIT`);
+    if (this.isLogging) this.logMessage(`*==* compileBlock() - EXIT`);
   }
 
   private cb_if() {
     // Compile block - 'if' / 'ifnot'
     // PNut cb_if:
-    this.logMessage(`*==* cb_if() ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* cb_if() ENTRY`);
     let optimizerMethod: eOptimizerMethod;
     optimizerMethod = this.currElement.type == eElementType.type_if ? eOptimizerMethod.OM_If : eOptimizerMethod.OM_IfNot;
     this.setScopeColumn(this.lineColumn);
     this.new_bnest(eElementType.type_if, this.if_limit + 1);
     this.optimizeBlock(optimizerMethod);
     this.end_bnest();
-    this.logMessage(`*==* cb_if() EXIT`);
+    if (this.isLogging) this.logMessage(`*==* cb_if() EXIT`);
   }
 
   private blockIfnIfNot(byteCode: eByteCode) {
@@ -3699,14 +3710,14 @@ export class SpinResolver {
   private cb_case() {
     // Compile block - 'case'
     // PNut cb_case:
-    this.logMessage(`*==* cb_case() ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* cb_case() ENTRY`);
     //this.logMessageForced(`*==* cb_case() ENTRY nextElemIdx=(${this.nextElementIndex})`);
     this.setScopeColumn(this.lineColumn); // column offset to 'case' PNut [ebp]
     // reserve room for max cases and the other case
     this.new_bnest(eElementType.type_case, this.case_limit + 1); // max case + other
     this.optimizeBlock(eOptimizerMethod.OM_Case);
     this.end_bnest();
-    this.logMessage(`*==* cb_case() EXIT`);
+    if (this.isLogging) this.logMessage(`*==* cb_case() EXIT`);
     //this.logMessageForced(`*==* cb_case() EXIT nextElemIdx=(${this.nextElementIndex})`);
   }
 
@@ -3729,7 +3740,7 @@ export class SpinResolver {
     while (true) {
       // here is @@nextcase1
       //  first pass builds case branches, get range/value/'other'
-      this.logMessage(`* cb_case:@@comp: (pass1) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
+      if (this.isLogging) this.logMessage(`* cb_case:@@comp: (pass1) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
       //this.logMessageForced(`* cb_case:@@comp: (pass1) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
       this.getElement();
       const matchIsOtherCase: boolean = this.currElement.type == eElementType.type_other;
@@ -3805,7 +3816,7 @@ export class SpinResolver {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       // here is @@nextcase2
-      this.logMessage(`* cb_case:@@comp: (pass2) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
+      if (this.isLogging) this.logMessage(`* cb_case:@@comp: (pass2) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
       //this.logMessageForced(`* cb_case:@@comp: (pass2) caseCount=(${caseCount}), haveOtherCase=(${haveOtherCase})`);
       this.getElement();
       const matchIsOtherCase: boolean = this.currElement.type == eElementType.type_other;
@@ -3854,11 +3865,11 @@ export class SpinResolver {
   private skipBlock() {
     // Skip block
     // PNut skip_block:
-    this.logMessage(`* skipBlock() ENTRY`);
+    if (this.isLogging) this.logMessage(`* skipBlock() ENTRY`);
     const savedObjectOffset = this.objImage.offset;
     this.compileBlock(this.scopeColumn);
     this.objImage.setOffsetTo(savedObjectOffset);
-    this.logMessage(`* skipBlock() EXIT`);
+    if (this.isLogging) this.logMessage(`* skipBlock() EXIT`);
   }
 
   private skipRange() {
@@ -3872,14 +3883,14 @@ export class SpinResolver {
   private cb_case_fast() {
     // Compile block - 'case_fast'
     // PNut cb_case_fast:
-    this.logMessage(`*==* cb_case_fast() ENTRY`);
-    this.logMessageOutline(`*==* cb_case_fast() ENTRY nextElemIdx=(${this.nextElementIndex})`);
+    if (this.isLogging) this.logMessage(`*==* cb_case_fast() ENTRY`);
+    if (this.isLoggingOutline) this.logMessageOutline(`*==* cb_case_fast() ENTRY nextElemIdx=(${this.nextElementIndex})`);
     this.setScopeColumn(this.lineColumn);
     this.new_bnest(eElementType.type_case_fast, this.case_fast_limit + 6 + 1); // 6 enum value
     this.optimizeBlock(eOptimizerMethod.OM_CaseFast);
     this.end_bnest();
-    this.logMessage(`*==* cb_case_fast() EXIT`);
-    this.logMessageOutline(`*==* cb_case_fast() EXIT nextElemIdx=(${this.nextElementIndex})`);
+    if (this.isLogging) this.logMessage(`*==* cb_case_fast() EXIT`);
+    if (this.isLoggingOutline) this.logMessageOutline(`*==* cb_case_fast() EXIT nextElemIdx=(${this.nextElementIndex})`);
   }
 
   private blockCaseFast() {
@@ -4108,7 +4119,7 @@ export class SpinResolver {
     //   bstack[0] = 'next' address
     //   bstack[1] = 'quit' address
     //   bstack[2] = loop address
-    this.logMessage(`*==* cb_repeat() ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* cb_repeat() ENTRY`);
     this.setScopeColumn(this.lineColumn);
     this.new_bnest(eElementType.type_repeat, 3);
     this.getElement();
@@ -4126,29 +4137,30 @@ export class SpinResolver {
       this.logRestoredElementLocation(savedExpressionElementIndex);
       if (this.currElement.type == eElementType.type_end) {
         // @@count
-        this.logMessage(`*  -- @@count`);
+        if (this.isLogging) this.logMessage(`*  -- @@count`);
         this.redo_bnest(eElementType.type_repeat_count);
         this.optimizeBlock(eOptimizerMethod.OM_RepeatCount);
       } else if (this.currElement.type == eElementType.type_with) {
         // @@countvar
-        this.logMessage(`*  -- @@countvar`);
+        if (this.isLogging) this.logMessage(`*  -- @@countvar`);
         this.redo_bnest(eElementType.type_repeat_count_var);
         this.optimizeBlock(eOptimizerMethod.OM_RepeatCountVar);
       } else {
-        this.logMessage(`*  -- @@var`);
+        if (this.isLogging) this.logMessage(`*  -- @@var`);
         this.redo_bnest(eElementType.type_repeat_var);
         this.optimizeBlock(eOptimizerMethod.OM_RepeatVar);
       }
     }
     this.end_bnest();
-    this.logMessage(`* cb_repeat() EXIT`);
+    if (this.isLogging) this.logMessage(`* cb_repeat() EXIT`);
   }
 
   private blockRepeat(isPostWhileUntil: boolean): boolean {
     // PNut cb_repeat: @@plaincomp:
     // code for eOptimizerMethod.OM_Repeat
     const nextElement: SpinElement = this.peekNextElement();
-    this.logMessage(`* blockRepeat(isPostWhileUntil=(${isPostWhileUntil})) scopeColumn=(${this.scopeColumn}) elem=[${nextElement.toString()}]`);
+    if (this.isLogging)
+      this.logMessage(`* blockRepeat(isPostWhileUntil=(${isPostWhileUntil})) scopeColumn=(${this.scopeColumn}) elem=[${nextElement.toString()}]`);
 
     // set 'loop' address
     this.write_bstack_ptr(eRepeat.RP_LoopAddress);
@@ -4207,7 +4219,7 @@ export class SpinResolver {
     // PNut cb_repeat: @@countcomp:
     // code for eOptimizerMethod.OM_RepeatCount
     const nextElement: SpinElement = this.peekNextElement();
-    this.logMessage(`*==* blockRepeatCount() elem=[${nextElement.toString()}] - ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* blockRepeatCount() elem=[${nextElement.toString()}] - ENTRY`);
     // compile count expression, check for constant
     const valueReturn: iValueReturn = this.compileExpressionCheckCon();
     this.getEndOfLine();
@@ -4229,7 +4241,7 @@ export class SpinResolver {
       this.compile_bstack_branch(eRepeat.RP_LoopAddress, eByteCode.bc_djnz);
       this.write_bstack_ptr(eRepeat.RP_QuitAddress);
     }
-    this.logMessage(`* blockRepeatCount() - EXIT`);
+    if (this.isLogging) this.logMessage(`* blockRepeatCount() - EXIT`);
   }
 
   private blockRepeatCountVar() {
@@ -4373,13 +4385,13 @@ export class SpinResolver {
         // NOTE: cog address is bytes
         value = BigInt(this.objImage.offset | (this.cogOrg << (32 - 14))) & BigInt(0xffffffff);
       }
-      this.logMessage(`* enterDatSymbol value=(${float32ToHexString(value)}) upper=(${value.toString(16).toUpperCase()})`);
+      if (this.isLogging) this.logMessage(`* enterDatSymbol value=(${float32ToHexString(value)}) upper=(${value.toString(16).toUpperCase()})`);
       const newSymbol: iSymbol = { name: this.symbolName, type: type, value: value };
       // Mark symbol as inline if we're processing inline PASM (ORG/ORGH within method)
       if (this.inlineModeForGetConstant) {
         newSymbol.isInline = true;
       }
-      //this.logMessage(`* enterDatSymbol() calling record symbol [${newSymbol}]`);
+      //if (this.isLogging) this.logMessage(`* enterDatSymbol() calling record symbol [${newSymbol}]`);
       this.recordSymbol(newSymbol);
     }
   }
@@ -4390,7 +4402,7 @@ export class SpinResolver {
       // [error_loxdse]
       throw new Error('Limit of 10k DAT symbols exceeded');
     }
-    this.logMessage(`* incrementLocalScopeCounter() ctr now (${this.asmLocal})`);
+    if (this.isLogging) this.logMessage(`* incrementLocalScopeCounter() ctr now (${this.asmLocal})`);
   }
 
   private isDatStorageType(): boolean {
@@ -4418,7 +4430,7 @@ export class SpinResolver {
       //  associated source code
       this.getElement();
       const symbolName: string = getSourceSymbol(this.context, this.currElement);
-      this.logMessage(`* checkLocalSymbol() nextElement=[${this.currElement.toString()}] symbolName=[${symbolName}]`);
+      if (this.isLogging) this.logMessage(`* checkLocalSymbol() nextElement=[${this.currElement.toString()}] symbolName=[${symbolName}]`);
       if (symbolName.length == 0) {
         // we have error this should be a symbol!
         // [error_eals]
@@ -4436,9 +4448,10 @@ export class SpinResolver {
       this.currElement.setType(symbolFound.type);
       this.currElement.setValue(symbolFound.value);
     }
-    this.logMessage(
-      `* checkLocalSymbol() symbolFoundStatus=(${symbolFoundStatus}), symbolFound=[${symbolFound.name}], [${eElementType[symbolFound.type]}], [${hexString(symbolFound.value)}]`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* checkLocalSymbol() symbolFoundStatus=(${symbolFoundStatus}), symbolFound=[${symbolFound.name}], [${eElementType[symbolFound.type]}], [${hexString(symbolFound.value)}]`
+      );
     return [symbolFoundStatus, symbolFound];
   }
 
@@ -4473,7 +4486,7 @@ export class SpinResolver {
     let symbolNumber: number = 0;
     let tableName: string = '';
     const isInline = newSymbol.isInline ?? false;
-    this.logMessage(`* recordSymbol name=[${newSymbol.name}] into [${eSymbolTableId[this.activeSymbolTable]}]`);
+    if (this.isLogging) this.logMessage(`* recordSymbol name=[${newSymbol.name}] into [${eSymbolTableId[this.activeSymbolTable]}]`);
     switch (this.activeSymbolTable) {
       case eSymbolTableId.STI_MAIN:
         this.mainSymbols.add(newSymbol.name, newSymbol.type, newSymbol.value, isInline);
@@ -4497,14 +4510,15 @@ export class SpinResolver {
         throw new Error('[CODE] known table ID!');
         break;
     }
-    this.logMessage(
-      `* recordSymbol() ${tableName}[${symbolNumber}] name=[${newSymbol.name}], type=[${eElementType[newSymbol.type]}], value=($${Number(BigInt(newSymbol.value) & BigInt(0xffffffff)).toString(16)})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* recordSymbol() ${tableName}[${symbolNumber}] name=[${newSymbol.name}], type=[${eElementType[newSymbol.type]}], value=($${Number(BigInt(newSymbol.value) & BigInt(0xffffffff)).toString(16)})`
+      );
   }
 
   private compile_obj_blocks_id() {
     // PNut compile_obj_blocks_id:
-    this.logMessage('*==* COMPILE_obj_blocks_id()');
+    if (this.isLogging) this.logMessage('*==* COMPILE_obj_blocks_id()');
     this.inObjBlock = true;
     this.objImage.setOffsetTo(0);
     this.spinFiles.clearObjFiles();
@@ -4545,7 +4559,10 @@ export class SpinResolver {
           this.logRestoredElementLocation(savedElementIndex);
           // PNut  obj symbol | [obj_count]
           const objSymbolValue: number = ((this.spinFiles.objFileCount - 1) << 24) | this.objectInstanceInMemoryCount;
-          this.logMessage(`  -- compObjBlksId() objectId=(${this.spinFiles.objFileCount - 1}), instanceCount=(${this.objectInstanceInMemoryCount})`);
+          if (this.isLogging)
+            this.logMessage(
+              `  -- compObjBlksId() objectId=(${this.spinFiles.objFileCount - 1}), instanceCount=(${this.objectInstanceInMemoryCount})`
+            );
           // PNUT enter_symbol2_print: -> enter_symbol2:
           const newObjSymbol: iSymbol = { name: symbolName, type: eElementType.type_obj, value: BigInt(objSymbolValue) };
           this.recordSymbol(newObjSymbol);
@@ -4649,25 +4666,26 @@ export class SpinResolver {
     this.activeSymbolTable = eSymbolTableId.STI_MAIN; // for these symbols to our MAIN symbol table
 
     // log our OBJECT files
-    this.logMessage(`* - -------------------------------`);
-    this.logMessage(`* compObjSyms() ENTRY with ${objFileRecords.length} objFiles in list`);
+    if (this.isLogging) this.logMessage(`* - -------------------------------`);
+    if (this.isLogging) this.logMessage(`* compObjSyms() ENTRY with ${objFileRecords.length} objFiles in list`);
     for (let index = 0; index < objFileRecords.length; index++) {
       const objFile: ObjFile = objFileRecords[index];
-      this.logMessage(`  -- CompOS() objIndex[${index}], fName=[${objFile.fileName}]`);
+      if (this.isLogging) this.logMessage(`  -- CompOS() objIndex[${index}], fName=[${objFile.fileName}]`);
     }
     for (let objFileIndex = 0; objFileIndex < this.objectData.objectFileCount; objFileIndex++) {
       const [objOffset, objLength] = this.objectData.getOffsetAndLengthForFile(objFileIndex);
-      this.logMessage(`  -- CompOS() fileIdx=[${objFileIndex}], objOffset=(${objOffset}), objLength(${objLength})`);
+      if (this.isLogging) this.logMessage(`  -- CompOS() fileIdx=[${objFileIndex}], objOffset=(${objOffset}), objLength(${objLength})`);
     }
-    this.logMessage(`* - -------------------------------`);
+    if (this.isLogging) this.logMessage(`* - -------------------------------`);
 
     // for each file, do...
     for (let objFileIndex = 0; objFileIndex < objFileRecords.length; objFileIndex++) {
       // here is @@getfile:
       const [objOffset, objLength] = this.objectData.getOffsetAndLengthForFile(objFileIndex);
-      this.logMessage(
-        `  -- CompOS() objFileIndex=(${objFileIndex}), fName=[${objFileRecords[objFileIndex].fileName}], objOffset=(${objOffset}), objLength=(${objLength})`
-      );
+      if (this.isLogging)
+        this.logMessage(
+          `  -- CompOS() objFileIndex=(${objFileIndex}), fName=[${objFileRecords[objFileIndex].fileName}], objOffset=(${objOffset}), objLength=(${objLength})`
+        );
 
       // DEBUG: dump the object
       //this.objectData.setOffset(objOffset); // PNut is using [esi]
@@ -4677,17 +4695,17 @@ export class SpinResolver {
       this.objectData.setOffset(objOffset); // PNut is using [esi]
       // here is @@checksum:
       if ((this.objectData.checksum(objOffset, objLength) & 0xff) != 0) {
-        this.logMessage(`  -- ERROR BAD OBJ checksum`);
+        if (this.isLogging) this.logMessage(`  -- ERROR BAD OBJ checksum`);
         this.errorBadObjectImage(objFileRecords[objFileIndex]);
       }
       const vsize: number = this.objectData.nextLong();
       if ((vsize & 0b11) != 0) {
-        this.logMessage(`  -- ERROR BAD OBJ vsize`);
+        if (this.isLogging) this.logMessage(`  -- ERROR BAD OBJ vsize`);
         this.errorBadObjectImage(objFileRecords[objFileIndex]);
       }
       const psize: number = this.objectData.nextLong();
       if ((psize & 0b11) != 0) {
-        this.logMessage(`  -- ERROR BAD OBJ psize`);
+        if (this.isLogging) this.logMessage(`  -- ERROR BAD OBJ psize`);
         this.errorBadObjectImage(objFileRecords[objFileIndex]);
       }
 
@@ -4712,27 +4730,27 @@ export class SpinResolver {
 
       // now record
       this.objectData.setOffset(offsetToPubConList); // PNut is using [esi]
-      //this.logMessage(`  -- CompOS() - pubConList ofs=(${hexAddress(offsetToPubConList)})`);
+      //if (this.isLogging) this.logMessage(`  -- CompOS() - pubConList ofs=(${hexAddress(offsetToPubConList)})`);
       let foundObjError: boolean = false;
       // eslint-disable-next-line no-constant-condition
       while (true) {
         // here is @@nextsymbol:
         if (this.objectData.offset > offsetPastObj) {
-          this.logMessage(`  -- ERROR BAD OBJ offset`);
+          if (this.isLogging) this.logMessage(`  -- ERROR BAD OBJ offset`);
           this.errorBadObjectImage(objFileRecords[objFileIndex]);
         } else if (this.objectData.offset == offsetPastObj) {
           break;
         }
 
-        //this.logMessage(`  -- CompOS() - pub rcd ofs=(${hexAddress(this.objectData.offset)})`);
+        //if (this.isLogging) this.logMessage(`  -- CompOS() - pub rcd ofs=(${hexAddress(this.objectData.offset)})`);
         let symbolTypeLength: number = this.objectData.nextByte();
         const symbolType: number = symbolTypeLength & 0xe0;
         const symbolLength = symbolTypeLength & 0x1f;
         const typeValue: string = `0b${symbolType.toString(2).padStart(8, '0').slice(0, -5)}xxxxx`;
-        //this.logMessage(`  -- CompOS() - symbolType=(${typeValue}), symbolLength=(${symbolLength}) ofs=(${hexAddress(this.objectData.offset)})`);
+        //if (this.isLogging) this.logMessage(`  -- CompOS() - symbolType=(${typeValue}), symbolLength=(${symbolLength}) ofs=(${hexAddress(this.objectData.offset)})`);
         // get our symbol
         const objectsSymbolName: string = this.objectData.readSymbolName(symbolLength) + String.fromCharCode(objFileIndex + 1);
-        //this.logMessage(`  -- CompOS() - params ofs=(${hexAddress(this.objectData.offset)})`);
+        //if (this.isLogging) this.logMessage(`  -- CompOS() - params ofs=(${hexAddress(this.objectData.offset)})`);
         switch (symbolType) {
           case ObjectSymbols.objx_con_int:
           case ObjectSymbols.objx_con_float:
@@ -4752,7 +4770,7 @@ export class SpinResolver {
               const structRcdSize: number = this.objectData.peekWord(); // read without moving read offset
               //this.objectData.dumpBytes(structRcdOffset, structRcdSize, -1, `Struct Record`);
               const structRcdBytes: Uint8Array = this.objectData.nextBytes(structRcdSize);
-              //this.logMessage(
+              //if (this.isLogging) this.logMessage(
               //  `  -- CompOS() - I/F is objx_con_struct: ofs=(${hexAddress(structRcdOffset)}), structRcdSize=(${hexWord(structRcdSize)}(${structRcdSize}))`
               //);
               //dumpBytes(this.context, structRcdBytes, structRcdSize, -1, `Returned Record`);
@@ -4791,7 +4809,7 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage(`* compObjSyms() - EXIT`);
+    if (this.isLogging) this.logMessage(`* compObjSyms() - EXIT`);
   }
 
   private errorBadObjectImage(objFileInfo: ObjFile) {
@@ -4806,7 +4824,7 @@ export class SpinResolver {
     //   moves data from objects into our output binary image
     // PNut compile_obj_blocks:
     if (this.pasmMode == false) {
-      this.logMessageOutline('++ compile_obj_blocks()');
+      if (this.isLoggingOutline) this.logMessageOutline('++ compile_obj_blocks()');
       this.pad_obj_long();
       // 1st pass
 
@@ -4814,12 +4832,13 @@ export class SpinResolver {
       let objVar: number[] = [];
       // here is @@file:
       const objFileRanges: iFileDetails[] = this.objectData.objectFileRanges;
-      this.logMessage(`  -- fileRangeCt=(${objFileRanges.length})`);
+      if (this.isLogging) this.logMessage(`  -- fileRangeCt=(${objFileRanges.length})`);
       for (let objFileIndex = 0; objFileIndex < objFileRanges.length; objFileIndex++) {
         // this fileRange is offset,length
         //   length is + 8 (two longs) more than the length of the obj data we move
         const fileRange: iFileDetails = objFileRanges[objFileIndex];
-        this.logMessage(`  -- compObjBlks() objFileIndex=(${objFileIndex}), objOffset=(${fileRange.offset}), objLength=(${fileRange.length})`);
+        if (this.isLogging)
+          this.logMessage(`  -- compObjBlks() objFileIndex=(${objFileIndex}), objOffset=(${fileRange.offset}), objLength=(${fileRange.length})`);
         this.objectData.setOffset(fileRange.offset); // set read ptr within P2.ObjData
         const fileStartObjOffset: number = this.objImage.offset;
         // save offset to where this objects' data will be written in objImage
@@ -4832,23 +4851,23 @@ export class SpinResolver {
         // here is @@insert:
         for (let byteCount = 0; byteCount < remainingObjLength; byteCount++) {
           const uint8byte: number = this.objectData.nextByte();
-          //this.logMessage(`  -- compObjBlks() uint8byte=(${uint8byte})`);
+          //if (this.isLogging) this.logMessage(`  -- compObjBlks() uint8byte=(${uint8byte})`);
           this.objImage.appendByte(uint8byte);
         }
       }
 
       // 2nd pass
       // here is @@filesdone:
-      this.logMessage(`  -- compObjBlks() 2nd pass objectInstanceInMemoryCount=(${this.objectInstanceInMemoryCount})`);
+      if (this.isLogging) this.logMessage(`  -- compObjBlks() 2nd pass objectInstanceInMemoryCount=(${this.objectInstanceInMemoryCount})`);
 
       // TODO: add documentation describing first LONGs
       for (let index = 0; index < objPtr.length; index++) {
         const objPtrVal = objPtr[index];
-        this.logMessage(`  -- objPtr[${index}] = (${objPtrVal})`);
+        if (this.isLogging) this.logMessage(`  -- objPtr[${index}] = (${objPtrVal})`);
       }
       for (let index = 0; index < objVar.length; index++) {
         const objVarVal = objVar[index];
-        this.logMessage(`  -- objVar[${index}] = (${objVarVal})`);
+        if (this.isLogging) this.logMessage(`  -- objVar[${index}] = (${objVarVal})`);
       }
 
       // get number of objects in index
@@ -4858,21 +4877,21 @@ export class SpinResolver {
         // get file number from index
         const fileNumber: number = this.objImage.readLong(objOffset + 0);
         // write obj offset to index
-        this.logMessage(`  -- [${objectsInMemory}] fileNumber=(${fileNumber}), objPtr=(${objPtr[fileNumber]})`);
+        if (this.isLogging) this.logMessage(`  -- [${objectsInMemory}] fileNumber=(${fileNumber}), objPtr=(${objPtr[fileNumber]})`);
         this.objImage.replaceLong(objPtr[fileNumber], objOffset + 0);
         // write var offset to index
         this.objImage.replaceLong(this.varPtr, objOffset + 4);
         // update var pointer, check limit
-        this.logMessage(`  -- varPtr=(${this.varPtr}) += objVar[fileNumber](${objVar[fileNumber]})`);
+        if (this.isLogging) this.logMessage(`  -- varPtr=(${this.varPtr}) += objVar[fileNumber](${objVar[fileNumber]})`);
         this.varPtr += objVar[fileNumber];
         if (this.varPtr > this.obj_limit) {
           // [error_tmvsid]
           throw new Error('Too much variable space is declared (m603)');
         }
       }
-      this.logMessage(`  -- compObjBlks() end of 2nd pass`);
+      if (this.isLogging) this.logMessage(`  -- compObjBlks() end of 2nd pass`);
     } else {
-      this.logMessage('*==* COMPILE_obj_blocks() IGNORED (pasmMode == true)');
+      if (this.isLogging) this.logMessage('*==* COMPILE_obj_blocks() IGNORED (pasmMode == true)');
     }
   }
 
@@ -4884,12 +4903,13 @@ export class SpinResolver {
   private distill_obj_blocks() {
     // Distill obj blocks using the new ObjectDistiller class
     if (this.pasmMode == false) {
-      this.logMessageOutline(`++ distill_obj_blocks() objImgLen=${this.objImage.offset}(${hexLong(this.objImage.offset, '0x')}) - ENTRY`);
+      if (this.isLoggingOutline)
+        this.logMessageOutline(`++ distill_obj_blocks() objImgLen=${this.objImage.offset}(${hexLong(this.objImage.offset, '0x')}) - ENTRY`);
 
       const bytesRemoved = this.objectDistiller.distillObjects(this.objImage);
       this.distilledBytes += bytesRemoved;
 
-      this.logMessageOutline(`++ distill_obj_blocks() - EXIT (saved ${bytesRemoved} bytes)`);
+      if (this.isLoggingOutline) this.logMessageOutline(`++ distill_obj_blocks() - EXIT (saved ${bytesRemoved} bytes)`);
     }
   }
 
@@ -4905,9 +4925,9 @@ export class SpinResolver {
     // PNut compile_con_blocks:
     this.inConBlock = true;
     const lastPass: boolean = resolve == eResolve.BR_Must;
-    this.logMessage(`*==* COMPILE_con_blocks(firstPass=(${firstPass})) lastPass=${lastPass}`);
+    if (this.isLogging) this.logMessage(`*==* COMPILE_con_blocks(firstPass=(${firstPass})) lastPass=${lastPass}`);
     this.logRestoredElementLocation(0); // start from first in list
-    this.logMessage(`  -- restore to nextType=[${eElementType[this.nextElementType()]}]`);
+    if (this.isLogging) this.logMessage(`  -- restore to nextType=[${eElementType[this.nextElementType()]}]`);
 
     // move past opening CON if we have one
     if (this.nextElementType() == eElementType.type_block && this.nextElementValue() == eBlockType.block_con) {
@@ -4925,7 +4945,7 @@ export class SpinResolver {
 
     do {
       // NEXT BLOCK
-      this.logMessage(`  -- NEW BLOCK do {} elem=[${this.currElement.toString()}]`);
+      if (this.isLogging) this.logMessage(`  -- NEW BLOCK do {} elem=[${this.currElement.toString()}]`);
       // reset our enumeration
       let enumValid: boolean = true;
       let enumValue: bigint = 0n;
@@ -4933,7 +4953,7 @@ export class SpinResolver {
       //let assignFlag: boolean = false;TO-CHIO
 
       do {
-        this.logMessage(`  -- NEW LINE do {} elem=[${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`  -- NEW LINE do {} elem=[${this.currElement.toString()}]`);
         // here is @@nextline:   NEXT LINE
         let backupSymbolName: string = '';
 
@@ -4953,7 +4973,7 @@ export class SpinResolver {
         do {
           // here is @@sameline:   SAME LINE (process a line)
           this.getElement();
-          this.logMessage(`  -- SAME LINE do {} elem=[${this.currElement.toString()}]`);
+          if (this.isLogging) this.logMessage(`  -- SAME LINE do {} elem=[${this.currElement.toString()}]`);
           //assignFlag = this.currElement.type == eElementType.type_pound ? true : false;
           // if the File is Empty we are done!
 
@@ -4998,7 +5018,7 @@ export class SpinResolver {
               throw new Error('Expected a unique constant name, "#", or STRUCT (m210)');
             }
             backupSymbolName = this.replacedName; // stashed by getElement()
-            this.logMessage(`* BACKUP SYMBOL name for use in set/verify name=[${backupSymbolName}]`);
+            if (this.isLogging) this.logMessage(`* BACKUP SYMBOL name for use in set/verify name=[${backupSymbolName}]`);
             const elementToVerify: SpinElement = this.currElement;
 
             this.currElement = this.getElement();
@@ -5042,7 +5062,7 @@ export class SpinResolver {
             //   #0[4], name1, name2, name3[5], name4
             //   name = value, name = value, name = name = value, #0[4], name1, name2
             backupSymbolName = this.currElement.stringValue;
-            this.logMessage(`* BACKUP SYMBOL name for use in set/verify name=[${backupSymbolName}]`);
+            if (this.isLogging) this.logMessage(`* BACKUP SYMBOL name for use in set/verify name=[${backupSymbolName}]`);
             this.currElement = this.getElement();
             if (this.currElement.type == eElementType.type_equal) {
               const result = this.getValue(eMode.BM_IntOrFloat, resolve);
@@ -5091,7 +5111,7 @@ export class SpinResolver {
               throw new Error('Expected a unique STRUCT name');
             }
             if (!lastPass) {
-              this.logMessage(`* compConBlks() not last pass`);
+              if (this.isLogging) this.logMessage(`* compConBlks() not last pass`);
               // skip to end of structure decl.
               //  structure def'ns are not nested, so we don't have nested parens!
               if (this.nextElementType() == eElementType.type_left) {
@@ -5106,7 +5126,7 @@ export class SpinResolver {
                 throw new Error('Expected "(" or "="');
               }
             } else {
-              this.logMessage(`* compConBlks() LAST PASS`);
+              if (this.isLogging) this.logMessage(`* compConBlks() LAST PASS`);
               // process structure (last pass only)
               // PNut @@structenter:
               const symbolName: string = getSourceSymbol(this.context, this.currElement); // PNut backup_symbol
@@ -5132,7 +5152,7 @@ export class SpinResolver {
             // TODO: COVERAGE test me
             this.backElement(); // so we can re-discover the comma or EOL at while()
             this.getElement();
-            this.logMessage(`EEEE: Element at fail: [${this.currElement.toString()}]`);
+            if (this.isLogging) this.logMessage(`EEEE: Element at fail: [${this.currElement.toString()}]`);
             // [error_eaucnpos]
             throw new Error('Expected a unique constant name, "#", or STRUCT (m211)');
           }
@@ -5149,7 +5169,7 @@ export class SpinResolver {
   private buildStructureRecord(): number {
     // PNut build_struct_record:
     // do we have assignment or def'n
-    this.logMessage(`* buildStructureRecord() at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* buildStructureRecord() at [${this.currElement.toString()}]`);
     let newStructId: number;
     if (this.checkEqual()) {
       // we have structure assignment
@@ -5176,7 +5196,7 @@ export class SpinResolver {
         // PNut  @@member:
         this.objectStructureSet.beginMemberRecord();
         this.getElementObj();
-        this.logMessage(`  -- at [${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`  -- at [${this.currElement.toString()}]`);
         if (this.currElement.type == eElementType.type_size) {
           const elemSize: number = this.currElement.numberValue;
           // record 0,1,2 byte, word, long
@@ -5191,7 +5211,7 @@ export class SpinResolver {
         }
         // PNut @@getname:
         const [isSymbol, symbolString] = this.getSymbol();
-        this.logMessage(`  -- at [${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`  -- at [${this.currElement.toString()}]`);
         if (isSymbol == false) {
           // [error_eas]
           throw new Error('Expected a symbol (m191)');
@@ -5227,7 +5247,7 @@ export class SpinResolver {
 
   private compile_final() {
     // PNut compile_final:
-    this.logMessageOutline(`++ compile_final()`);
+    if (this.isLoggingOutline) this.logMessageOutline(`++ compile_final()`);
     // TODO: place code for flash_loader file size and interpreter file size
     this.sizeFlashLoader = 0; // for now
     this.sizeInterpreter = 0;
@@ -5243,12 +5263,12 @@ export class SpinResolver {
       //  this.objImage.appendByte(byte); // copy the symbol array
       //}
       this.pubConList.setReadOffset(0);
-      this.logMessage(`  -- pubCon list has (${this.pubConList.length}) bytes objOfs=(0x${this.objImage.offset.toString(16)})`);
+      if (this.isLogging) this.logMessage(`  -- pubCon list has (${this.pubConList.length}) bytes objOfs=(0x${this.objImage.offset.toString(16)})`);
       for (let index = 0; index < this.pubConList.length; index++) {
         const byte = this.pubConList.readNext();
         this.objImage.appendByte(byte);
       }
-      this.logMessage(`  -- pubCon written. ends at objOfs=(0x${this.objImage.offset.toString(16)})-1`);
+      if (this.isLogging) this.logMessage(`  -- pubCon written. ends at objOfs=(0x${this.objImage.offset.toString(16)})-1`);
 
       // We need to inject two longs at head of image...
       this.objImage.appendLong(0); // open space for move of data
@@ -5269,7 +5289,10 @@ export class SpinResolver {
       const checkSum = this.objImage.calculateChecksum(0, this.objImage.offset - 1);
       this.objImage.replaceByte(checkSum, checksumOffset + 8);
     }
-    this.logMessageOutline(`++ compile_final()  (${startingSize}) + (${this.objImage.offset - startingSize}) -> now (${this.objImage.offset}) bytes`);
+    if (this.isLoggingOutline)
+      this.logMessageOutline(
+        `++ compile_final()  (${startingSize}) + (${this.objImage.offset - startingSize}) -> now (${this.objImage.offset}) bytes`
+      );
   }
 
   private verifySameValue(symbolName: string, currentValue: SpinElement, expectedValue: iValueReturn) {
@@ -5283,12 +5306,14 @@ export class SpinResolver {
       adjustedExpected.type = foundSymbol.type;
       adjustedExpected.value = foundSymbol.value;
     }
-    this.logMessage(
-      `  -- CONSymVrfy() [${symbolName}], curr=[${eElementType[currentValue.type]}], value=($${Number(currentValue.bigintValue & BigInt(0xffffffff)).toString(16)})`
-    );
-    this.logMessage(
-      `  -- CONSymVrfy() [${symbolName}], expc=[${eElementType[adjustedExpected.type]}], value=($${Number(BigInt(adjustedExpected.value) & BigInt(0xffffffff)).toString(16)})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `  -- CONSymVrfy() [${symbolName}], curr=[${eElementType[currentValue.type]}], value=($${Number(currentValue.bigintValue & BigInt(0xffffffff)).toString(16)})`
+      );
+    if (this.isLogging)
+      this.logMessage(
+        `  -- CONSymVrfy() [${symbolName}], expc=[${eElementType[adjustedExpected.type]}], value=($${Number(BigInt(adjustedExpected.value) & BigInt(0xffffffff)).toString(16)})`
+      );
 
     if (currentValue.type !== adjustedExpected.type || currentValue.value !== adjustedExpected.value) {
       // [error_siad]
@@ -5311,9 +5336,10 @@ export class SpinResolver {
     this.mainSymbols.add(symbolName, adjustedCONSymbol.type, adjustedCONSymbol.value);
     const symbolNumber = this.mainSymbols.length;
 
-    this.logMessage(
-      `  -- rcdCONSym() mainSymbols[${symbolNumber}] name=[${symbolName}], type=[${eElementType[adjustedCONSymbol.type]}], value=($${Number(BigInt(adjustedCONSymbol.value) & BigInt(0xffffffff)).toString(16)})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `  -- rcdCONSym() mainSymbols[${symbolNumber}] name=[${symbolName}], type=[${eElementType[adjustedCONSymbol.type]}], value=($${Number(BigInt(adjustedCONSymbol.value) & BigInt(0xffffffff)).toString(16)})`
+      );
 
     // write info to object pub/con list
     this.pubConList.writePubConstant(symbolName, symbolValue.isFloat, BigInt(adjustedCONSymbol.value));
@@ -5327,11 +5353,12 @@ export class SpinResolver {
       overrideConSymbol = this.overrideSymbolTable.get(symbolName);
     }
     if (overrideConSymbol === undefined) {
-      this.logMessage(`  -- chkImpParam([${symbolName}]) NO Overide symbol found`);
+      if (this.isLogging) this.logMessage(`  -- chkImpParam([${symbolName}]) NO Overide symbol found`);
     } else {
-      this.logMessage(
-        `  -- chkImpParam([${symbolName}]) type=[${eElementType[overrideConSymbol.type]}], value=($${Number(BigInt(overrideConSymbol.value) & BigInt(0xffffffff)).toString(16)})`
-      );
+      if (this.isLogging)
+        this.logMessage(
+          `  -- chkImpParam([${symbolName}]) type=[${eElementType[overrideConSymbol.type]}], value=($${Number(BigInt(overrideConSymbol.value) & BigInt(0xffffffff)).toString(16)})`
+        );
     }
     return overrideConSymbol;
   }
@@ -5339,7 +5366,7 @@ export class SpinResolver {
   private nextBlock(blockType: eBlockType): boolean {
     let foundStatus: boolean = false;
     let element: SpinElement;
-    this.logMessage(`* nextBlock huntFor=[${eBlockType[blockType]}] stop log at elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* nextBlock huntFor=[${eBlockType[blockType]}] stop log at elem=[${this.currElement.toString()}]`);
     const savedLogState: boolean = this.isLogging;
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -5348,16 +5375,16 @@ export class SpinResolver {
       this.isLogging = savedLogState;
 
       if (this.currElement.type == eElementType.type_block && Number(this.currElement.value) == blockType) {
-        this.logMessage(`  -- nextBlock() found element=[${this.currElement.toString()}]  Found!`);
+        if (this.isLogging) this.logMessage(`  -- nextBlock() found element=[${this.currElement.toString()}]  Found!`);
         foundStatus = true;
         break;
       }
       if (this.currElement.type == eElementType.type_end_file) {
-        //this.logMessageOutline(`  -- nextBlock() at EOF, NOT found!`);
+        //if (this.isLoggingOutline) this.logMessageOutline(`  -- nextBlock() at EOF, NOT found!`);
         break;
       }
     }
-    this.logMessage(`  -- nextBlock resume log at elem=[${this.currElement.toString()}] foundStatus=(${foundStatus})`);
+    if (this.isLogging) this.logMessage(`  -- nextBlock resume log at elem=[${this.currElement.toString()}] foundStatus=(${foundStatus})`);
     if (foundStatus == true) {
       this.getColumn(); // set this.lineColumn from currentElement
       if (this.lineColumn != 1) {
@@ -5373,12 +5400,12 @@ export class SpinResolver {
 
   private getValue(mode: eMode, resolve: eResolve): iValueReturn {
     // in this one case we force integer math
-    this.logMessage(`* getvalue() ENTRY`);
+    if (this.isLogging) this.logMessage(`* getvalue() ENTRY`);
     this.mathMode = mode == eMode.BM_IntOnly ? eMathMode.MM_IntMode : eMathMode.MM_Unknown;
     this.numberStack.reset(); // empty our stack
     this.resolveExp(mode, resolve, this.lowestPrecedence);
     const value: bigint = this.numberStack.pop();
-    this.logMessage(`* getvalue() EXIT`);
+    if (this.isLogging) this.logMessage(`* getvalue() EXIT`);
     return { value: value, isResolved: this.numberStack.isResolved, isFloat: this.isResultFloat() };
   }
 
@@ -5403,7 +5430,7 @@ export class SpinResolver {
     // PNut compile_exp:
     const nextElement: SpinElement = this.peekNextElement();
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
-    this.logMessage(`*==* compileExpression() at elem=[${this.currElement.toString()}] - ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* compileExpression() at elem=[${this.currElement.toString()}] - ENTRY`);
     this.logMessageConditional(bIsDesiredLine, `*==* compileExpression() nextelem=[${nextElement.toString()}] - ENTRY`);
     const tryExpressionResult = this.trySpin2ConExpression(); // XYZZY BUG HERE
     if (tryExpressionResult.isResolved) {
@@ -5411,7 +5438,7 @@ export class SpinResolver {
     } else {
       this.compileSubExpression(this.lowestPrecedence);
     }
-    this.logMessage(`*==* compileExpression() - EXIT`);
+    if (this.isLogging) this.logMessage(`*==* compileExpression() - EXIT`);
     this.logMessageConditional(bIsDesiredLine, `*==* compileExpression() - EXIT`);
     return tryExpressionResult;
   }
@@ -5419,7 +5446,7 @@ export class SpinResolver {
   private compileSubExpression(entryPrecedence: number) {
     // compile this expression - recursively
     // PNut compile_exp: @@topexp:
-    this.logMessage(`compileSubExpression(${entryPrecedence}) elem=[${this.currElement.toString()}] - ENTRY`);
+    if (this.isLogging) this.logMessage(`compileSubExpression(${entryPrecedence}) elem=[${this.currElement.toString()}] - ENTRY`);
     let currPrecedence: number = entryPrecedence; // PNut [dl] register
     if (--currPrecedence < 0) {
       // we need to resolve the term!
@@ -5430,7 +5457,7 @@ export class SpinResolver {
         this.getElementObj();
         if (this.currElement.isPlus) {
           // TODO: COVERAGE test me
-          this.logMessage(`* skipping + operator`);
+          if (this.isLogging) this.logMessage(`* skipping + operator`);
         }
       } while (this.currElement.isPlus);
 
@@ -5493,8 +5520,8 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage(`compileSubExpression(${entryPrecedence}) - EXIT`);
-    //this.logMessageOutline(`compileSubExpression(${entryPrecedence}) - EXIT`);
+    if (this.isLogging) this.logMessage(`compileSubExpression(${entryPrecedence}) - EXIT`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`compileSubExpression(${entryPrecedence}) - EXIT`);
   }
 
   private compileInstruction() {
@@ -5502,7 +5529,7 @@ export class SpinResolver {
     // PNut compile_inst: or new compile_instruction:
     const sourceLine = this.currElement.sourceLineNumber;
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
-    this.logMessage(`*==* compileInstruction() at elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`*==* compileInstruction() at elem=[${this.currElement.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `*==* compileInstruction() at elem=[${this.currElement.toString()}]`);
     if (this.currElement.type == eElementType.type_back) {
       this.ct_try(eResultRequirements.RR_None, eByteCode.bc_drop_trap);
@@ -5532,7 +5559,8 @@ export class SpinResolver {
       this.ci_debug();
     } else if (this.currElement.type == eElementType.type_i_flex) {
       // flex instruction?
-      this.logMessage(`* compileInstruction() flexCode=(${this.currElement.flexByteCode}), bc=[${eByteCode[this.currElement.flexByteCode]}]`);
+      if (this.isLogging)
+        this.logMessage(`* compileInstruction() flexCode=(${this.currElement.flexByteCode}), bc=[${eByteCode[this.currElement.flexByteCode]}]`);
       if (this.currElement.flexResultCount > 0) {
         // [error_ticobu]
         throw new Error('This instruction can only be used as an expression term, since it returns results');
@@ -5572,19 +5600,19 @@ export class SpinResolver {
           this.compileVariableMultiple(savedNextElementIndex); // this handles the rest of the line
         } else {
           // @@notwriteskip:
-          //this.logMessage(`  -- compInstru() at elem=[${this.currElement.toString()}]`);
+          //if (this.isLogging) this.logMessage(`  -- compInstru() at elem=[${this.currElement.toString()}]`);
           const variableReturn: iVariableReturn = this.checkVariable(); // variable ?
           if (variableReturn.isVariable == false) {
             // [error_eaiov]
             throw new Error('Expected an instruction or variable');
           }
-          this.logMessage(`  -- compInst() variableReturn=[${JSON.stringify(variableReturn, null, 2)}]`);
+          if (this.isLogging) this.logMessage(`  -- compInst() variableReturn=[${JSON.stringify(variableReturn, null, 2)}]`);
           this.currElement = this.getElementObj(); // get element after variable- obj due to better error flagging
           if (this.currElement.type == eElementType.type_comma) {
             // var,... := param(s),... ?
             this.compileVariableMultiple(savedNextElementIndex);
           } else if (this.isStruct(variableReturn.type) && !variableReturn.structIsBWL) {
-            this.logMessage(`  -- compInst() have structure, NOT BWL`);
+            if (this.isLogging) this.logMessage(`  -- compInst() have structure, NOT BWL`);
             // Handle structure operations here...
             if (this.currElement.type == eElementType.type_assign) {
               // structure := ?
@@ -5635,7 +5663,7 @@ export class SpinResolver {
               // [error_tocbufa]
               throw new Error('This operator cannot be used for assignment (m611)');
             }
-            this.logMessage(`* compileInstruction() type_equal`);
+            if (this.isLogging) this.logMessage(`* compileInstruction() type_equal`);
             const baseByteCode: eByteCode = this.currElement.byteCode;
             this.getEqual(); // skip our equal sign
             this.compileExpression();
@@ -5650,23 +5678,23 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage(`*==* compileInstruction() EXIT`);
+    if (this.isLogging) this.logMessage(`*==* compileInstruction() EXIT`);
     this.logMessageConditional(bIsDesiredLine, `*==* compileInstruction() EXIT`);
   }
 
   private compileVariableMultiple(startElementIndex: number) {
     // Compile multi-variable assignment - var,... := param(s),...
     // PNut compile_var_multi:
-    this.logMessage(`  -- compileVariableMultiple(elemIdx=(${startElementIndex})) - ENTRY`);
+    if (this.isLogging) this.logMessage(`  -- compileVariableMultiple(elemIdx=(${startElementIndex})) - ENTRY`);
     const elementIndexStack: number[] = [];
-    //this.logMessage(`  -- compileVariableMultiple() elem=[${this.nextElementIndex}] - ENTRY`);
-    //this.logMessage();
+    //if (this.isLogging) this.logMessage(`  -- compileVariableMultiple() elem=[${this.nextElementIndex}] - ENTRY`);
+    //if (this.isLogging) this.logMessage();
     this.logRestoredElementLocation(startElementIndex);
     let parameterCount: number = 0;
     let longCount: number = 0;
     // eslint-disable-next-line no-constant-condition
     do {
-      this.logMessage(`* pushed element index... have ${elementIndexStack.length} now...`);
+      if (this.isLogging) this.logMessage(`* pushed element index... have ${elementIndexStack.length} now...`);
       elementIndexStack.push(this.logSavedElementLocation()); // equiv PNut push [source_ptr]
       // if '_{[type_con_int|type_con_struct]}', got long count
       const [foundUnderScore, longsFound] = this.checkWriteSkip();
@@ -5685,7 +5713,7 @@ export class SpinResolver {
       parameterCount++;
     } while (this.checkComma());
 
-    this.logMessage(`  -- compVarMult() - parameterCount=(${parameterCount}), longCount=(${longCount})`);
+    if (this.isLogging) this.logMessage(`  -- compVarMult() - parameterCount=(${parameterCount}), longCount=(${longCount})`);
 
     this.getAssign();
     this.compileParametersNoParens(longCount);
@@ -5716,14 +5744,14 @@ export class SpinResolver {
     } while (--remainingParameterCount);
     // restore to end of current assignment statement
     this.logRestoredElementLocation(endElementIndex);
-    //this.logMessage(`  -- compileVariableMultiple(by [${callerID}]) elem=[${this.nextElementIndex}] - EXIT`);
-    this.logMessage(`  -- compileVariableMultiple() - EXIT`);
+    //if (this.isLogging) this.logMessage(`  -- compileVariableMultiple(by [${callerID}]) elem=[${this.nextElementIndex}] - EXIT`);
+    if (this.isLogging) this.logMessage(`  -- compileVariableMultiple() - EXIT`);
   }
 
   private compileOrg() {
     // Compile inline assembly section - first handle ORG operand(s)
     // PNut compile_inline:
-    this.logMessage(`* compileOrg() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* compileOrg() - ENTRY`);
     let inlineOrigin: number = 0;
     let inline_org_limit: number = this.inline_org_limit;
     // handle inline:  ORG {start{,limit}}
@@ -5755,7 +5783,7 @@ export class SpinResolver {
     const patchLocation: number = this.objImage.offset;
     const isInlineMode: boolean = true;
     // compile inline section
-    this.logMessage(`  -- compile inline section`);
+    if (this.isLogging) this.logMessage(`  -- compile inline section`);
     this.hubMode = false;
     this.compile_dat_blocks(isInlineMode, inlineOrigin << 2, inline_org_limit << 2);
     // eslint-disable-next-line no-constant-condition
@@ -5772,13 +5800,13 @@ export class SpinResolver {
       throw new Error('ORG/ORGH inline block is empty (m410)');
     }
     this.objImage.replaceWord(lengthInLongs - 1, patchLocation - 2); // replace the placeholder with length
-    this.logMessage(`* compileOrg() - EXIT`);
+    if (this.isLogging) this.logMessage(`* compileOrg() - EXIT`);
   }
 
   private compileOrgh() {
     // PNut compile_orgh:
     // Compile ORGH inline assembly section
-    this.logMessage(`* compileOrgh() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* compileOrgh() - ENTRY`);
     this.getEndOfLine();
     // this is @@org:
     this.objImage.appendByte(eByteCode.bc_hub_bytecode);
@@ -5791,7 +5819,7 @@ export class SpinResolver {
     const inline_org_limit: number = 0x1f8;
 
     // compile inline section
-    this.logMessage(`  -- compile inline section`);
+    if (this.isLogging) this.logMessage(`  -- compile inline section`);
     this.hubMode = true;
     this.compile_dat_blocks(isInlineMode, inlineOrigin << 2, inline_org_limit << 2);
     // eslint-disable-next-line no-constant-condition
@@ -5812,7 +5840,7 @@ export class SpinResolver {
       throw new Error('ORGH inline block exceeds $FFFF longs (including the added RET instruction)');
     }
     this.objImage.replaceWord(lengthInLongs, patchLocation - 2); // replace the placeholder with length
-    this.logMessage(`* compileOrgh() - EXIT`);
+    if (this.isLogging) this.logMessage(`* compileOrgh() - EXIT`);
   }
 
   private ci_next_quit() {
@@ -5840,7 +5868,7 @@ export class SpinResolver {
     let byteCode: eByteCode = eByteCode.bc_jmp;
 
     const topItem: string = nestLevel != -1 ? eElementType[this.blockStack.typeAtLevel(nestLevel)] : '-emptyStack-';
-    this.logMessage(`* ci_next_quit() nestLevel=(${nestLevel}), topItemType=[${topItem}], remainingLevels=(${remainingLevels})`);
+    if (this.isLogging) this.logMessage(`* ci_next_quit() nestLevel=(${nestLevel}), topItemType=[${topItem}], remainingLevels=(${remainingLevels})`);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -5957,7 +5985,7 @@ export class SpinResolver {
   private ci_send() {
     // Compile instruction - SEND()
     // PNut ci_send:
-    this.logMessage(`*==* ci_send()`);
+    if (this.isLogging) this.logMessage(`*==* ci_send()`);
     this.getLeftParen();
     if (this.checkRightParen()) {
       // [error_esendd]
@@ -6119,10 +6147,10 @@ export class SpinResolver {
     // we have to skip debug() statement if not -d or DEBUG_DISABLE is set
     if (!this.debugStatementWillEmitCode()) {
       // remove all but end of line
-      this.logMessage(`*--* ci_debug(${this.currElement.toString()}) - Debug() processing disabled`);
+      if (this.isLogging) this.logMessage(`*--* ci_debug(${this.currElement.toString()}) - Debug() processing disabled`);
       this.skipToEndOfLine();
     } else {
-      this.logMessage(`*--* ci_debug(${this.currElement.toString()}) ENTRY`);
+      if (this.isLogging) this.logMessage(`*--* ci_debug(${this.currElement.toString()}) ENTRY`);
       if (!this.checkLeftParen()) {
         // this is debug (without parens)
         // consumes left paren if next is left paren
@@ -6152,7 +6180,7 @@ export class SpinResolver {
           }
         }
       }
-      this.logMessage(`*--* ci_debug(${this.currElement.toString()}) EXIT`);
+      if (this.isLogging) this.logMessage(`*--* ci_debug(${this.currElement.toString()}) EXIT`);
     }
   }
 
@@ -6162,7 +6190,7 @@ export class SpinResolver {
     // enter string, returning indication if end of line
     // NOTE: the following method always sets debug_first
     let brkCode: number = 0;
-    this.logMessage(` -- processBackTickDbg(${this.currElement.toString()}) - ENTRY`);
+    if (this.isLogging) this.logMessage(` -- processBackTickDbg(${this.currElement.toString()}) - ENTRY`);
     const anotherTickFollows: boolean = this.debugTickString();
     if (anotherTickFollows == false) {
       // found ')' and end of line, enter debug data
@@ -6175,7 +6203,7 @@ export class SpinResolver {
         // here is ci_debug:@@tickcommand
         // at '`' move to next
         this.getElement();
-        this.logMessage(`  -- at elem=[${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`  -- at elem=[${this.currElement.toString()}]`);
         if (this.currElement.type == eElementType.type_debug_cmd) {
           // here is @@tickcmd
           // this handles commands of dual and single parameters
@@ -6221,9 +6249,9 @@ export class SpinResolver {
               this.incStack();
             } else {
               // pasm debug
-              //this.logMessage(`  -- processBackTicDbg() hand off to compParamPasm() elem=[${this.currElement.toString()}]`);
+              //if (this.isLogging) this.logMessage(`  -- processBackTicDbg() hand off to compParamPasm() elem=[${this.currElement.toString()}]`);
               this.compileParameterAsm(); // new TESTING
-              //this.logMessage(`  -- processBackTicDbg() back from compParamPasm() elem=[${this.currElement.toString()}]`);
+              //if (this.isLogging) this.logMessage(`  -- processBackTicDbg() back from compParamPasm() elem=[${this.currElement.toString()}]`);
             }
             this.nextDebugIsFirst(); // reset to first
             // call	 get_comma_or_right
@@ -6237,17 +6265,17 @@ export class SpinResolver {
         // UNGH! back up, go forward to allow compile of the following if!
         this.backElement();
         this.currElement = this.getElement();
-        this.logMessage(`* ProcessBackTickDbg() at tickCmd rightParen? elem=[${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`* ProcessBackTickDbg() at tickCmd rightParen? elem=[${this.currElement.toString()}]`);
         if (this.currElement.type == eElementType.type_right) {
           this.debugWhiteSpaceString();
         }
       }
-      this.logMessage(`  -- prcssBackTicDbg() dbgRcdLen=(${this.debug_record.length})`);
+      if (this.isLogging) this.logMessage(`  -- prcssBackTicDbg() dbgRcdLen=(${this.debug_record.length})`);
       // all tick commands processed, now record the new debug records
       brkCode = this.enterDebug(isPasmMode);
-      this.logMessage(`  -- back to top of loop`);
+      if (this.isLogging) this.logMessage(`  -- back to top of loop`);
     }
-    this.logMessage(` -- processBackTickDbg(${this.currElement.toString()}) - EXIT w/(${brkCode})`);
+    if (this.isLogging) this.logMessage(` -- processBackTickDbg(${this.currElement.toString()}) - EXIT w/(${brkCode})`);
     return brkCode;
   }
 
@@ -6257,7 +6285,7 @@ export class SpinResolver {
     //        but THIS: debug("...) or e.g., debug(uhex_long()) is nonTickDebug
     let brkCode: number = 0;
     let didFirstPass: boolean = false;
-    this.logMessage(` -- processNonTickDbg(${this.currElement.toString()}) - ENTRY`);
+    if (this.isLogging) this.logMessage(` -- processNonTickDbg(${this.currElement.toString()}) - ENTRY`);
     // here for 1st occurrence of if()/ifnot()
     if (this.currElement.type == eElementType.type_if) {
       this.singleParam(eValueType.dc_if, isPasmMode); // compile single-parameter command
@@ -6271,12 +6299,12 @@ export class SpinResolver {
     this.debugEnterByte(eValueType.dc_cogn); // enter cogn command
     do {
       if (didFirstPass == true) {
-        this.logMessage(`  -- found if elem=[${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`  -- found if elem=[${this.currElement.toString()}]`);
         didFirstPass = false;
       } else {
         // here is @@next:
         this.getElement();
-        this.logMessage(` -- processNonTickDbg() @@next elem=[${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(` -- processNonTickDbg() @@next elem=[${this.currElement.toString()}]`);
         // here for 2nd or more occurrence of if()/ifnot()
         if (this.currElement.type == eElementType.type_if) {
           this.singleParam(eValueType.dc_if, isPasmMode);
@@ -6296,25 +6324,25 @@ export class SpinResolver {
               this.compileExpression();
               this.incStack();
             } else {
-              //this.logMessage(`  -- processNonTicDbg() hand off to compParamPasm() elem=[${this.currElement.toString()}]`);
+              //if (this.isLogging) this.logMessage(`  -- processNonTicDbg() hand off to compParamPasm() elem=[${this.currElement.toString()}]`);
               this.compileParameterAsm(); // new TESTING
-              //this.logMessage(`  -- processNonTicDbg() back from compParamPasm() elem=[${this.currElement.toString()}]`);
+              //if (this.isLogging) this.logMessage(`  -- processNonTicDbg() back from compParamPasm() elem=[${this.currElement.toString()}]`);
             }
             this.nextDebugIsFirst(); // reset to first
           }
         }
-        this.logMessage(`  -- end of do...while`);
+        if (this.isLogging) this.logMessage(`  -- end of do...while`);
       }
       // PNut here is @@checknext
     } while (this.getCommaOrRightParen());
     brkCode = this.enterDebug(isPasmMode);
-    this.logMessage(` -- processNonTickDbg(${this.currElement.toString()}) - EXIT w/(${brkCode})`);
+    if (this.isLogging) this.logMessage(` -- processNonTickDbg(${this.currElement.toString()}) - EXIT w/(${brkCode})`);
     return brkCode;
   }
 
   private enterDebug(isPasmMode: boolean): number {
     // here is ci_debug:@@enterdebug
-    this.logMessage(`  -- enterDebug(isPasmMode=(${isPasmMode})) ENTRY`);
+    if (this.isLogging) this.logMessage(`  -- enterDebug(isPasmMode=(${isPasmMode})) ENTRY`);
     let brkCode: number = 0; // only useful if isPasmMode == true
     if (isPasmMode == false) {
       this.objImage.appendByte(eByteCode.bc_debug); // end of DEBUG data/commands, enter DEBUG bytecode
@@ -6325,7 +6353,7 @@ export class SpinResolver {
       // here is ci_debug:@@enterdebug
       brkCode = this.debugEnterRecord(); // enter record into debug data, returning brk code
     }
-    this.logMessage(`  -- enterDebug() EXIT`);
+    if (this.isLogging) this.logMessage(`  -- enterDebug() EXIT`);
     return brkCode;
   }
 
@@ -6339,7 +6367,7 @@ export class SpinResolver {
 
   private tickCmd(cmdValue: number, isPasmMode: boolean, skipWrapupOnLast: boolean = false) {
     //Here is @@tickCmd:
-    this.logMessage(`  -- tickCmd(cmd=(${cmdValue})) - ENTRY`);
+    if (this.isLogging) this.logMessage(`  -- tickCmd(cmd=(${cmdValue})) - ENTRY`);
     if (isPasmMode == false) {
       if (cmdValue == eValueType.dc_dly || cmdValue == eValueType.dc_pc_key || cmdValue == eValueType.dc_pc_mouse) {
         // NOTE any of these three MUST be the last tickcommand in a debug() statement
@@ -6369,14 +6397,14 @@ export class SpinResolver {
     } else {
       this.tickCmdAsm(cmdValue, skipWrapupOnLast);
     }
-    this.logMessage(`  -- tickCmd(cmd=(${cmdValue})) - EXIT`);
+    if (this.isLogging) this.logMessage(`  -- tickCmd(cmd=(${cmdValue})) - EXIT`);
   }
 
   private tickCmdAsm(cmdValue: number, skipWrapupOnLast: boolean = false) {
     //Here is @@tickCmd:
     const pasmMode: boolean = true;
     let currCmdValue: number = cmdValue;
-    this.logMessage(`* tickCmdAsm(${hexByte(cmdValue, '0x')}) ENTRY elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* tickCmdAsm(${hexByte(cmdValue, '0x')}) ENTRY elem=[${this.currElement.toString()}]`);
     if (cmdValue == eValueType.dc_dly || cmdValue == eValueType.dc_pc_key || cmdValue == eValueType.dc_pc_mouse) {
       // NOTE any of these three MUST be the last tickcommand in a debug() statement
       // here is ci_debug:@@dkm
@@ -6409,11 +6437,11 @@ export class SpinResolver {
         this.compileParameterAsm();
       } while (this.getCommaOrRightParen());
     }
-    this.logMessage(`* tickCmdAsm(${hexByte(cmdValue, '0x')}) EXIT`);
+    if (this.isLogging) this.logMessage(`* tickCmdAsm(${hexByte(cmdValue, '0x')}) EXIT`);
   }
 
   private dualParamCheck(cmdValue: number) {
-    this.logMessage(`* dualParamChk(${hexByte(cmdValue & 0xff, '0x')}) curElem=${this.currElement.toString()} - ENTRY`);
+    if (this.isLogging) this.logMessage(`* dualParamChk(${hexByte(cmdValue & 0xff, '0x')}) curElem=${this.currElement.toString()} - ENTRY`);
     if (cmdValue & 0x02) {
       // here is @@dpsimple
       this.dualParamSimple(cmdValue);
@@ -6422,7 +6450,7 @@ export class SpinResolver {
       // here is @@dpverbose
       this.dualParamVerbose(cmdValue);
     }
-    this.logMessage(`* dualParamChk(${hexByte(cmdValue & 0xff, '0x')}) - EXIT`);
+    if (this.isLogging) this.logMessage(`* dualParamChk(${hexByte(cmdValue & 0xff, '0x')}) - EXIT`);
   }
 
   private dualParamSimple(cmdValue: number) {
@@ -6447,7 +6475,7 @@ export class SpinResolver {
   private dualParamVerbose(cmdValue: number) {
     // PNut ci_debug:@@dpverbose:
     let currCmdValue: number = cmdValue;
-    this.logMessage(`* dualParamVerbose(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()}`);
+    if (this.isLogging) this.logMessage(`* dualParamVerbose(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()}`);
     //this.getElement(); // move to value after '('
     do {
       const [startCharOffset, endCharOffset] = this.debugExpSource();
@@ -6461,7 +6489,7 @@ export class SpinResolver {
   }
 
   private singleParamCheck(cmdValue: number) {
-    this.logMessage(`* singleParamChk(${hexByte(cmdValue, '0x')})`);
+    if (this.isLogging) this.logMessage(`* singleParamChk(${hexByte(cmdValue, '0x')})`);
     if (cmdValue & 0x02) {
       // here is @@spsimple
       this.singleParamSimple(cmdValue);
@@ -6475,9 +6503,10 @@ export class SpinResolver {
   private singleParamSimple(cmdValue: number) {
     // PNut ci_debug:@@spsimple:
     let currCmdValue: number = cmdValue;
-    this.logMessage(`* singleParamSimple(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()}`);
+    if (this.isLogging) this.logMessage(`* singleParamSimple(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()}`);
     let parameterCount = this.compileParametersMethodPtr();
-    this.logMessage(`* singleParamSimple(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()} -> parameterCount=(${parameterCount})`);
+    if (this.isLogging)
+      this.logMessage(`* singleParamSimple(${hexByte(cmdValue, '0x')}) curElem=${this.currElement.toString()} -> parameterCount=(${parameterCount})`);
     if (parameterCount == 0) {
       // [error_eaet]
       throw new Error('Expected an expression term (m171)');
@@ -6513,9 +6542,10 @@ export class SpinResolver {
     // PNut debug_exp_source:
     const savedElementIndex = this.logSavedElementLocation();
     this.getElementObj(); // skip paren
-    this.logMessage(
-      `* debugExpSource(isPasm=(${isPasmMode})) - ENTRY elem=[${this.currElement.toString()}](${this.currElement.sourceCharacterOffset},?)`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* debugExpSource(isPasm=(${isPasmMode})) - ENTRY elem=[${this.currElement.toString()}](${this.currElement.sourceCharacterOffset},?)`
+      );
     const startOffset: number = this.currElement.sourceCharacterOffset;
     this.backElement();
     // here is ci_debug:@@skipparam for debug() (not asm form)
@@ -6528,14 +6558,15 @@ export class SpinResolver {
       // NOTE we are just skipping past so we don't use this return value
       const startValueReturn: iValueReturn = this.getValue(eMode.BM_OperandIntOnly, eResolve.BR_Must);
     }
-    this.logMessage(
-      `* debugExpSource() elem=[${this.currElement.toString()}](${this.currElement.sourceCharacterOffset},${this.currElement.sourceCharacterEndOffset})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* debugExpSource() elem=[${this.currElement.toString()}](${this.currElement.sourceCharacterOffset},${this.currElement.sourceCharacterEndOffset})`
+      );
     //if (this.currElement.type == eElementType.type_con_int) {
     //  this.getElement
     //}
     const endoffset: number = this.currElement.sourceCharacterEndOffset;
-    this.logMessage(`* debugExpSource() - EXIT srt=(${startOffset}), end=(${endoffset})`);
+    if (this.isLogging) this.logMessage(`* debugExpSource() - EXIT srt=(${startOffset}), end=(${endoffset})`);
     this.logRestoredElementLocation(savedElementIndex); // restore to left paren
     return [startOffset, endoffset];
   }
@@ -6546,9 +6577,10 @@ export class SpinResolver {
     if (currSrcLine) {
       //if (currSrcLine && endOffset > startOffset) {
       const selectedString: string = currSrcLine.substring(startOffset, endOffset + 1);
-      this.logMessage(
-        `* dbgVerbStr(${startOffset}-${endOffset}) selectedString=[${selectedString}](${selectedString.length}), currSrcLine=[${currSrcLine}](${currSrcLine.length})`
-      );
+      if (this.isLogging)
+        this.logMessage(
+          `* dbgVerbStr(${startOffset}-${endOffset}) selectedString=[${selectedString}](${selectedString.length}), currSrcLine=[${currSrcLine}](${currSrcLine.length})`
+        );
       // BUGFIX: caller is mis-calculating string length in some cases. This repairs the endLocation when this happens
 
       // enter string bytes
@@ -6563,9 +6595,10 @@ export class SpinResolver {
       }
       if (isDblQuoteInSubstring) {
         const endQuoteLocn = currSrcLine.indexOf('"', startOffset + startQuoteLocn + 1);
-        this.logMessage(
-          `* dbgVerbStr() dblQuotesAt (${startOffset + startQuoteLocn}), (${endQuoteLocn}), override (${endOffset}) with (${endQuoteLocn})`
-        );
+        if (this.isLogging)
+          this.logMessage(
+            `* dbgVerbStr() dblQuotesAt (${startOffset + startQuoteLocn}), (${endQuoteLocn}), override (${endOffset}) with (${endQuoteLocn})`
+          );
         endOffset = endQuoteLocn;
       }
 
@@ -6575,14 +6608,14 @@ export class SpinResolver {
       }
       this.debugEnterByte(0); // zero-terminate string
       //} else {
-      //  this.logMessage(`* dbgVerbStr(startOffset=(${startOffset}), endOffset=(${endOffset})) currSrcLine=[${currSrcLine}] - bad request!`);
+      //  if (this.isLogging) this.logMessage(`* dbgVerbStr(startOffset=(${startOffset}), endOffset=(${endOffset})) currSrcLine=[${currSrcLine}] - bad request!`);
       //}
     }
   }
 
   private debugEnterByteFlag(cmdValue: number): number {
     // PNut debug_enter_byte_flag:
-    this.logMessage(`* debugEnterByteFlg(${hexByte(cmdValue, '0x')}) debug_first=(${this.debug_first})`);
+    if (this.isLogging) this.logMessage(`* debugEnterByteFlg(${hexByte(cmdValue, '0x')}) debug_first=(${this.debug_first})`);
     this.debugEnterByte(cmdValue | (this.debug_first ? 1 : 0));
     this.nextDebugIsFirst(false); // we marked the first, remaining are not first
     return cmdValue & 0xfe;
@@ -6590,7 +6623,7 @@ export class SpinResolver {
 
   private singleParam(cmdValue: number, isPasmMode: boolean = false) {
     // PNut ci_debug:@@singleparam:
-    this.logMessage(`  -- singleParam(cmd=(${cmdValue})) - ENTRY`);
+    if (this.isLogging) this.logMessage(`  -- singleParam(cmd=(${cmdValue})) - ENTRY`);
     this.debugEnterByte(cmdValue);
     if (isPasmMode == false) {
       // spin mode
@@ -6602,7 +6635,7 @@ export class SpinResolver {
       this.compileParameterAsm();
       this.getRightParen();
     }
-    this.logMessage(`  -- singleParam(cmd=(${cmdValue})) - EXIT`);
+    if (this.isLogging) this.logMessage(`  -- singleParam(cmd=(${cmdValue})) - EXIT`);
   }
 
   private compileParameterAsm() {
@@ -6654,7 +6687,7 @@ export class SpinResolver {
     } while (this.checkComma());
     // here is @@notchr:
     this.logRestoredElementLocation(savedElementIndex); // restore to left paren
-    //this.logMessage(` -- debugCheckString(${this.currElement.toString()}) stringLength=(${stringLength})`);
+    //if (this.isLogging) this.logMessage(` -- debugCheckString(${this.currElement.toString()}) stringLength=(${stringLength})`);
     if (stringLength == 0) {
       foundStringStatus = false;
     } else {
@@ -6670,12 +6703,13 @@ export class SpinResolver {
       this.debugEnterByte(0); // zero terminate our string
       this.nextDebugIsFirst(); // reset to first after string
     }
-    this.logMessage(` -- debugCheckString(${this.currElement.toString()})  stringLength=(${stringLength}) -> foundString=(${foundStringStatus})`);
+    if (this.isLogging)
+      this.logMessage(` -- debugCheckString(${this.currElement.toString()})  stringLength=(${stringLength}) -> foundString=(${foundStringStatus})`);
     return foundStringStatus;
   }
 
   private debugWhiteSpaceString() {
-    this.logMessage(` -- debugWhiteSpaceString(${this.currElement.toString()})`);
+    if (this.isLogging) this.logMessage(` -- debugWhiteSpaceString(${this.currElement.toString()})`);
     // PNut ...
     // If chrs expressed in source, enter string
     let foundStringStatus = true;
@@ -6695,7 +6729,7 @@ export class SpinResolver {
     } while (this.checkComma());
     // here is @@notchr:
     this.logRestoredElementLocation(savedElementIndex); // restore to left paren
-    //this.logMessage(` -- debugCheckString(${this.currElement.toString()}) stringLength=(${stringLength})`);
+    //if (this.isLogging) this.logMessage(` -- debugCheckString(${this.currElement.toString()}) stringLength=(${stringLength})`);
     if (stringLength == 0) {
       foundStringStatus = false;
     } else {
@@ -6711,14 +6745,14 @@ export class SpinResolver {
       this.debugEnterByte(0); // zero terminate our string
       this.nextDebugIsFirst(); // reset to first after string
     }
-    this.logMessage(` -- debugWhiteSpaceString(${this.currElement.toString()}) charCount=(${stringLength})`);
+    if (this.isLogging) this.logMessage(` -- debugWhiteSpaceString(${this.currElement.toString()}) charCount=(${stringLength})`);
   }
 
   private debugTickString(): boolean {
     // PNut debug_tick_string:
     // TODO: need to check for opening "(`"?
     // return value z=1 if '`', z=0 if ')'
-    this.logMessage(` -- debugTickString(${this.currElement.toString()})`);
+    if (this.isLogging) this.logMessage(` -- debugTickString(${this.currElement.toString()})`);
     let foundEndWithTickStatus: boolean = false;
     let currSrcLine = this.srcFile?.sourceLineAt(this.currElement.sourceLineIndex).text;
     let charCount: number = 1;
@@ -6756,20 +6790,21 @@ export class SpinResolver {
       this.debugEnterByte(0); // zero-terminate string
       this.nextDebugIsFirst(); // reset to first after string
     }
-    this.logMessage(` -- debugTickString(${this.currElement.toString()}) charCount=(${charCount}) --> endWithTic=(${foundEndWithTickStatus})`);
+    if (this.isLogging)
+      this.logMessage(` -- debugTickString(${this.currElement.toString()}) charCount=(${charCount}) --> endWithTic=(${foundEndWithTickStatus})`);
 
     return foundEndWithTickStatus;
   }
 
   private debugEnterByte(byteValue: number) {
     // PNut debug_enter_byte:
-    this.logMessage(` -- debugEnterByte(${hexByte(byteValue & 0xff, '0x')})`);
+    if (this.isLogging) this.logMessage(` -- debugEnterByte(${hexByte(byteValue & 0xff, '0x')})`);
     this.debug_record.append(byteValue);
   }
 
   private debugEnterRecord(): number {
     // PNut debug_enter_record:
-    this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - ENTRY`);
+    if (this.isLogging) this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - ENTRY`);
     this.debugEnterByte(0); // zero-terminate record
     let entryIndex: number = 1; // PNut bl register
     let recordPresent: boolean = false;
@@ -6790,7 +6825,7 @@ export class SpinResolver {
       this.debug_data.setRecord(entryIndex, this.debug_record);
     }
     this.debug_record.clear(); // record recorded or skipped, empty it
-    this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - EXIT w/(${entryIndex})`);
+    if (this.isLogging) this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - EXIT w/(${entryIndex})`);
     return entryIndex; // index of matched record or new record
   }
 
@@ -6798,7 +6833,7 @@ export class SpinResolver {
     // PNut collapse_debug_data:
     if (this.context.compileOptions.enableDebug == true && isTopLevel) {
       // compress our debug data then store it for listing and binary writing
-      this.logMessage('* collapse_debug_data()');
+      if (this.isLogging) this.logMessage('* collapse_debug_data()');
       this.debug_compressed_data = this.debug_data.collapseDebugData;
     }
   }
@@ -6807,7 +6842,7 @@ export class SpinResolver {
     // Compile DEBUG for assembler
     // PNut ci_debug_asm:
     // NOTE: only here if we have debug(...) or debug()
-    this.logMessage(`*--* ci_debug_asm(${this.currElement.toString()}) - ENTRY`);
+    if (this.isLogging) this.logMessage(`*--* ci_debug_asm(${this.currElement.toString()}) - ENTRY`);
     let brkCode: number = 0;
     this.nextDebugIsFirst(); // assure first at start of new debug() line
     this.debug_record.clear(); // each debug() line, start with empty record
@@ -6830,16 +6865,16 @@ export class SpinResolver {
         brkCode = this.processNonTickDebug(isPasmMode);
       }
     }
-    this.logMessage(`*--* ci_debug_asm(${this.currElement.toString()}) - EXIT`);
+    if (this.isLogging) this.logMessage(`*--* ci_debug_asm(${this.currElement.toString()}) - EXIT`);
     return brkCode;
   }
 
   private nextDebugIsFirst(isFirst: boolean = true) {
     const changed: boolean = isFirst == this.debug_first;
     if (changed) {
-      this.logMessage(`  -- debug_first=(${this.debug_first}) -> (${isFirst})`);
+      if (this.isLogging) this.logMessage(`  -- debug_first=(${this.debug_first}) -> (${isFirst})`);
     } else {
-      this.logMessage(`  -- debug_first=(${this.debug_first})`);
+      if (this.isLogging) this.logMessage(`  -- debug_first=(${this.debug_first})`);
     }
     this.debug_first = isFirst;
   }
@@ -6847,8 +6882,8 @@ export class SpinResolver {
   private compileTerm() {
     // PNut compile_term:
     const elementType: eElementType = this.currElement.type;
-    this.logMessage(`*--* compileTerm(${eElementType[elementType]}[${this.currElement.toString()}]) - ENTRY`);
-    //this.logMessageOutline(`*--* compileTerm(${eElementType[elementType]}[${this.currElement.toString()}]) - ENTRY`);
+    if (this.isLogging) this.logMessage(`*--* compileTerm(${eElementType[elementType]}[${this.currElement.toString()}]) - ENTRY`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`*--* compileTerm(${eElementType[elementType]}[${this.currElement.toString()}]) - ENTRY`);
     const elementValue: number = Number(this.currElement.bigintValue);
     if (this.currElement.isConstantInt || this.currElement.isConstantFloat) {
       // constant integer? or constant float?
@@ -6897,7 +6932,8 @@ export class SpinResolver {
       if (this.currElement.flexByteCode == eByteCode.bc_coginit) {
         this.compileFlex(eFlexcode.fc_coginit_push);
       } else {
-        this.logMessage(`  -- compileTerm() at [${this.currElement.toString()}], flexResultCount=(${this.currElement.flexResultCount})`);
+        if (this.isLogging)
+          this.logMessage(`  -- compileTerm() at [${this.currElement.toString()}], flexResultCount=(${this.currElement.flexResultCount})`);
         if (this.currElement.flexResultCount != 1) {
           // [error_etmrasr]
           throw new Error('Expression terms must return a single result');
@@ -6930,7 +6966,7 @@ export class SpinResolver {
         throw new Error('Expected an expression term (m172)');
       }
       if (this.isStruct(variableResult.type) && !variableResult.structIsBWL) {
-        this.logMessage(`  -- compileTerm() have struct, NOT BWL`);
+        if (this.isLogging) this.logMessage(`  -- compileTerm() have struct, NOT BWL`);
         if (variableResult.structSize <= 4) {
           variableResult.operation = eVariableOperation.VO_READ;
           this.compileVariable(variableResult);
@@ -6948,10 +6984,10 @@ export class SpinResolver {
         }
         workComplete = true;
       } else if (variableResult.structIsBWL) {
-        this.logMessage(`  -- compileTerm() have BWL compile a read var, look for post incr/decr`);
+        if (this.isLogging) this.logMessage(`  -- compileTerm() have BWL compile a read var, look for post incr/decr`);
         // fall thru to @@notstruct:
       }
-      this.logMessage(`  -- compileTerm() workComplete=(${workComplete})`);
+      if (this.isLogging) this.logMessage(`  -- compileTerm() workComplete=(${workComplete})`);
       if (!workComplete) {
         // here is @notstruct:
         this.currElement = this.getElement(); // get element after variable
@@ -6990,15 +7026,15 @@ export class SpinResolver {
           this.compileVariableAssign(variableResult, finalByteCode);
         } else {
           // here is @@notbin:
-          this.logMessage(`  -- compileTerm() compile a read var`);
+          if (this.isLogging) this.logMessage(`  -- compileTerm() compile a read var`);
           this.backElement();
           variableResult.operation = eVariableOperation.VO_READ;
           this.compileVariable(variableResult);
         }
       }
     }
-    this.logMessage(`*--* compileTerm() - EXIT`);
-    //this.logMessageOutline(`*--* compileTerm() - EXIT`);
+    if (this.isLogging) this.logMessage(`*--* compileTerm() - EXIT`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`*--* compileTerm() - EXIT`);
   }
 
   private compileFlex(flexCode: eFlexcode) {
@@ -7173,26 +7209,26 @@ export class SpinResolver {
   private compileParameters(parameterCount: number) {
     const sourceLine = this.currElement.sourceLineNumber;
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
-    this.logMessage(`* compileParameters(${parameterCount}) elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* compileParameters(${parameterCount}) elem=[${this.currElement.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `* compileParameters(${parameterCount}) elem=[${this.currElement.toString()}]`);
     this.getLeftParen();
     if (parameterCount > 0) {
       this.compileParametersNoParens(parameterCount);
     }
-    this.logMessage(`* compileParameters() returned from compileParametersNoParens(), get right`);
+    if (this.isLogging) this.logMessage(`* compileParameters() returned from compileParametersNoParens(), get right`);
     this.getRightParen();
     this.logMessageConditional(bIsDesiredLine, `* compileParameters(${parameterCount}) EXIT at [${this.currElement.toString()}]`);
   }
 
   private compileParametersNoParens(parameterCount: number) {
     // PNut compile_parameters_np:
-    this.logMessage(`* compileParametersNoParens(${parameterCount}) - ENTRY`);
+    if (this.isLogging) this.logMessage(`* compileParametersNoParens(${parameterCount}) - ENTRY`);
     let parametersRemaining: number = parameterCount;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const numberReturnValues = this.compileParameter();
       parametersRemaining -= numberReturnValues;
-      this.logMessage(` -- nbrRetVals=(${numberReturnValues}), paramRem=(${parametersRemaining})`);
+      if (this.isLogging) this.logMessage(` -- nbrRetVals=(${numberReturnValues}), paramRem=(${parametersRemaining})`);
       if (parametersRemaining < 0) {
         // [error_enope]
         throw new Error('Expected number of parameters exceeded');
@@ -7201,7 +7237,7 @@ export class SpinResolver {
       }
       this.getComma();
     }
-    this.logMessage(`* compileParametersNoParens(${parameterCount}) - EXIT`);
+    if (this.isLogging) this.logMessage(`* compileParametersNoParens(${parameterCount}) - EXIT`);
   }
 
   private compileParameter(): number {
@@ -7217,7 +7253,7 @@ export class SpinResolver {
     //
     // PNut compile_parameter:
     let skipFollowingTypeChecks: boolean = false;
-    this.logMessage(`*--* compileParameter() - ENTRY at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`*--* compileParameter() - ENTRY at [${this.currElement.toString()}]`);
     let compiledParameterCount: number = -1; // flag saying we need to compile expression
     const savedElementIndex: number = this.logSavedElementLocation();
     this.getElementObj();
@@ -7329,13 +7365,13 @@ export class SpinResolver {
       this.compileExpression();
       compiledParameterCount = 1;
     }
-    this.logMessage(`*--* compileParameter() - EXIT with compiledParameterCount=(${compiledParameterCount})`);
+    if (this.isLogging) this.logMessage(`*--* compileParameter() - EXIT with compiledParameterCount=(${compiledParameterCount})`);
     return compiledParameterCount;
   }
 
   private ct_sizeof() {
     // PNut ct_sizeof:
-    this.logMessage(`*--* ct_sizeof()`);
+    if (this.isLogging) this.logMessage(`*--* ct_sizeof()`);
     this.getLeftParen();
     const structureSize: number = this.get_struct_and_size();
     this.compileConstant(BigInt(structureSize));
@@ -7345,7 +7381,7 @@ export class SpinResolver {
   private ct_try(resultsNeeded: eResultRequirements, byteCode: eByteCode) {
     // Compile term - \obj{[]}.method({param,...}), \method({param,...}), \var({param,...}){:results}
     // PNut ct_try:
-    this.logMessage(`* ct_try([${eResultRequirements[resultsNeeded]}], bc=(${byteCode}))`);
+    if (this.isLogging) this.logMessage(`* ct_try([${eResultRequirements[resultsNeeded]}], bc=(${byteCode}))`);
     this.getElementObj();
     if (this.currElement.type == eElementType.type_obj) {
       // \obj{[]}.method({param,...}) ?
@@ -7412,20 +7448,20 @@ export class SpinResolver {
     this.blockStack.add(type, size);
     const nestLevel: number = this.blockStack.topIndex; // this is PNut [ecx]
     const topItem: string = nestLevel != -1 ? eElementType[this.blockStack.typeAtLevel(nestLevel)] : '-emptyStack-';
-    this.logMessage(`* new_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
+    if (this.isLogging) this.logMessage(`* new_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
   }
 
   private redo_bnest(type: eElementType) {
     this.blockStack.overrideType(type);
     const nestLevel: number = this.blockStack.topIndex; // this is PNut [ecx]
     const topItem: string = nestLevel != -1 ? eElementType[this.blockStack.typeAtLevel(nestLevel)] : '-emptyStack-';
-    this.logMessage(`* redo_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
+    if (this.isLogging) this.logMessage(`* redo_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
   }
 
   private end_bnest() {
     const nestLevel: number = this.blockStack.topIndex; // this is PNut [ecx]
     const topItem: string = nestLevel != -1 ? eElementType[this.blockStack.typeAtLevel(nestLevel)] : '-emptyStack-';
-    this.logMessage(`* end_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
+    if (this.isLogging) this.logMessage(`* end_bnest() nestLevel=(${nestLevel}), topItemType=[${topItem}]`);
     this.blockStack.remove();
   }
 
@@ -7472,9 +7508,9 @@ export class SpinResolver {
     // Optimizing block compiler
     // PNut optimize_block:
     // XYZZY this is our optimize loop we want to instrument to fix out how it's demanding time/memory
-    //this.logMessageOutline('');
-    this.logMessage(`* optimizeBlock(${eOptimizerMethod[methodId]}, (${subType})) elem=[${this.currElement.toString()}]`);
-    //this.logMessageOutline(
+    //if (this.isLoggingOutline) this.logMessageOutline('');
+    if (this.isLogging) this.logMessage(`* optimizeBlock(${eOptimizerMethod[methodId]}, (${subType})) elem=[${this.currElement.toString()}]`);
+    //if (this.isLoggingOutline) this.logMessageOutline(
     //  `* optimizeBlock(${eOptimizerMethod[methodId]}, (${subType})) elem=[${this.currElement.toString()}], depth=(${this.logBlockOptimizeDepth})`
     //);
     //this.logBlockOptimizeDepth++;
@@ -7524,15 +7560,15 @@ export class SpinResolver {
           break;
       }
       notDone = lastOffset != this.objImage.offset;
-      this.logMessage(`* optimizeBlock() lastOffset=(${lastOffset}), this.objImage.offset=(${this.objImage.offset})`);
-      //this.logMessageOutline(
+      if (this.isLogging) this.logMessage(`* optimizeBlock() lastOffset=(${lastOffset}), this.objImage.offset=(${this.objImage.offset})`);
+      //if (this.isLoggingOutline) this.logMessageOutline(
       //  `  -- optimizeBlock() depth=(${this.logBlockOptimizeDepth}) lastOffset=(${lastOffset}), this.objImage.offset=(${this.objImage.offset}) notDone=(${notDone})`
       //);
       lastOffset = this.objImage.offset;
     } while (notDone);
     //this.logBlockOptimizeDepth--;
-    //this.logMessageOutline('');
-    this.logMessage(`* optimizeBlock() - EXIT`);
+    //if (this.isLoggingOutline) this.logMessageOutline('');
+    if (this.isLogging) this.logMessage(`* optimizeBlock() - EXIT`);
   }
 
   private ct_cogspin_taskspin(byteCode: eByteCode, needPush: boolean = false) {
@@ -7616,9 +7652,9 @@ export class SpinResolver {
   private ct_at() {
     // Compile term - @"string", @\"string", @obj{[]}.method, @method, or @hubvar
     // PNut ct_at:
-    //this.logMessageOutline(`* ct_at() with elem=[${this.currElement.toString()}]`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`* ct_at() with elem=[${this.currElement.toString()}]`);
     this.getElementObj();
-    this.logMessage(`* ct_at() get then elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* ct_at() get then elem=[${this.currElement.toString()}]`);
     if (this.currElement.type == eElementType.type_con_int) {
       // here is @@string:
       this.ct_at_emit_string(false); // without string escapes
@@ -7655,9 +7691,9 @@ export class SpinResolver {
       this.compileRfvar(BigInt(methodIndex & 0xfffff));
     } else {
       // have @hubvar case
-      //this.logMessageOutline(` pre checkVariable() nxtElemIdx=(${this.nextElementIndex})`);
+      //if (this.isLoggingOutline) this.logMessageOutline(` pre checkVariable() nxtElemIdx=(${this.nextElementIndex})`);
       const variableReturn: iVariableReturn = this.checkVariable();
-      //this.logMessageOutline(` post checkVariable() nxtElemIdx=(${this.nextElementIndex})`);
+      //if (this.isLoggingOutline) this.logMessageOutline(` post checkVariable() nxtElemIdx=(${this.nextElementIndex})`);
       if (variableReturn.isVariable == false) {
         // [error_easvmoo]
         throw new Error('Expected a string, variable, method, or object');
@@ -7674,7 +7710,7 @@ export class SpinResolver {
       }
       this.compileVariableAssign(variableReturn, eByteCode.bc_get_addr);
     }
-    //this.logMessageOutline(`* ct_at() EXIT`);
+    //if (this.isLoggingOutline) this.logMessageOutline(`* ct_at() EXIT`);
   }
 
   private ct_at_emit_string(escapeMode: boolean) {
@@ -7700,7 +7736,7 @@ export class SpinResolver {
         // [error_sdcx]
         throw new Error('@"string"/STRING/LSTRING data cannot exceed 254 bytes (m520)');
       }
-      this.logMessage(`* ct_at() post getValue elem=[${this.currElement.toString()}]`);
+      if (this.isLogging) this.logMessage(`* ct_at() post getValue elem=[${this.currElement.toString()}]`);
       this.getElementObj();
       if (this.currElement.isMidStringComma == false) {
         break; // this could be comma (not mid), right-paren or EOL
@@ -7721,7 +7757,7 @@ export class SpinResolver {
     //  \r = 13, carriage return
     //  \\ = 92, \ (backslash)
     //  \x01 to \xFF = $01 to $FF (0 is not allowed, as it would terminate the string)
-    this.logMessage(`* handleEscapeChr('${String.fromCharCode(char)}', escapeMode=[${escapeMode}])`);
+    if (this.isLogging) this.logMessage(`* handleEscapeChr('${String.fromCharCode(char)}', escapeMode=[${escapeMode}])`);
     let character: number = char;
     if (escapeMode && char == '\\'.charCodeAt(0)) {
       const charStr = this.getCharacter();
@@ -7780,7 +7816,7 @@ export class SpinResolver {
 
   private getCharacter(): string {
     // here is @@string_esc:
-    this.logMessage(`* getCharacter() at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* getCharacter() at [${this.currElement.toString()}]`);
     this.getElementObj();
     if (!this.currElement.isMidStringComma) {
       // [error_esc]
@@ -7806,7 +7842,8 @@ export class SpinResolver {
   private ct_objpub(resultsNeeded: eResultRequirements, byteCode: eByteCode) {
     // Compile term - obj{[]}.method({param,...})
     // PNut ct_objpub:
-    this.logMessage(`*-- ct_objpub(${eResultRequirements[resultsNeeded]}, ${eByteCode[byteCode]}) at [${this.currElement.toString()}]`);
+    if (this.isLogging)
+      this.logMessage(`*-- ct_objpub(${eResultRequirements[resultsNeeded]}, ${eByteCode[byteCode]}) at [${this.currElement.toString()}]`);
     this.objImage.appendByte(byteCode);
     const savedElement: SpinElement = this.currElement;
     const [foundIndex, elementIndexOfIndex] = this.checkIndex();
@@ -7833,7 +7870,7 @@ export class SpinResolver {
     // Compile term - method({param,...})
     // PNut ct_method:
     // fields 7-bit parameterCount, 4-bit resultCount, 20-bit Address
-    this.logMessage(`* ct_method(${eResultRequirements[resultsNeeded]}, elem=[${this.currElement.toString()}] ...)`);
+    if (this.isLogging) this.logMessage(`* ct_method(${eResultRequirements[resultsNeeded]}, elem=[${this.currElement.toString()}] ...)`);
     const methodValue: number = Number(this.currElement.bigintValue);
     this.confirmResult(resultsNeeded, methodValue);
     this.objImage.appendByte(byteCode);
@@ -7846,7 +7883,7 @@ export class SpinResolver {
   private ct_method_ptr(nextElementIndex: number, resultsNeeded: eResultRequirements, byteCode: eByteCode) {
     // Compile term - var({param,...}){:results} or RECV() or SEND(param{,...})
     // PNut ct_method_ptr:
-    this.logMessage(`*==* ct_method_ptr(elemIdx=${nextElementIndex})`);
+    if (this.isLogging) this.logMessage(`*==* ct_method_ptr(elemIdx=${nextElementIndex})`);
     this.logRestoredElementLocation(nextElementIndex); // start from passed nextElementIndex
     const methodResult: iVariableReturn = this.getMethodPointerVariable();
     if (methodResult.type == eElementType.type_register && methodResult.address == this.mrecvReg) {
@@ -7885,7 +7922,7 @@ export class SpinResolver {
   private ct_upat() {
     // Compile term - ^@var
     // PNut ct_upat:
-    this.logMessage(`*==* ct_upat() - ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* ct_upat() - ENTRY`);
     this.getElement();
     const variableReturn: iVariableReturn = this.checkVariable();
     if (variableReturn.isVariable == false) {
@@ -7893,7 +7930,7 @@ export class SpinResolver {
       throw new Error('Expected a variable (m250)');
     }
     this.compileVariableAssign(variableReturn, eByteCode.bc_get_field);
-    this.logMessage(`*==* ct_upat() - EXIT`);
+    if (this.isLogging) this.logMessage(`*==* ct_upat() - EXIT`);
   }
 
   private compileParametersMethodPtr(): number {
@@ -7916,7 +7953,7 @@ export class SpinResolver {
   private compileParameterSend(): boolean {
     // Compile a parameter for SEND - accommodates methods with no return value
     // PNut compile_parameter_send:
-    this.logMessage(`*==* compileParameterSend()`);
+    if (this.isLogging) this.logMessage(`*==* compileParameterSend()`);
     let valueOnStackStatus: boolean = false;
     const savedElementIndex: number = this.logSavedElementLocation();
     this.getElement();
@@ -7958,7 +7995,7 @@ export class SpinResolver {
         throw new Error('SEND parameter methods cannot return multiple values (m591)');
       } else if (returnValueCount == 1) {
         // this is @@exp:
-        this.logMessage(`* compileParameterSend() type_method, retValCt==1`);
+        if (this.isLogging) this.logMessage(`* compileParameterSend() type_method, retValCt==1`);
         this.logRestoredElementLocation(savedElementIndex);
         this.compileExpression();
         valueOnStackStatus = true;
@@ -8003,7 +8040,8 @@ export class SpinResolver {
   private confirmResult(resultsNeeded: eResultRequirements, value: number) {
     // PNut confirm_result:
     // NOTE: value is methodValue: 7-bit parameterCount, 4-bit resultCount, 20-bit Address
-    this.logMessage(`* confirmResult(${eResultRequirements[resultsNeeded]}, 0x${value.toString(16).toUpperCase().padStart(8, '0')})`);
+    if (this.isLogging)
+      this.logMessage(`* confirmResult(${eResultRequirements[resultsNeeded]}, 0x${value.toString(16).toUpperCase().padStart(8, '0')})`);
     if (resultsNeeded != eResultRequirements.RR_None) {
       const numberResults: number = (value >> 20) & 0x0f;
       if (numberResults == 0) {
@@ -8110,7 +8148,8 @@ export class SpinResolver {
   private enterExpOp(element: SpinElement) {
     // PNut @@enterop:
     // is f* instruction?
-    this.logMessage(`* enterExpOp(Ln#${element.sourceLineNumber}(${element.sourceCharacterOffset})${eElementType[element.type]})`);
+    if (this.isLogging)
+      this.logMessage(`* enterExpOp(Ln#${element.sourceLineNumber}(${element.sourceCharacterOffset})${eElementType[element.type]})`);
     if (element.isHubcode) {
       this.objImage.appendByte(eByteCode.bc_hub_bytecode);
     }
@@ -8173,7 +8212,7 @@ export class SpinResolver {
         break;
       } else if ((((1 << shiftValue) ^ 0xffffffff) & 0xffffffff) == value) {
         // BUGFIX: added final mask above with 0xffffffff to clear sign extension
-        //this.logMessageOutline(
+        //if (this.isLoggingOutline) this.logMessageOutline(
         //  `* constantWasDecoded() bc_con_rfbyte_decod_not value=(${hexLong(value, '0x')}), shiftValue=(${hexLong(shiftValue, '0x')})`
         //);
         this.objImage.appendByte(eByteCode.bc_con_rfbyte_decod_not);
@@ -8182,7 +8221,7 @@ export class SpinResolver {
         break;
       } else if ((((2 << shiftValue) - 1) & 0xffffffff) == value) {
         // BUGFIX: added final mask above with 0xffffffff to clear sign extension
-        //this.logMessageOutline(
+        //if (this.isLoggingOutline) this.logMessageOutline(
         //  `* constantWasDecoded() bc_con_rfbyte_bmask value=(${hexLong(value, '0x')}), shiftValue=(${hexLong(shiftValue, '0x')})`
         //);
         this.objImage.appendByte(eByteCode.bc_con_rfbyte_bmask);
@@ -8202,7 +8241,7 @@ export class SpinResolver {
 
   private trySpin2ConExpression(): iValueReturn {
     // PNut try_spin2_con_exp:
-    this.logMessage(`*==* trySpin2ConExpr()`);
+    if (this.isLogging) this.logMessage(`*==* trySpin2ConExpr()`);
     const valueResult: iValueReturn = { value: 0n, isResolved: false, isFloat: false };
     this.numberStack.reset(); // empty our stack
     const savedElementIndex = this.logSavedElementLocation();
@@ -8211,7 +8250,7 @@ export class SpinResolver {
       this.resolveExp(eMode.BM_Spin2, eResolve.BR_Must, this.lowestPrecedence);
     } catch (error) {
       // code to handle the exception
-      this.logMessage(`!!! trySpin2ConExpr() caught INTERNAL error`); // XYZZY BUG HERE
+      if (this.isLogging) this.logMessage(`!!! trySpin2ConExpr() caught INTERNAL error`); // XYZZY BUG HERE
       if (error instanceof Error) {
         if (error.message !== '[INTERNAL] Spin2 Constant failed to resolve') {
           // forward to actually cause our compiler stop
@@ -8228,7 +8267,7 @@ export class SpinResolver {
         valueResult.isResolved = true;
       }
     }
-    this.logMessage(`*==* trySpin2ConExpr() - EXIT`);
+    if (this.isLogging) this.logMessage(`*==* trySpin2ConExpr() - EXIT`);
     return valueResult;
   }
 
@@ -8237,21 +8276,21 @@ export class SpinResolver {
     // Resolve expression with sub-expressions
     //  (leaves answer on stack)
     let currPrecedence: number = precedence;
-    this.logMessage(`* resolveExp(${precedence}) - ENTRY w/Elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* resolveExp(${precedence}) - ENTRY w/Elem=[${this.currElement.toString()}]`);
     if (--currPrecedence < 0) {
       // we need to resove the term!
-      this.logMessage(`* MUST resolve!`);
+      if (this.isLogging) this.logMessage(`* MUST resolve!`);
       // skip leading pluses
       do {
         this.getElementObj();
         if (this.currElement.isPlus) {
-          this.logMessage(`* skipping + operator`);
+          if (this.isLogging) this.logMessage(`* skipping + operator`);
         }
       } while (this.currElement.isPlus);
       let activeOperation: eOperationType = this.currElement.operation;
       let activePrecedence: number = this.currElement.precedence;
       let activeFloatCompatibility: boolean = this.currElement.isFloatCompatible;
-      this.logMessage(`* resolvExp() currElement=[${this.currElement.toString()}]`);
+      if (this.isLogging) this.logMessage(`* resolvExp() currElement=[${this.currElement.toString()}]`);
 
       // NOTE: we could move negation handling to here from within getConstant()
 
@@ -8262,7 +8301,7 @@ export class SpinResolver {
         // place it on our stack and we're done
         this.numberStack.push(resolution.value);
       } else {
-        this.logMessage(`* resolvExp() did NOT find constant... mode=[${eMode[mode]}]`); // XYZZY BUG HERE
+        if (this.isLogging) this.logMessage(`* resolvExp() did NOT find constant... mode=[${eMode[mode]}]`); // XYZZY BUG HERE
         // no constant found, currElement is not a constant
         this.SubToNeg(); // these do NOT affect the element list! only the global currElement copy
         this.FSubToFNeg();
@@ -8272,19 +8311,19 @@ export class SpinResolver {
 
         if (this.currElement.isUnary) {
           // our element is a unary operation
-          this.logMessage(`  -- resolvExp() currElement.isUnary!`);
+          if (this.isLogging) this.logMessage(`  -- resolvExp() currElement.isUnary!`);
           this.checkDualModeOp(activeFloatCompatibility, mode); // (this IS in good place...!!)
           this.resolveExp(mode, resolve, activePrecedence);
           // Perform Unary
           const aValue = this.numberStack.pop();
           let exprResult: bigint = 0n;
           if (this.numberStack.isUnresolved) {
-            this.logMessage(`* SKIP Unary a=(${float32ToHexString(aValue)}), b=(0), op=[${eOperationType[activeOperation]}]`);
+            if (this.isLogging) this.logMessage(`* SKIP Unary a=(${float32ToHexString(aValue)}), b=(0), op=[${eOperationType[activeOperation]}]`);
           } else {
-            this.logMessage(`* Perform Unary a=(${float32ToHexString(aValue)}), b=(0), op=[${eOperationType[activeOperation]}]`);
+            if (this.isLogging) this.logMessage(`* Perform Unary a=(${float32ToHexString(aValue)}), b=(0), op=[${eOperationType[activeOperation]}]`);
             exprResult = this.resolveOperation(aValue, 0n, activeOperation, this.mathMode == eMathMode.MM_FloatMode);
           }
-          this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
+          if (this.isLogging) this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
           this.numberStack.push(exprResult);
         } else if (this.currElement.type == eElementType.type_left) {
           this.resolveExp(mode, resolve, this.lowestPrecedence);
@@ -8305,15 +8344,16 @@ export class SpinResolver {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         this.getElementObj();
-        this.logMessage(`* resolvExp() LOOP currElement=[${this.currElement.toString()}] currPrec=${currPrecedence} prec=${precedence}`);
+        if (this.isLogging)
+          this.logMessage(`* resolvExp() LOOP currElement=[${this.currElement.toString()}] currPrec=${currPrecedence} prec=${precedence}`);
         const activeOperation: eOperationType = this.currElement.operation;
         const activePrecedence: number = this.currElement.precedence;
         const activeFloatCompatibility: boolean = this.currElement.isFloatCompatible;
         if (this.currElement.isTernary) {
           // we have '?' op
-          this.logMessage(`* Have op ternary`);
+          if (this.isLogging) this.logMessage(`* Have op ternary`);
           if (currPrecedence == activePrecedence) {
-            this.logMessage(`* Ternary Precedence`);
+            if (this.isLogging) this.logMessage(`* Ternary Precedence`);
             // Perform Ternary
             this.resolveExp(mode, resolve, this.lowestPrecedence); // push true value
             this.getColon();
@@ -8323,17 +8363,19 @@ export class SpinResolver {
             const decisionValue = this.numberStack.pop();
             let exprResult: bigint = 0n;
             if (this.numberStack.isUnresolved) {
-              this.logMessage(
-                `* SKIP Ternary F=(${falseValue}), T=(${trueValue}), decision=(${decisionValue}), op=[${eOperationType[activeOperation]}]`
-              );
+              if (this.isLogging)
+                this.logMessage(
+                  `* SKIP Ternary F=(${falseValue}), T=(${trueValue}), decision=(${decisionValue}), op=[${eOperationType[activeOperation]}]`
+                );
             } else {
-              this.logMessage(
-                `* Perform Ternary F=(${falseValue}), T=(${trueValue}), decision=(${decisionValue}), op=[${eOperationType[activeOperation]}]`
-              );
+              if (this.isLogging)
+                this.logMessage(
+                  `* Perform Ternary F=(${falseValue}), T=(${trueValue}), decision=(${decisionValue}), op=[${eOperationType[activeOperation]}]`
+                );
               exprResult = decisionValue != 0n ? trueValue : falseValue;
             }
             this.numberStack.push(exprResult);
-            this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
+            if (this.isLogging) this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
             break; // done,  exit loop
           } else {
             // not a binary op
@@ -8350,16 +8392,18 @@ export class SpinResolver {
             const aValue = this.numberStack.pop();
             let exprResult: bigint = 0n;
             if (this.numberStack.isUnresolved) {
-              this.logMessage(
-                `* SKIP Binary a=(${float32ToHexString(aValue)}), b=(${float32ToHexString(bValue)}), op=[${eOperationType[activeOperation]}]`
-              );
+              if (this.isLogging)
+                this.logMessage(
+                  `* SKIP Binary a=(${float32ToHexString(aValue)}), b=(${float32ToHexString(bValue)}), op=[${eOperationType[activeOperation]}]`
+                );
             } else {
-              this.logMessage(
-                `* Perform Binary a=(${float32ToHexString(aValue)}), b=(${float32ToHexString(bValue)}), op=[${eOperationType[activeOperation]}]`
-              );
+              if (this.isLogging)
+                this.logMessage(
+                  `* Perform Binary a=(${float32ToHexString(aValue)}), b=(${float32ToHexString(bValue)}), op=[${eOperationType[activeOperation]}]`
+                );
               exprResult = this.resolveOperation(aValue, bValue, activeOperation, this.mathMode == eMathMode.MM_FloatMode);
             }
-            this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
+            if (this.isLogging) this.logMessage(`* Push result=(${float32ToHexString(exprResult)})`);
             this.numberStack.push(exprResult);
             // let loop occur
           } else {
@@ -8374,7 +8418,7 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage(`resolveExp(${precedence}) - EXIT`);
+    if (this.isLogging) this.logMessage(`resolveExp(${precedence}) - EXIT`);
   }
 
   private checkDualModeOp(isElementFloatCompatible: boolean, mode: eMode) {
@@ -8385,7 +8429,7 @@ export class SpinResolver {
         throw new Error('Integer operator not allowed in floating-point expression');
       }
       this.mathMode = eMathMode.MM_IntMode;
-      this.logMessage(`* mathMode = Int`);
+      if (this.isLogging) this.logMessage(`* mathMode = Int`);
     }
   }
 
@@ -8393,19 +8437,19 @@ export class SpinResolver {
     // PNut check_constant:
     //  this 'check_constant', now 'get_constant' in Pnut v44 and later
     const resultStatus: iConstantReturn = { value: 0n, foundConstant: true };
-    this.logMessage(`*--* getCon() mode=(${eMode[mode]}), resolve=(${eResolve[resolve]}), ele=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`*--* getCon() mode=(${eMode[mode]}), resolve=(${eResolve[resolve]}), ele=[${this.currElement.toString()}]`);
 
     if (mode == eMode.BM_Spin2) {
       // trying to resolve spin2 constant
-      this.logMessage(`  -- in Spin2, not PASM`);
+      if (this.isLogging) this.logMessage(`  -- in Spin2, not PASM`);
       if (this.SubToNeg()) {
         this.getElementObj(); // get element following the minus sign
         if (this.currElement.isConstantInt) {
           resultStatus.value = this.currElement.negateBigIntValue();
         } else if (this.currElement.isConstantFloat) {
-          //this.logMessage(`  -- have con_float`);
+          //if (this.isLogging) this.logMessage(`  -- have con_float`);
           resultStatus.value = BigInt(this.currElement.bigintValue) ^ BigInt(0x80000000);
-          //this.logMessage(`  -- new value = ${float32ToHexString(resultStatus.value)}`);
+          //if (this.isLogging) this.logMessage(`  -- new value = ${float32ToHexString(resultStatus.value)}`);
         } else {
           this.backElement(); // return to minus
           this.backElement(); // return to left paren
@@ -8441,7 +8485,7 @@ export class SpinResolver {
     } else {
       // in PASM
       // replace our currElement with an oc_neg [sub-to-neg] if it was sub!
-      this.logMessage(`  -- in PASM, not Spin2 w/elem=[${this.currElement.toString()}]`);
+      if (this.isLogging) this.logMessage(`  -- in PASM, not Spin2 w/elem=[${this.currElement.toString()}]`);
       // TODO: replace this with other form from spin2 side of things
       this.SubToNeg(); // makes currentElem op_neg if was op_sub!
       if (this.currElement.operation == eOperationType.op_neg) {
@@ -8450,13 +8494,13 @@ export class SpinResolver {
         // FIXME: NOTE: need test case with op_neg followed by OBJ TUPLE!!!! -AND- not an obj.tuple
         if (this.currElement.type == eElementType.type_con_int) {
           // coerce element to negative value
-          this.logMessage(`* type_con e=[${this.currElement.toString()}]`);
+          if (this.isLogging) this.logMessage(`* type_con e=[${this.currElement.toString()}]`);
           resultStatus.value = this.currElement.negateBigIntValue();
           this.checkIntMode(); // throw if we were float
           // if not set then set else
         } else if (this.currElement.type == eElementType.type_con_float) {
           // coerce element to negative value
-          this.logMessage(`* type_con_float e=[${this.currElement.toString()}]`);
+          if (this.isLogging) this.logMessage(`* type_con_float e=[${this.currElement.toString()}]`);
           resultStatus.value = BigInt(this.currElement.value) ^ BigInt(0x80000000);
           this.checkFloatMode(); // throw if we were int
           // if not set then set else
@@ -8481,10 +8525,10 @@ export class SpinResolver {
           this.checkFloatMode();
           this.getLeftParen();
           this.mathMode = eMathMode.MM_IntMode;
-          this.logMessage(`* mathMode = Int`);
+          if (this.isLogging) this.logMessage(`* mathMode = Int`);
           this.resolveExp(mode, resolve, this.lowestPrecedence); // places result on stack
           this.mathMode = eMathMode.MM_FloatMode;
-          this.logMessage(`* mathMode = Float`);
+          if (this.isLogging) this.logMessage(`* mathMode = Float`);
           this.getRightParen();
           const intValue = this.numberStack.pop(); // get result
           // convert uint32 to float
@@ -8496,19 +8540,19 @@ export class SpinResolver {
           // have TRUNC() or ROUND()
           const origElementType: eElementType = this.currElement.type;
           // TODO: determine if we care about overflow checking... because we don't do any here
-          //this.logMessage(` - getCON()  type=[${eElementType[this.currElement.type]}]`);
+          //if (this.isLogging) this.logMessage(` - getCON()  type=[${eElementType[this.currElement.type]}]`);
           this.checkIntMode();
           this.getLeftParen();
           this.mathMode = eMathMode.MM_FloatMode;
-          this.logMessage(`* mathMode = Float`);
+          if (this.isLogging) this.logMessage(`* mathMode = Float`);
           this.resolveExp(mode, resolve, this.lowestPrecedence); // places result on stack
           this.mathMode = eMathMode.MM_IntMode;
-          this.logMessage(`* mathMode = Int`);
+          if (this.isLogging) this.logMessage(`* mathMode = Int`);
           this.getRightParen();
           const float32Value = this.numberStack.pop(); // get result
           // convert uint32 to float
           const float64Value = Number(bigIntFloat32ToNumber(BigInt(float32Value)));
-          //this.logMessage(` - getCON()  round/trunc float64Value=[0x${float64Value.toString(16).toUpperCase().padStart(8, '0')}]`);
+          //if (this.isLogging) this.logMessage(` - getCON()  round/trunc float64Value=[0x${float64Value.toString(16).toUpperCase().padStart(8, '0')}]`);
           if (origElementType == eElementType.type_trunc) {
             // truncate our float value
             const truncatedUInt32 = Math.trunc(float64Value) & 0xffffffff;
@@ -8517,12 +8561,12 @@ export class SpinResolver {
           } else if (origElementType == eElementType.type_round) {
             // truncate our float value
             const roundedUInt32 = Math.round(float64Value) & 0xffffffff;
-            //this.logMessage(` - getCON()  round/trunc roundedUInt32=[0x${roundedUInt32.toString(16).toUpperCase().padStart(8, '0')}]`);
+            //if (this.isLogging) this.logMessage(` - getCON()  round/trunc roundedUInt32=[0x${roundedUInt32.toString(16).toUpperCase().padStart(8, '0')}]`);
             // return the converted result
             resultStatus.value = BigInt(roundedUInt32);
           }
         } else if (this.currElement.type == eElementType.type_sizeof) {
-          this.logMessage(`* getCon() have type_sizeof`);
+          if (this.isLogging) this.logMessage(`* getCon() have type_sizeof`);
           if (this.inConBlock || this.inObjBlock) {
             // [error_soioa]
             throw new Error('SIZEOF() is only allowed in DAT, VAR, PUB, and PRI blocks');
@@ -8539,13 +8583,13 @@ export class SpinResolver {
           resultStatus.value = BigInt(structSize);
         } else {
           // DAT section handling
-          this.logMessage(` - getCON()  DAT section handling`);
+          if (this.isLogging) this.logMessage(` - getCON()  DAT section handling`);
           let didFindLocal: boolean = false;
           let symbol: iSymbol = { name: '', type: eElementType.type_undefined, value: 0n };
           if (mode == eMode.BM_OperandIntOnly || mode == eMode.BM_OperandIntOrFloat) {
             [didFindLocal, symbol] = this.checkLocalSymbol();
             if (didFindLocal) {
-              this.logMessage(` - getCON()  FOUND local symbol value=[${hexString(symbol.value)}]`);
+              if (this.isLogging) this.logMessage(` - getCON()  FOUND local symbol value=[${hexString(symbol.value)}]`);
               // we have a local symbol... (must be undef or is storage type)
             }
           }
@@ -8553,7 +8597,7 @@ export class SpinResolver {
           // PNut here is @@notop:
           const haveUndefinedSymbol = this.checkUndefined(resolve, didFindLocal, symbol.type);
           if (haveUndefinedSymbol == false) {
-            this.logMessage(` - getCON()  our symbol is DEFINED`);
+            if (this.isLogging) this.logMessage(` - getCON()  our symbol is DEFINED`);
             // FIXME: TODO: handle DAT symbols
             if (this.currElement.type == eElementType.type_dollar) {
               // HANDLE an origin symbol
@@ -8569,13 +8613,13 @@ export class SpinResolver {
               // new DITTO support here
               if ((mode != eMode.BM_OperandIntOrFloat && mode != eMode.BM_OperandIntOnly) || this.dittoIsActive == false) {
                 // [error_diioa]
-                this.logMessage(`* compDATblks() mode=(${eMode[mode]}), dittoIsActive=(${this.dittoIsActive})`);
+                if (this.isLogging) this.logMessage(`* compDATblks() mode=(${eMode[mode]}), dittoIsActive=(${this.dittoIsActive})`);
                 throw new Error('"$$" (DITTO index) is only allowed within a DITTO block, inside a DAT block');
               }
               resultStatus.value = BigInt(this.dittoIndex);
             } else if (this.currElement.type == eElementType.type_register) {
               // PNut here is @@notorg:
-              this.logMessage(` - getCON()  type_register`);
+              if (this.isLogging) this.logMessage(` - getCON()  type_register`);
               // HANDLE a cog register (the inConBlock check allows registers in CON block)
               //   if not in CON block and NOT in operand mode...
               if (this.inConBlock == false && mode != eMode.BM_OperandIntOnly && mode != eMode.BM_OperandIntOrFloat) {
@@ -8589,7 +8633,7 @@ export class SpinResolver {
               (this.currElement.type == eElementType.type_loc_byte || this.currElement.type == eElementType.type_loc_word)
             ) {
               // above is @@notreg:
-              this.logMessage(` - getCON()  inlineModeForGetConstant=(true)`);
+              if (this.isLogging) this.logMessage(` - getCON()  inlineModeForGetConstant=(true)`);
               // if inline mode, remap local longs
               //  HANDLE DAT Local variable now in register for inline access
               // [error_lvmb]
@@ -8622,7 +8666,8 @@ export class SpinResolver {
                 // we have DAT variable address
                 // here is @@trim:
                 resultStatus.value = this.currElement.bigintValue & BigInt(0xfffff);
-                this.logMessage(` - getCON()  have @ e=[${this.currElement.toString()}, value=(${hexString(resultStatus.value)})]`);
+                if (this.isLogging)
+                  this.logMessage(` - getCON()  have @ e=[${this.currElement.toString()}, value=(${hexString(resultStatus.value)})]`);
               } else {
                 if (this.checkUndefined(resolve) == false) {
                   // [error_eads]
@@ -8635,10 +8680,10 @@ export class SpinResolver {
               this.checkIntMode();
               if (mode == eMode.BM_OperandIntOnly || mode == eMode.BM_OperandIntOrFloat) {
                 // within pasm instruction
-                this.logMessage(` - getCON()  DAT symbol currElement=[${this.currElement.toString()}]`);
+                if (this.isLogging) this.logMessage(` - getCON()  DAT symbol currElement=[${this.currElement.toString()}]`);
                 if (this.currElement.bigintValue >= BigInt(0xfff00000)) {
                   // here is @@orghsymbol:
-                  this.logMessage(` - getCON()  DAT symbol have hub address this.pasmMode=(${this.pasmMode})`);
+                  if (this.isLogging) this.logMessage(` - getCON()  DAT symbol have hub address this.pasmMode=(${this.pasmMode})`);
                   this.locOrghSymbolFlag = true;
                   resultStatus.value = this.currElement.bigintValue + BigInt(this.pasmMode ? 0 : this.orghOffset);
                 } else {
@@ -8646,12 +8691,13 @@ export class SpinResolver {
                 }
               } else {
                 // outside of pasm instruction - address of DAT variable
-                this.logMessage(`  -- outside of PASM instru.`);
+                if (this.isLogging) this.logMessage(`  -- outside of PASM instru.`);
                 resultStatus.value = this.currElement.bigintValue;
               }
               // here is @@trim: (again)
               resultStatus.value &= BigInt(0xfffff);
-              this.logMessage(` - getCON()  DAT symbol elem=[${this.currElement.toString()}] value=0x${resultStatus.value.toString(16)}`);
+              if (this.isLogging)
+                this.logMessage(` - getCON()  DAT symbol elem=[${this.currElement.toString()}] value=0x${resultStatus.value.toString(16)}`);
             } else {
               // we didn't find a constant
               resultStatus.foundConstant = false;
@@ -8660,7 +8706,7 @@ export class SpinResolver {
         }
       }
     }
-    this.logMessage(`*--* getCon() EXIT w/foundConstant=(${resultStatus.foundConstant}, v=(${Number(resultStatus.value)}))`);
+    if (this.isLogging) this.logMessage(`*--* getCon() EXIT w/foundConstant=(${resultStatus.foundConstant}, v=(${Number(resultStatus.value)}))`);
     return resultStatus;
   }
 
@@ -8674,7 +8720,7 @@ export class SpinResolver {
       this.currElement.type == eElementType.type_dat_byte ||
       this.currElement.type == eElementType.type_dat_word ||
       this.currElement.type == eElementType.type_dat_long;
-    this.logMessage(`  -- checkDat(${eMode[mode]}) status=(${dataStatus})`);
+    if (this.isLogging) this.logMessage(`  -- checkDat(${eMode[mode]}) status=(${dataStatus})`);
     return dataStatus;
   }
 
@@ -8683,13 +8729,14 @@ export class SpinResolver {
     let desiredType: eElementType = eElementType.type_undefined;
     let desiredValue: bigint | string = 0n;
     const objectId: number = elementValue >> 24;
-    this.logMessage(`  -- getObjSymbol(obj Id=${objectId}) at elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  -- getObjSymbol(obj Id=${objectId}) at elem=[${this.currElement.toString()}]`);
     const [isSymbol, symbolString] = this.getSymbol(); // get element after dot...
     if (isSymbol == true) {
       const symbolName: string = symbolString + String.fromCharCode(objectId + 1);
-      this.logMessage(`  -- getObjSymbol() looking up srch=[${symbolName}] objectId=(${objectId}) elem=${this.currElement.toString()}`);
+      if (this.isLogging)
+        this.logMessage(`  -- getObjSymbol() looking up srch=[${symbolName}] objectId=(${objectId}) elem=${this.currElement.toString()}`);
       const foundSymbol: iSymbol = this.findSymbol(symbolName);
-      this.logMessage(`  -- found sym.name=[${foundSymbol.name}] type=[${eElementType[foundSymbol.type]}]`);
+      if (this.isLogging) this.logMessage(`  -- found sym.name=[${foundSymbol.name}] type=[${eElementType[foundSymbol.type]}]`);
       desiredValue = foundSymbol.value;
       if (foundSymbol.type == eElementType.type_obj_pub) {
         desiredType = eElementType.type_obj_pub;
@@ -8730,7 +8777,7 @@ export class SpinResolver {
       }
       undefinedStatus = true;
     }
-    this.logMessage(`  -- checkUndefined(elem=[${this.currElement.toString()}]) undefinedStatus=(${undefinedStatus})`);
+    if (this.isLogging) this.logMessage(`  -- checkUndefined(elem=[${this.currElement.toString()}]) undefinedStatus=(${undefinedStatus})`);
     return undefinedStatus;
   }
 
@@ -8858,7 +8905,7 @@ private checkDec(): boolean {
 
   private skipToTickOrEndOfLine(): boolean {
     let foundTickStatus: boolean = false;
-    this.logMessage(` -- skipToTickOrEndOfLine(${this.currElement.toString()})`);
+    if (this.isLogging) this.logMessage(` -- skipToTickOrEndOfLine(${this.currElement.toString()})`);
     // eslint-disable-next-line no-constant-condition
     while (true) {
       if (this.nextElementType() == eElementType.type_end) {
@@ -8870,7 +8917,7 @@ private checkDec(): boolean {
         break;
       }
     }
-    this.logMessage(` -- skipToTickOrEndOfLine() -> foundTic=(${foundTickStatus})`);
+    if (this.isLogging) this.logMessage(` -- skipToTickOrEndOfLine() -> foundTic=(${foundTickStatus})`);
     return foundTickStatus;
   }
 
@@ -8941,7 +8988,7 @@ private checkDec(): boolean {
       // [error_ecor]
       throw new Error('Expected "," or ")"');
     }
-    this.logMessage(`* getCommaOrRightParen() -> fndComma=(${foundCommaStatus})`);
+    if (this.isLogging) this.logMessage(`* getCommaOrRightParen() -> fndComma=(${foundCommaStatus})`);
     return foundCommaStatus;
   }
 
@@ -8959,7 +9006,7 @@ private checkDec(): boolean {
 
   private compileVariable(variable: iVariableReturn) {
     // PNut compile_var:
-    this.logMessage(`*==* compileVariable() ENTRY [${eElementType[variable.type]}] w/[${JSON.stringify(variable, null, 2)}]`);
+    if (this.isLogging) this.logMessage(`*==* compileVariable() ENTRY [${eElementType[variable.type]}] w/[${JSON.stringify(variable, null, 2)}]`);
     const resumeIndex: number = this.logSavedElementLocation();
     let workIsComplete: boolean = false;
     this.logRestoredElementLocation(variable.nextElementIndex);
@@ -9040,9 +9087,9 @@ private checkDec(): boolean {
       }
       variable.wordSize = eWordSize.WS_Long;
       variable.address &= 0xfffff; // mask away any struct id
-      this.logMessage(`  -- compVar() calling self with var.type changed to [${eElementType[variable.type]}]`);
+      if (this.isLogging) this.logMessage(`  -- compVar() calling self with var.type changed to [${eElementType[variable.type]}]`);
       this.compileVariable(variable);
-      this.logMessage(`  -- compVar() resume after var.type changed with variable.type [${eElementType[variable.type]}]`);
+      if (this.isLogging) this.logMessage(`  -- compVar() resume after var.type changed with variable.type [${eElementType[variable.type]}]`);
       if (incDecValue != 1) {
         this.objImage.setOffsetTo(this.objImage.offset - 1); // remove last bytecode
         this.objImage.appendByte(eByteCode.bc_set_incdec);
@@ -9072,9 +9119,9 @@ private checkDec(): boolean {
         structIsBWL: false,
         structSize: 0 // 1,2,4, or structure size
       };
-      this.logMessage(`  -- compVar() calling self with tmpVar of [${eElementType[tempVariable.type]}]`);
+      if (this.isLogging) this.logMessage(`  -- compVar() calling self with tmpVar of [${eElementType[tempVariable.type]}]`);
       this.compileVariable(tempVariable); // compile read/assign of pointer variable
-      this.logMessage(`  -- compVar() resume after compVar(tmpVar) with variable.type [${eElementType[variable.type]}]`);
+      if (this.isLogging) this.logMessage(`  -- compVar() resume after compVar(tmpVar) with variable.type [${eElementType[variable.type]}]`);
       if (variable.sizeOverrideFlag == true) {
         this.getDot(); // skip dot
         this.getSize(); // skip size
@@ -9094,7 +9141,7 @@ private checkDec(): boolean {
 
     // PNut @@notptr:
     if (!workIsComplete && this.isStruct(variable.type)) {
-      this.logMessage(`  -- compVar() is structure`);
+      if (this.isLogging) this.logMessage(`  -- compVar() is structure`);
       const structureReturn = this.compile_struct_setup(variable.type, variable.address, variable.modifierBytecode);
       if (structureReturn.flags == eStructureType.ST_ResolvedAsBWL) {
         if (
@@ -9131,7 +9178,7 @@ private checkDec(): boolean {
           this.objImage.appendByte(0);
         } else {
           // PNut @@structnotass:
-          this.logMessage(`  -- compVar() arrived at @@structnotass:`);
+          if (this.isLogging) this.logMessage(`  -- compVar() arrived at @@structnotass:`);
           this.check_struct_stack_fit(structureReturn.size);
           const flaggedStructSize: number = structureReturn.size | (variable.operation == eVariableOperation.VO_WRITE ? 0 : 0x80);
           this.objImage.appendByte(flaggedStructSize);
@@ -9194,7 +9241,7 @@ private checkDec(): boolean {
     // type size
     //  [BYTE|WORD|LONG][address][index]{.[bitfield]}
     if (!workIsComplete && variable.type == eElementType.type_size) {
-      this.logMessage(`  -- compVar() variable.type == type_size`);
+      if (this.isLogging) this.logMessage(`  -- compVar() variable.type == type_size`);
       this.compileIndex();
       if (variable.indexFlag == true) {
         this.compileIndex();
@@ -9225,7 +9272,7 @@ private checkDec(): boolean {
       variable.address < 16 * 4 &&
       variable.indexFlag == false
     ) {
-      this.logMessage(`  -- compVar() 1st 16 longs`);
+      if (this.isLogging) this.logMessage(`  -- compVar() 1st 16 longs`);
       this.objImage.appendByte(eByteCode.bc_setup_var_0_15 + (variable.address >> 2)); // one of our first 16
       // here is @@entersetup:
       this.compileVariableBitfield(variable);
@@ -9243,7 +9290,7 @@ private checkDec(): boolean {
       variable.address < 16 * 4 &&
       variable.indexFlag == false
     ) {
-      this.logMessage(`  -- compVar() op=[${eVariableOperation[variable.operation]}] bitfield=(${variable.bitfieldFlag})`);
+      if (this.isLogging) this.logMessage(`  -- compVar() op=[${eVariableOperation[variable.operation]}] bitfield=(${variable.bitfieldFlag})`);
       if (variable.bitfieldFlag == true || variable.operation == eVariableOperation.VO_ASSIGN) {
         // assign
         this.objImage.appendByte(eByteCode.bc_setup_local_0_15 + (variable.address >> 2)); // one of our first 16
@@ -9264,7 +9311,7 @@ private checkDec(): boolean {
     // handle hub byte/word/long with possible index
     if (!workIsComplete && variable.type == eElementType.type_hub_byte) {
       // just a read
-      this.logMessage(`  -- compVar() variable.wordSize=(${variable.wordSize})`);
+      if (this.isLogging) this.logMessage(`  -- compVar() variable.wordSize=(${variable.wordSize})`);
       this.compileConstant(BigInt(variable.address));
       if (variable.indexFlag == true) {
         this.compileIndex();
@@ -9282,7 +9329,7 @@ private checkDec(): boolean {
     // handle leftover cases of variable access (DAT, VAR, PUB/PRI(loc))
     if (workIsComplete == false) {
       let accessBytecode: number = eByteCode.bc_setup_byte_pbase + variable.wordSize * 6;
-      this.logMessage(`  -- compVar() variable.type=[${eElementType[variable.type]}], accessBytecode=(${accessBytecode})`);
+      if (this.isLogging) this.logMessage(`  -- compVar() variable.type=[${eElementType[variable.type]}], accessBytecode=(${accessBytecode})`);
       switch (variable.type) {
         case eElementType.type_dat_byte: // pbase - program base
           accessBytecode += 0;
@@ -9295,7 +9342,7 @@ private checkDec(): boolean {
           break;
       }
       // here is @@gotbase:
-      this.logMessage(`  -- compVar() variable.indexFlag=(${variable.indexFlag}), accessBytecode=(${accessBytecode})`);
+      if (this.isLogging) this.logMessage(`  -- compVar() variable.indexFlag=(${variable.indexFlag}), accessBytecode=(${accessBytecode})`);
       if (variable.indexFlag == true) {
         accessBytecode += 3;
         const indexReturn: iValueReturn = this.compileIndexCheckCon();
@@ -9315,7 +9362,7 @@ private checkDec(): boolean {
       // NOTE: possible post optimization did we wind up in one of our 16 vars
     }
     this.logRestoredElementLocation(resumeIndex); // return to location at entry
-    this.logMessage(`*==* compileVariable() EXIT`);
+    if (this.isLogging) this.logMessage(`*==* compileVariable() EXIT`);
   }
 
   private check_struct_stack_fit(structureSize: number) {
@@ -9368,24 +9415,24 @@ private checkDec(): boolean {
   }
 
   private compileVariableAssign(variable: iVariableReturn, bytecode: eByteCode) {
-    this.logMessage(`* compVarAsgn() ENTRY`);
+    if (this.isLogging) this.logMessage(`* compVarAsgn() ENTRY`);
     // PNut: compile_var_assign:
     variable.operation = eVariableOperation.VO_ASSIGN;
     variable.assignmentBytecode = bytecode;
     this.compileVariable(variable);
-    this.logMessage(`* compVarAsgn() EXIT`);
+    if (this.isLogging) this.logMessage(`* compVarAsgn() EXIT`);
   }
 
   private getVariable(): iVariableReturn {
     // PNut: get_variable:
-    this.logMessage(`*==* getVariable() ENTRY`);
+    if (this.isLogging) this.logMessage(`*==* getVariable() ENTRY`);
     this.getElementObj();
     const variableResult: iVariableReturn = this.checkVariable();
     if (variableResult.isVariable == false) {
       // [error_eav]
       throw new Error('Expected a variable (m251)');
     }
-    this.logMessage(`*==* getVariable() EXIT`);
+    if (this.isLogging) this.logMessage(`*==* getVariable() EXIT`);
     return variableResult;
   }
 
@@ -9632,7 +9679,7 @@ private checkDec(): boolean {
     };
 
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
-    this.logMessage(`* checkVariable() ENTRY at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`* checkVariable() ENTRY at [${this.currElement.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `* checkVariable() ENTRY at [${this.currElement.toString()}]`);
 
     // preserve initial values (PNut al,ebx)
@@ -9660,7 +9707,7 @@ private checkDec(): boolean {
 
     let notStruct: boolean = true; // work done indication
     if (this.isPtr(variableType)) {
-      this.logMessage(`* checkVariable() - have post ptr`);
+      if (this.isLogging) this.logMessage(`* checkVariable() - have post ptr`);
       if (this.checkLeftBracket()) {
         this.getElement();
         const savedOperationType: eElementType = this.currElement.type;
@@ -9704,13 +9751,13 @@ private checkDec(): boolean {
           // PNut @@chkbitfield:
           this.checkVariableBitfield(resultVariable);
         }
-        //this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
+        //if (this.isLogging) this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
         // PNut @@isvar: this is really an exit
         notStruct = false;
       }
     } else {
       // PNUt @@notpostptr:
-      this.logMessage(`* checkVariable() - not post ptr`);
+      if (this.isLogging) this.logMessage(`* checkVariable() - not post ptr`);
       let savedType: eElementType = variableType;
       let savedValue: number = variableAddress;
       if (this.currElement.type == eElementType.type_leftb) {
@@ -9719,7 +9766,7 @@ private checkDec(): boolean {
         savedValue = this.currElement.numberValue;
         this.getRightBracket();
         if (!this.isPtr(savedType)) {
-          this.logMessage(`* checkVariable() - no ptr in []`);
+          if (this.isLogging) this.logMessage(`* checkVariable() - no ptr in []`);
           // we DONT have a ptr
           if (savedType == eElementType.type_inc) {
             // here is @@postinc
@@ -9758,7 +9805,7 @@ private checkDec(): boolean {
             // we are done, no flow into anything (avoid @@notstruct)
             notStruct = false;
           }
-          //this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
+          //if (this.isLogging) this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
           // PNut @@isvar: this is really an exit
         } else {
           // PNut @@ptrval
@@ -9787,13 +9834,13 @@ private checkDec(): boolean {
           // we are done, no flow into anything (avoid @@notstruct)
           notStruct = false;
         }
-        //this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
+        //if (this.isLogging) this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
         // PNut @@isvar: this is really an exit
       }
     }
     if (notStruct) {
       // PNut @@notstruct:
-      this.logMessage(`* checkVariable() - don't have structure have=[${eElementType[variableType]}]`);
+      if (this.isLogging) this.logMessage(`* checkVariable() - don't have structure have=[${eElementType[variableType]}]`);
       resultVariable.address &= 0xfffff; // remove any ID from address
       switch (variableType) {
         case eElementType.type_loc_byte:
@@ -9912,7 +9959,7 @@ private checkDec(): boolean {
       }
     }
 
-    this.logMessage(`* checkVariable() EXIT with [${JSON.stringify(resultVariable, null, 2)}]`);
+    if (this.isLogging) this.logMessage(`* checkVariable() EXIT with [${JSON.stringify(resultVariable, null, 2)}]`);
     return resultVariable;
   }
 
@@ -9920,7 +9967,7 @@ private checkDec(): boolean {
     // PNut compile_struct_compare:
     // Compile 'struct1 == struct2' or 'struct1 <> struct2'
     // on entry, operation=op_e or operation=op_ne
-    this.logMessage(`* compStructCmp() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* compStructCmp() - ENTRY`);
     this.compileVariableAssign(variable, eByteCode.bc_get_addr);
     const variableReturn: iVariableReturn = this.get_struct_variable();
     if (variableReturn.structSize != variable.structSize) {
@@ -9934,14 +9981,14 @@ private checkDec(): boolean {
     if (operation == eOperationType.op_ne) {
       this.objImage.appendByte(eByteCode.bc_lognot);
     }
-    this.logMessage(`* compStructCmp() - EXIT`);
+    if (this.isLogging) this.logMessage(`* compStructCmp() - EXIT`);
   }
 
   private compile_struct_copy(byteCode: eByteCode, variable: iVariableReturn) {
     // PNut compile_struct_copy:
     // Compile 'struct1 := struct2' or 'struct1 :=: struct2'
     // on entry, byteCode=bc_bytemove or byteCode=bc_byteswap
-    this.logMessage(`* compStructCpy() - ENTRY`);
+    if (this.isLogging) this.logMessage(`* compStructCpy() - ENTRY`);
     this.compileVariableAssign(variable, eByteCode.bc_get_addr);
     const variableReturn: iVariableReturn = this.get_struct_variable();
     if (variableReturn.structSize != variable.structSize) {
@@ -9954,7 +10001,7 @@ private checkDec(): boolean {
     // enter hub bytecode bc_bytemove or bc_byteswap
     this.objImage.appendByte(eByteCode.bc_hub_bytecode);
     this.objImage.appendByte(byteCode);
-    this.logMessage(`* compStructCpy() - EXIT`);
+    if (this.isLogging) this.logMessage(`* compStructCpy() - EXIT`);
   }
 
   private compile_struct_fill(operation: eOperationType, variable: iVariableReturn) {
@@ -10038,9 +10085,10 @@ private checkDec(): boolean {
     //      obj_ptr         = compiled_struct_obj_ptr
     //
     // PNut compile_struct_setup:
-    this.logMessage(
-      `  -- CSR(${eElementType[type]},0x${value.toString(16).padStart(8, '0')}, ${eByteCode[modifierBytecode]}(${modifierBytecode})) ENTRY at [${this.currElement.toString()}]`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `  -- CSR(${eElementType[type]},0x${value.toString(16).padStart(8, '0')}, ${eByteCode[modifierBytecode]}(${modifierBytecode})) ENTRY at [${this.currElement.toString()}]`
+      );
     const structureType: eElementType = type; // @@struct_type
     let structureId: number = value;
     let address: number = 0;
@@ -10145,7 +10193,7 @@ private checkDec(): boolean {
         // [error_easmn]
         throw new Error('Expected a structure member name');
       }
-      this.logMessage(`  -- CSR() Hunting for name=[${symbolString}]`);
+      if (this.isLogging) this.logMessage(`  -- CSR() Hunting for name=[${symbolString}]`);
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -10157,12 +10205,12 @@ private checkDec(): boolean {
           // have symbol matching member name
           offsetInStructure += memberOffset;
           if (foundStruct) {
-            this.logMessage(`  -- CSR() [${symbolString}] is structure`);
+            if (this.isLogging) this.logMessage(`  -- CSR() [${symbolString}] is structure`);
             // have sub-Structure (memberType == 3)
             structureRecord = structureRecord.recordWithinStructureRecord(savedStructOffset);
             resultStructure.size = structureRecord.memoryLength;
           } else {
-            this.logMessage(`  -- CSR() [${symbolString}] is BWL`);
+            if (this.isLogging) this.logMessage(`  -- CSR() [${symbolString}] is BWL`);
             // have BYTE, WORD or LONG (memberType == 0,1, or 2)
             // PNut @@notstruct2:
             memberSize = 1 << memberType; // 0,1,2 -> 1,2,4
@@ -10183,7 +10231,7 @@ private checkDec(): boolean {
             }
             resultStructure.indexMode = (savedIndexCount << 2) | liveIndexCount;
             if (resultStructure.indexMode != 1) {
-              this.logMessage(`  -- CSR() indexMode=(${resultStructure.indexMode}) adj. saved element IDX`);
+              if (this.isLogging) this.logMessage(`  -- CSR() indexMode=(${resultStructure.indexMode}) adj. saved element IDX`);
               resultStructure.structElemIndex = this.logSavedElementLocation(); // elem after expression
             }
             foundMatch = true; // we need to exit structure loop
@@ -10194,7 +10242,7 @@ private checkDec(): boolean {
         // PNut @@notmatch:
         const rcdSetEndMarker: number = structureRecord.nextByte(); // returns 1 if another member, 0 if end of record
         const endMarkerInterp: string = rcdSetEndMarker == 0 ? 'EndOfRcds' : 'MoreRcds';
-        this.logMessage(`  -- CSR() recdEndMarker=(${rcdSetEndMarker}) - ${endMarkerInterp}`);
+        if (this.isLogging) this.logMessage(`  -- CSR() recdEndMarker=(${rcdSetEndMarker}) - ${endMarkerInterp}`);
         if (rcdSetEndMarker == 0) {
           // [error_sdnctn]
           throw new Error('Structure does not contain this name');
@@ -10255,7 +10303,7 @@ private checkDec(): boolean {
       }
     }
     // PNut @@noindexexp2:
-    this.logMessage(`  -- CSR() EXIT with resultStructure=[${JSON.stringify(resultStructure, null, 2)}]`);
+    if (this.isLogging) this.logMessage(`  -- CSR() EXIT with resultStructure=[${JSON.stringify(resultStructure, null, 2)}]`);
     return resultStructure;
   }
 
@@ -10273,7 +10321,7 @@ private checkDec(): boolean {
       interpValue = symbolMatch[0].toUpperCase();
     }
     const moveAsideClause: string = moveAsidePresent ? ` moveAsidePresent=(${moveAsidePresent})` : '';
-    this.logMessage(`  -- getSymbol() -> found=(${foundStatus}) ["${interpValue}"]${moveAsideClause}`);
+    if (this.isLogging) this.logMessage(`  -- getSymbol() -> found=(${foundStatus}) ["${interpValue}"]${moveAsideClause}`);
     return [foundStatus, interpValue];
   }
 
@@ -10341,7 +10389,8 @@ private checkDec(): boolean {
     let returnValueCount: number = 0;
     const variableResult: iVariableReturn = this.checkVariable();
     if (variableResult.isVariable) {
-      this.logMessage(`  -- checkVariableMethod() type=[${eElementType[variableResult.type]}], addr=(${hexLong(variableResult.address, '0x')})`);
+      if (this.isLogging)
+        this.logMessage(`  -- checkVariableMethod() type=[${eElementType[variableResult.type]}], addr=(${hexLong(variableResult.address, '0x')})`);
       if (this.checkLeftParen()) {
         if (variableResult.type == eElementType.type_register && variableResult.address == this.mrecvReg) {
           // have RECV(), no parameters allowed, one return value
@@ -10360,7 +10409,7 @@ private checkDec(): boolean {
         }
       }
     } else {
-      this.logMessage(`  -- checkVariableMethod() isVariable=(${variableResult.isVariable})`);
+      if (this.isLogging) this.logMessage(`  -- checkVariableMethod() isVariable=(${variableResult.isVariable})`);
     }
     return [foundMethodStatus, returnValueCount];
   }
@@ -10574,7 +10623,7 @@ private checkDec(): boolean {
       throw new Error('Floating-point not allowed in integer expression');
     } else {
       this.mathMode = eMathMode.MM_FloatMode;
-      this.logMessage(`* mathMode = Float`);
+      if (this.isLogging) this.logMessage(`* mathMode = Float`);
     }
   }
 
@@ -10584,13 +10633,13 @@ private checkDec(): boolean {
       throw new Error('Integer not allowed in floating-point expression');
     } else {
       this.mathMode = eMathMode.MM_IntMode;
-      this.logMessage(`* mathMode = Int`);
+      if (this.isLogging) this.logMessage(`* mathMode = Int`);
     }
   }
 
   private SubToNeg(): boolean {
     // replace our element with a better element
-    this.logMessage(`  -- SubToNeg() at elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  -- SubToNeg() at elem=[${this.currElement.toString()}]`);
     let elementAdjustedStatus: boolean = false;
     if (this.currElement.operation == eOperationType.op_sub) {
       // replace our element with an oc_neg [sub-to-neg]
@@ -10598,7 +10647,7 @@ private checkDec(): boolean {
       elementAdjustedStatus = true;
     }
     const actionInterp: string = elementAdjustedStatus ? 'ADJUSTED' : 'left-alone';
-    this.logMessage(`  -- SubToNeg() ${actionInterp} elem=[${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  -- SubToNeg() ${actionInterp} elem=[${this.currElement.toString()}]`);
     return elementAdjustedStatus;
   }
 
@@ -10612,7 +10661,7 @@ private checkDec(): boolean {
 
   private nextElementType(): eElementType {
     const element: SpinElement = this.spinElements[this.nextElementIndex];
-    //this.logMessage(`* NEXTele i#${this.nextElementIndex}, e=[${this.spinElements[this.nextElementIndex].toString()}]`);
+    //if (this.isLogging) this.logMessage(`* NEXTele i#${this.nextElementIndex}, e=[${this.spinElements[this.nextElementIndex].toString()}]`);
     return element.type;
   }
 
@@ -10624,17 +10673,17 @@ private checkDec(): boolean {
   private logSavedElementLocation(negOffset: number = 0): number {
     // return current index for later restore
     const elementIndex: number = this.nextElementIndex + negOffset;
-    this.logMessage(`*** SAVEd Element Index (${elementIndex})`);
+    if (this.isLogging) this.logMessage(`*** SAVEd Element Index (${elementIndex})`);
     return elementIndex;
   }
 
   private logRestoredElementLocation(savedLocation: number) {
-    this.logMessage(`*** RESTOREd Element Index (${this.nextElementIndex}) -> (${savedLocation})`);
+    if (this.isLogging) this.logMessage(`*** RESTOREd Element Index (${this.nextElementIndex}) -> (${savedLocation})`);
     this.nextElementIndex = savedLocation;
   }
 
   private setScopeColumn(newScopeColumn: number) {
-    this.logMessage(`* LINE_SCOPE scopeColumn SET (${this.scopeColumn}) -> (${newScopeColumn})`);
+    if (this.isLogging) this.logMessage(`* LINE_SCOPE scopeColumn SET (${this.scopeColumn}) -> (${newScopeColumn})`);
     this.scopeColumn = newScopeColumn;
   }
 
@@ -10649,17 +10698,17 @@ private checkDec(): boolean {
   private getElementObj(): SpinElement {
     // if we are found an OBJ trio and found a constant return leaf element resolved as non-obj constant
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
-    this.logMessage(`  *-- GETeleObj() ENTRY at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  *-- GETeleObj() ENTRY at [${this.currElement.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `  *-- GETeleObj() ENTRY at [${this.currElement.toString()}] nextElemIdx=(${this.nextElementIndex})`);
     this.getElement(); // now have OBJECT as current
-    this.logMessage(`   -- GETeleObj() at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`   -- GETeleObj() at [${this.currElement.toString()}]`);
     if (this.currElement.type != eElementType.type_end) {
       // have object reference?
       if (this.currElement.type == eElementType.type_obj) {
         // found OBJ check next
         const savedObjElement: SpinElement = this.currElement;
         this.currElement = this.getElement(); // now have DOT as current
-        this.logMessage(`   -- GETeleObj() at [${this.currElement.toString()}]`);
+        if (this.isLogging) this.logMessage(`   -- GETeleObj() at [${this.currElement.toString()}]`);
         if (this.currElement.type == eElementType.type_dot) {
           const savedDotElementIdx: number = this.nextElementIndex - 1;
           let [objSymType, objSymValue] = this.getObjSymbol(savedObjElement.numberValue);
@@ -10712,13 +10761,13 @@ private checkDec(): boolean {
         }
       }
     }
-    this.logMessage(`  *-- GETeleObj() EXIT at [${this.currElement.toString()}]`);
+    if (this.isLogging) this.logMessage(`  *-- GETeleObj() EXIT at [${this.currElement.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `  *-- GETeleObj() EXIT at [${this.currElement.toString()}] nextElemIdx=(${this.nextElementIndex})`);
     return this.currElement;
   }
 
   private getElement(allowSymbolLookup: boolean = true): SpinElement {
-    //this.logMessage(`* Element Index=(${this.nextElementIndex + 1})`);
+    //if (this.isLogging) this.logMessage(`* Element Index=(${this.nextElementIndex + 1})`);
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
     if (this.spinElements.length == 0) {
       throw new Error(`NO Elements`);
@@ -10739,24 +10788,24 @@ private checkDec(): boolean {
       if (foundSymbol !== undefined) {
         this.replacedName = element.stringValue;
         const symbolLength = element.symbolLength;
-        this.logMessage(`    * GETele REPLACING element=[${element.toString()}]`);
+        if (this.isLogging) this.logMessage(`    * GETele REPLACING element=[${element.toString()}]`);
         this.logMessageConditional(bIsDesiredLine, `    * GETele REPLACING element=[${element.toString()}]`);
         element = new SpinElement(-1, eElementType.type_undefined, '', -1, -1, element);
         element.setType(foundSymbol.type);
         element.setValue(foundSymbol.value);
         element.setSymbolLength(symbolLength);
-        this.logMessage(`    *       with element=[${element.toString()}] moveAside=["${this.replacedName}"]`);
+        if (this.isLogging) this.logMessage(`    *       with element=[${element.toString()}] moveAside=["${this.replacedName}"]`);
         this.logMessageConditional(bIsDesiredLine, `    *       with element=[${element.toString()}] moveAside=["${this.replacedName}"]`);
         element.setSourceElementWasUndefined(); // mark this NEW symbol as replacing an undefined symbol
       }
     }
     //*
-    this.logMessage(`    * GETele GOT i#${this.nextElementIndex - 1}, e=[${element.toString()}]`);
+    if (this.isLogging) this.logMessage(`    * GETele GOT i#${this.nextElementIndex - 1}, e=[${element.toString()}]`);
     this.logMessageConditional(bIsDesiredLine, `    * GETele GOT i#${this.nextElementIndex - 1}, e=[${element.toString()}]`);
     if (element.type != eElementType.type_end_file) {
-      //this.logMessage(`*        NEXT i#${this.nextElementIndex}, e=[${this.spinElements[this.nextElementIndex].toString()}]`);
+      //if (this.isLogging) this.logMessage(`*        NEXT i#${this.nextElementIndex}, e=[${this.spinElements[this.nextElementIndex].toString()}]`);
     } else {
-      this.logMessage(`  *        NEXT -- at EOF --`);
+      if (this.isLogging) this.logMessage(`  *        NEXT -- at EOF --`);
     }
     //*/
 
@@ -10786,12 +10835,12 @@ private checkDec(): boolean {
     // don't let our index get < 0!
     const bIsDesiredLine: boolean = this.determineInRange(this.currElement.sourceLineNumber);
     this.nextElementIndex -= this.nextElementIndex > 2 ? 2 : this.nextElementIndex;
-    this.logMessage(`* BACKele nextElemIdx=(${this.nextElementIndex})`);
+    if (this.isLogging) this.logMessage(`* BACKele nextElemIdx=(${this.nextElementIndex})`);
     this.logMessageConditional(bIsDesiredLine, `* BACKele nextElemIdx=(${this.nextElementIndex})`);
     const currElementIdx: number = this.nextElementIndex;
     this.currElement = new SpinElement(0, eElementType.type_undefined, '', 0, 0, this.spinElements[this.nextElementIndex++]);
     // and make sure our column offset into the line is set
-    this.logMessage(`* BACKele i#${currElementIdx}, e=[${this.currElement.toString()}], nextElemIdx=(${this.nextElementIndex})`);
+    if (this.isLogging) this.logMessage(`* BACKele i#${currElementIdx}, e=[${this.currElement.toString()}], nextElemIdx=(${this.nextElementIndex})`);
     // if i'm sitting at DOT which is part of obj.constant then back up one more
     if (this.currElement.isPartOfObjReference) {
       this.spinElements[currElementIdx].setPartOfObjReference(false);
@@ -10804,10 +10853,10 @@ private checkDec(): boolean {
   private getColumn() {
     // sets global var lineColumn!
     if (this.currElement.sourceColumnOffset != 0) {
-      this.logMessage(`* LINE_SCOPE getColumn() lineColumn (${this.lineColumn}) -> (${this.currElement.sourceColumnOffset})`);
+      if (this.isLogging) this.logMessage(`* LINE_SCOPE getColumn() lineColumn (${this.lineColumn}) -> (${this.currElement.sourceColumnOffset})`);
       this.lineColumn = this.currElement.sourceColumnOffset;
     } else {
-      this.logMessage(`WARNING: getColumn() sourceColumnOffset in SpinElement NOT SET!`);
+      if (this.isLogging) this.logMessage(`WARNING: getColumn() sourceColumnOffset in SpinElement NOT SET!`);
     }
   }
 
@@ -10823,9 +10872,10 @@ private checkDec(): boolean {
     const true32Bit: bigint = BigInt(0xffffffff);
     const false32Bit: bigint = 0n;
 
-    this.logMessage(
-      `* resolveOperation(${float32ToHexString(parmA)}, ${float32ToHexString(parmB)}) ${eOperationType[operation]} isFloat=(${isFloatInConBlock})`
-    );
+    if (this.isLogging)
+      this.logMessage(
+        `* resolveOperation(${float32ToHexString(parmA)}, ${float32ToHexString(parmB)}) ${eOperationType[operation]} isFloat=(${isFloatInConBlock})`
+      );
 
     // conditioning the incoming params
     let a: bigint = parmA;
@@ -10838,12 +10888,12 @@ private checkDec(): boolean {
 
     switch (operation) {
       case eOperationType.op_bitnot: // !
-        this.logMessage(`resolveOperation() have op_bitnot:`);
+        if (this.isLogging) this.logMessage(`resolveOperation() have op_bitnot:`);
         // invert our 32bits
         a ^= mask32Bit;
         break;
       case eOperationType.op_neg: //  - (uses op_sub sym)
-        this.logMessage(`resolveOperation() have op_neg:`);
+        if (this.isLogging) this.logMessage(`resolveOperation() have op_neg:`);
         if (isFloatInConBlock) {
           // our 32bit float  signbit in msb, 8 exponent bits, 23 mantissa bits
           a ^= msb32Bit;
@@ -11208,7 +11258,7 @@ private checkDec(): boolean {
             // [error_divo]
             throw new Error(`Division overflow`);
           }
-          this.logMessage(` *** op_frac a(${origA}), b(${b}) = (${a})`);
+          if (this.isLogging) this.logMessage(` *** op_frac a(${origA}), b(${b}) = (${a})`);
         }
         break;
 
@@ -11275,7 +11325,7 @@ private checkDec(): boolean {
           const bInternalFloat64: number = bigIntFloat32ToNumber(b);
           // a to power of b
           const internalPow_64: number = Math.pow(aInternalFloat64, bInternalFloat64);
-          this.logMessage(` *** op_pow a(${aInternalFloat64}), b(${bInternalFloat64}) = (${internalPow_64})`);
+          if (this.isLogging) this.logMessage(` *** op_pow a(${aInternalFloat64}), b(${bInternalFloat64}) = (${internalPow_64})`);
           // convert back to float32
           a = numberToBigIntFloat32(internalPow_64);
         }
@@ -11463,7 +11513,7 @@ private checkDec(): boolean {
           const aInternalFloat64: number = bigIntFloat32ToNumber(a);
           const bInternalFloat64: number = bigIntFloat32ToNumber(b);
           const testStatus: boolean = aInternalFloat64 < bInternalFloat64;
-          this.logMessage(` *** op_ltegt a(${aInternalFloat64}) < b(${bInternalFloat64}) = (${testStatus})`);
+          if (this.isLogging) this.logMessage(` *** op_ltegt a(${aInternalFloat64}) < b(${bInternalFloat64}) = (${testStatus})`);
           a = aInternalFloat64 == bInternalFloat64 ? 0n : aInternalFloat64 < bInternalFloat64 ? float1p0 | msb32Bit : float1p0;
         } else {
           const extendedA = this.signExtendFrom32Bit(a);

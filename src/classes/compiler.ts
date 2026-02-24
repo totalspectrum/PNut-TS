@@ -91,7 +91,7 @@ export class Compiler {
 
   public Compile() {
     //logContextState(this.context, 'Compiler');
-    this.logMessage(`* Compiler LOGGING is enabled!`);
+    if (this.isLogging) this.logMessage(`* Compiler LOGGING is enabled!`);
 
     this.srcFile = this.context.sourceFiles.getTopFile();
     // TESTING: if requested, run our internal-tables regression report generator
@@ -159,7 +159,8 @@ export class Compiler {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private compileRecursively(depth: number, srcFile: SpinDocument, overrideParameters: SymbolTable | undefined = undefined) {
-    this.logMessageOutline(`++ compileRecursly(${depth}, [${srcFile.fileName}]) - ENTRY ---------------------------------------`);
+    if (this.isLoggingOutline)
+      this.logMessageOutline(`++ compileRecursly(${depth}, [${srcFile.fileName}]) - ENTRY ---------------------------------------`);
     if (this.spin2Parser !== undefined) {
       if (depth > OBJ_STACK_LIMIT) {
         throw new Error(`Object nesting exceeds ${OBJ_STACK_LIMIT} levels - illegal circular reference may exist`);
@@ -176,7 +177,7 @@ export class Compiler {
       // NOTE TODO: we need to request collapse_debug_data from compile2 if depth = 2
       if (this.context.passOptions.afterPreprocess == false) {
         if (this.context.passOptions.afterElementize == false) {
-          this.logMessage(`  -- compRecur(${depth}) - compile1 - pass 1 ----------------------------------------`);
+          if (this.isLogging) this.logMessage(`  -- compRecur(${depth}) - compile1 - pass 1 ----------------------------------------`);
           this.spin2Parser.P2Compile1(overrideParameters);
 
           const objFileList: ObjFile[] = [...this.spinFiles.objFiles];
@@ -196,7 +197,7 @@ export class Compiler {
               // reuse existing document if present
               let childObjSourceFile = this.context.sourceFiles.getFile(fileSpec);
               if (childObjSourceFile === undefined) {
-                this.logMessageOutline(`--- load child object [${path.basename(fileSpec)}]`);
+                if (this.isLoggingOutline) this.logMessageOutline(`--- load child object [${path.basename(fileSpec)}]`);
                 childObjSourceFile = new SpinDocument(this.context, fileSpec);
                 this.context.sourceFiles.addFile(childObjSourceFile);
               }
@@ -209,13 +210,13 @@ export class Compiler {
             }
           }
 
-          this.logMessageOutline(`  -- compRecur(${depth}) - compile1 - pass 2 ----------------------------------------`);
+          if (this.isLoggingOutline) this.logMessageOutline(`  -- compRecur(${depth}) - compile1 - pass 2 ----------------------------------------`);
           this.spin2Parser.setSourceFile(srcFile);
           this.spin2Parser.P2Compile1(overrideParameters);
           //
           // load sub-objects' .obj files
           //  move  ObjFileBuff (this.childImages) into P2.ObjData (this.objectData)
-          this.logMessageOutline(`* compRecur(${depth}) processing ${objectFiles} OBJ file(s)`);
+          if (this.isLoggingOutline) this.logMessageOutline(`* compRecur(${depth}) processing ${objectFiles} OBJ file(s)`);
           if (objectFiles > 0) {
             let objDataOffset: number = 0; // pascal p
             this.objectData.clear();
@@ -229,9 +230,10 @@ export class Compiler {
               }
               // pascal inline       s
               const [objOffset, objLength] = this.childImages.getOffsetAndLengthForFile(physicalFileIdx);
-              this.logMessageOutline(
-                `  -- compRecur(${depth}) obj loop childIdx=(${childIdx}), logicalIdx=(${logicalFileIdx}), physicalIdx=(${physicalFileIdx}), objOffset=(${objOffset}), objLength=(${objLength})`
-              );
+              if (this.isLoggingOutline)
+                this.logMessageOutline(
+                  `  -- compRecur(${depth}) obj loop childIdx=(${childIdx}), logicalIdx=(${logicalFileIdx}), physicalIdx=(${physicalFileIdx}), objOffset=(${objOffset}), objLength=(${objLength})`
+                );
               // for this child, append child image to objectData
               this.childImages.setOffset(objOffset); // set read start
               this.objectData.setOffset(objDataOffset); // set write start
@@ -246,31 +248,33 @@ export class Compiler {
               //dumpUniqueChildObjectFile(this.objectData, objDataOffset, newObjFileSpec, this.context); // REMOVE BEFORE FLIGHT
               // DEBUG dump object records for inspection
               if (this.isLoggingOutline) {
-                this.logMessageOutline(`* - -------------------------------`);
+                if (this.isLoggingOutline) this.logMessageOutline(`* - -------------------------------`);
                 for (let objFileIndex = 0; objFileIndex < this.objectData.objectFileCount; objFileIndex++) {
                   const [objOffset, objLength] = this.objectData.getOffsetAndLengthForFile(objFileIndex);
-                  this.logMessageOutline(`  -- compRecur() fileIdx=[${objFileIndex}], objOffset=(${objOffset}), objLength(${objLength})`);
+                  if (this.isLoggingOutline)
+                    this.logMessageOutline(`  -- compRecur() fileIdx=[${objFileIndex}], objOffset=(${objOffset}), objLength(${objLength})`);
                 }
-                this.logMessageOutline(`* - -------------------------------`);
+                if (this.isLoggingOutline) this.logMessageOutline(`* - -------------------------------`);
               }
             }
           }
           //
           // load any data files
-          this.logMessageOutline(`* compRecur(${depth}) processing ${dataFiles} DAT file(s)`);
+          if (this.isLoggingOutline) this.logMessageOutline(`* compRecur(${depth}) processing ${dataFiles} DAT file(s)`);
           if (dataFiles > 0) {
             let fileDataOffset: number = 0; // pascal p
             //const datFileList: DatFile[] = this.spinFiles.datFiles;
-            this.logMessageOutline(`++ DAT FILE Compiler have (${dataFiles}) data files listLen=(${datFileList.length})`);
+            if (this.isLoggingOutline) this.logMessageOutline(`++ DAT FILE Compiler have (${dataFiles}) data files listLen=(${datFileList.length})`);
             for (let datFileIdx = 0; datFileIdx < datFileList.length; datFileIdx++) {
               const datFile: DatFile = datFileList[datFileIdx];
               const datImage: Uint8Array = loadFileAsUint8Array(datFile.fileSpec, this.context);
               const filename: string = path.basename(datFile.fileSpec);
               const failedToLoad: boolean = loadUint8ArrayFailed(datImage) ? true : false;
               if (failedToLoad == false) {
-                this.logMessageOutline(
-                  `++ DAT FILE Compiler [dfd=${this.datFileData.id}]  [${filename}], idx=(${datFileIdx}) len=(${datImage.length})`
-                );
+                if (this.isLoggingOutline)
+                  this.logMessageOutline(
+                    `++ DAT FILE Compiler [dfd=${this.datFileData.id}]  [${filename}], idx=(${datFileIdx}) len=(${datImage.length})`
+                  );
                 // ensure fits
                 this.datFileData.ensureFits(fileDataOffset, datImage.length);
                 // place file content into image
@@ -283,7 +287,7 @@ export class Compiler {
           }
           //
           // perform second pass of compilation
-          this.logMessageOutline(`  -- compRecur(${depth}).compile2 ENTRY`);
+          if (this.isLoggingOutline) this.logMessageOutline(`  -- compRecur(${depth}).compile2 ENTRY`);
           this.spin2Parser.P2Compile2(depth == 0); // NOTE: if at zero  (see above note...)
 
           // Save symbols for this object (for map file generation)
@@ -306,9 +310,10 @@ export class Compiler {
           if (duplicateInfo.exists) {
             // Reuse existing object - this is a duplicate!
             physicalFileIndex = duplicateInfo.fileIndex;
-            this.logMessageOutline(
-              `  -- REUSE DUPE -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objLen=(${objectLength})`
-            );
+            if (this.isLoggingOutline)
+              this.logMessageOutline(
+                `  -- REUSE DUPE -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objLen=(${objectLength})`
+              );
             // Track memory statistics
             this.memoryStats.duplicatesDetected++;
             this.memoryStats.memoryBytesSaved += objectLength;
@@ -335,21 +340,23 @@ export class Compiler {
             // DEBUG dump into .obj file for inspection
             //const newObjFileSpec = this.uniqueObjectName(depth, srcFile.dirName, srcFile.fileName, 'Child'); // REMOVE BEFORE FLIGHT
             //dumpUniqueChildObjectFile(this.childImages, this.objectFileOffset, newObjFileSpec, this.context); // REMOVE BEFORE FLIGHT
-            this.logMessageOutline(
-              `  -- NEW OBJECT -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objFiCnt=(${this.objectFileCount}), objLen=(${objectLength}), new objEndOffset=(${this.objectFileOffset})`
-            );
+            if (this.isLoggingOutline)
+              this.logMessageOutline(
+                `  -- NEW OBJECT -- logicalIdx=(${this.globalLogicalIndexCounter}), physicalIdx=(${physicalFileIndex}), objFiCnt=(${this.objectFileCount}), objLen=(${objectLength}), new objEndOffset=(${this.objectFileOffset})`
+              );
           }
 
           // Map logical index to physical index
           this.globalChildObjectIndexMap.set(this.globalLogicalIndexCounter, physicalFileIndex);
           // Always increment logical index (even for duplicates)
           this.globalLogicalIndexCounter++;
-          this.logMessageOutline(`  -- compRecur(${depth}).compile2 EXIT`);
+          if (this.isLoggingOutline) this.logMessageOutline(`  -- compRecur(${depth}).compile2 EXIT`);
         }
       }
     }
-    this.logMessageOutline(`++ compileRecursly(${depth}, [${srcFile.fileName}]) - EXIT ----------------------------------------`);
-    this.logMessageOutline(``);
+    if (this.isLoggingOutline)
+      this.logMessageOutline(`++ compileRecursly(${depth}, [${srcFile.fileName}]) - EXIT ----------------------------------------`);
+    if (this.isLoggingOutline) this.logMessageOutline(``);
   }
 
   private uniqueObjectName(depth: number, dirSpec: string, filename: string, structId: string): string {
@@ -406,35 +413,36 @@ export class Compiler {
       );
     }
 
-    this.logMessageOutline(`Index mapping validation passed: ${logicalIndices.length} logical indices mapped to ${objectCount} physical objects`);
+    if (this.isLoggingOutline)
+      this.logMessageOutline(`Index mapping validation passed: ${logicalIndices.length} logical indices mapped to ${objectCount} physical objects`);
   }
 
   private logDuplicationStats(): void {
     // Only log if we have duplicates and outline logging is enabled
     if (this.memoryStats.duplicatesDetected > 0 && this.isLoggingOutline) {
-      this.logMessageOutline('');
-      this.logMessageOutline('=== Early Object Deduplication Statistics ===');
-      this.logMessageOutline(`Total objects compiled: ${this.memoryStats.totalObjectsCompiled}`);
-      this.logMessageOutline(`Duplicate objects detected: ${this.memoryStats.duplicatesDetected}`);
-      this.logMessageOutline(`Memory saved: ${this.memoryStats.memoryBytesSaved} bytes`);
+      if (this.isLoggingOutline) this.logMessageOutline('');
+      if (this.isLoggingOutline) this.logMessageOutline('=== Early Object Deduplication Statistics ===');
+      if (this.isLoggingOutline) this.logMessageOutline(`Total objects compiled: ${this.memoryStats.totalObjectsCompiled}`);
+      if (this.isLoggingOutline) this.logMessageOutline(`Duplicate objects detected: ${this.memoryStats.duplicatesDetected}`);
+      if (this.isLoggingOutline) this.logMessageOutline(`Memory saved: ${this.memoryStats.memoryBytesSaved} bytes`);
 
       const deduplicationRatio = (this.memoryStats.duplicatesDetected / this.memoryStats.totalObjectsCompiled) * 100;
-      this.logMessageOutline(`Deduplication ratio: ${deduplicationRatio.toFixed(1)}%`);
+      if (this.isLoggingOutline) this.logMessageOutline(`Deduplication ratio: ${deduplicationRatio.toFixed(1)}%`);
 
       // Log breakdown by object size
       if (this.memoryStats.duplicatesBySize.size > 0) {
-        this.logMessageOutline('');
-        this.logMessageOutline('Duplicates by size:');
+        if (this.isLoggingOutline) this.logMessageOutline('');
+        if (this.isLoggingOutline) this.logMessageOutline('Duplicates by size:');
         const sortedSizes = Array.from(this.memoryStats.duplicatesBySize.entries()).sort((a, b) => b[0] - a[0]);
         for (const [size, count] of sortedSizes) {
           const sizeKB = (size / 1024).toFixed(2);
           const savedKB = ((size * count) / 1024).toFixed(2);
-          this.logMessageOutline(`  ${sizeKB} KB objects: ${count} duplicates (saved ${savedKB} KB)`);
+          if (this.isLoggingOutline) this.logMessageOutline(`  ${sizeKB} KB objects: ${count} duplicates (saved ${savedKB} KB)`);
         }
       }
 
-      this.logMessageOutline('==============================================');
-      this.logMessageOutline('');
+      if (this.isLoggingOutline) this.logMessageOutline('==============================================');
+      if (this.isLoggingOutline) this.logMessageOutline('');
     }
   }
 
@@ -498,6 +506,6 @@ export class Compiler {
       }
     }
 
-    this.logMessageOutline(`Built instance info for ${this.context.objInstanceStore.count} objects`);
+    if (this.isLoggingOutline) this.logMessageOutline(`Built instance info for ${this.context.objInstanceStore.count} objects`);
   }
 }

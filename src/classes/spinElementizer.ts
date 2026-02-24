@@ -73,7 +73,7 @@ export class SpinElementizer {
   }
 
   private resetForNewFile() {
-    this.logMessage(`* Elementizer.resetForNewFile()`);
+    if (this.isLogging) this.logMessage(`* Elementizer.resetForNewFile()`);
     this.currLineIndex = -1;
     this.currCharacterIndex = 0;
     this.symbolLineNumber = 0;
@@ -89,7 +89,7 @@ export class SpinElementizer {
     this.srcFile = spinCode;
     // dummy load of next line (replaced by loadNextLine())
     // now load the line and set conditions after incrementing line index
-    this.logMessage(`* Elementizer.setSourceFile([${spinCode.fileName}])`);
+    if (this.isLogging) this.logMessage(`* Elementizer.setSourceFile([${spinCode.fileName}])`);
     this.resetForNewFile();
     this.loadNextLine();
     // configure our tabes with version for this spin2 source file
@@ -98,7 +98,7 @@ export class SpinElementizer {
     // if we have a new source file then generate its element list
     if (spinCode.elementList.length == 0) {
       const filename = this.srcFile.fileName;
-      this.logMessageOutline(`++ Elementizer Elementize(${filename})`);
+      if (this.isLoggingOutline) this.logMessageOutline(`++ Elementizer Elementize(${filename})`);
       const elementList = this.getFileElements();
       spinCode.setElementList(elementList);
     }
@@ -107,7 +107,7 @@ export class SpinElementizer {
   get sourceLineNumber(): number {
     // return last access line number
     //  ultimately this will be line with error on it
-    //this.logMessage(`* sourceLineNumber() currentTextLine=[${this.currentTextLine.text}]`);
+    //if (this.isLogging) this.logMessage(`* sourceLineNumber() currentTextLine=[${this.currentTextLine.text}]`);
     return this.currentTextLine !== undefined ? this.currentTextLine.sourceLineNumber : -1;
   }
 
@@ -117,13 +117,13 @@ export class SpinElementizer {
 
   public getFileElements(): SpinElement[] {
     //let numberCalls: number = 30;
-    this.logMessage(`* Elementizer.getFileElements() file=[${this.srcFile.fileName}]`);
+    if (this.isLogging) this.logMessage(`* Elementizer.getFileElements() file=[${this.srcFile.fileName}]`);
     this.isElementizing = true; // Mark that elementization has started
     const element_list: SpinElement[] = [];
     // store the value(s) in list
     let atEndOfFile: boolean = false;
     let elements: SpinElement[] = this.get_element_entries();
-    this.logMessage(`- get EARLY elements(${elements.length})=[${elements}]`);
+    if (this.isLogging) this.logMessage(`- get EARLY elements(${elements.length})=[${elements}]`);
     do {
       for (let index = 0; index < elements.length; index++) {
         const element = elements[index];
@@ -136,7 +136,7 @@ export class SpinElementizer {
         break;
       }
       elements = this.get_element_entries();
-      this.logMessage(`- get IN-LOOP elements(${elements.length})=[${elements}]`);
+      if (this.isLogging) this.logMessage(`- get IN-LOOP elements(${elements.length})=[${elements}]`);
       // eslint-disable-next-line no-constant-condition
     } while (true); // Loop exits via break when atEndOfFile is set
     this.isElementizing = false; // Mark that elementization has completed successfully
@@ -145,7 +145,7 @@ export class SpinElementizer {
 
   private setDebugStringState(newState: eDebugStringState) {
     if (this.debugStringState != newState) {
-      this.logMessage(`  -- debugStringState [${eDebugStringState[this.debugStringState]}] -> [${eDebugStringState[newState]}]`);
+      if (this.isLogging) this.logMessage(`  -- debugStringState [${eDebugStringState[this.debugStringState]}] -> [${eDebugStringState[newState]}]`);
     }
     this.debugStringState = newState;
   }
@@ -166,7 +166,7 @@ export class SpinElementizer {
 
     if (this.currCharacterIndex == 0) {
       const lineNbrString: string = this.lineNumberString(this.sourceLineNumber, this.unprocessedLine.length);
-      this.logMessage(`  --- NEW ---   Ln#${lineNbrString}  line=[${this.unprocessedLine}]`);
+      if (this.isLogging) this.logMessage(`  --- NEW ---   Ln#${lineNbrString}  line=[${this.unprocessedLine}]`);
       this.firstCharColumn = this.countColumnsOfLeftEdgeWhite(this.unprocessedLine) + 1;
       firstElementOfLine = true;
       inDebugStatement = false;
@@ -182,7 +182,7 @@ export class SpinElementizer {
     if (this.unprocessedLine.startsWith('...')) {
       // NOTE: do loop handles case where '...'\n'...' (the doc-comments are on sequential line with/without leading spaces)
       do {
-        this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "..." skipping to next line`);
+        if (this.isLogging) this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "..." skipping to next line`);
         // force load of next line
         this.loadNextLine();
         this.skipLeadingWhiteSpace();
@@ -226,7 +226,7 @@ export class SpinElementizer {
 
       let charOffset = this.currCharacterIndex;
       let stringOffset = 0;
-      this.logMessage(`* EmitTickString --  unprocessedLine=[${this.unprocessedLine}](${this.unprocessedLine.length})`);
+      if (this.isLogging) this.logMessage(`* EmitTickString --  unprocessedLine=[${this.unprocessedLine}](${this.unprocessedLine.length})`);
       let stringEndOffset = this.unprocessedLine.indexOf('`');
       if (stringEndOffset == -1) {
         stringEndOffset = this.unprocessedLine.indexOf(')');
@@ -236,7 +236,7 @@ export class SpinElementizer {
       // if we have an end and not an empty string
       if (stringEndOffset != -1 && stringEndOffset != 0) {
         stringLength = stringEndOffset - stringOffset;
-        this.logMessage(`* EmitTickString --  at(${stringOffset}), end(${stringEndOffset}), charCount=(${stringLength})`);
+        if (this.isLogging) this.logMessage(`* EmitTickString --  at(${stringOffset}), end(${stringEndOffset}), charCount=(${stringLength})`);
         if (stringLength > 0) {
           // NEW!!!! - NOTE: for now, TicStrings do not have any correction!!!
           //  the first element of a string contains an overriding offset and column!
@@ -256,7 +256,7 @@ export class SpinElementizer {
           this.unprocessedLine = this.skipAhead(stringLength, this.unprocessedLine);
         }
       } else {
-        this.logMessage(`* EmitTickString -- charCount=(${stringLength}) emit nothing`);
+        if (this.isLogging) this.logMessage(`* EmitTickString -- charCount=(${stringLength}) emit nothing`);
       }
       // exit string but will return after `{dbgCmd}(...)
       this.setDebugStringState(eDebugStringState.WAITING_CLOSE_PAREN);
@@ -430,8 +430,8 @@ export class SpinElementizer {
     // return our 1 iElement within an array
     if (returningSingleEntry) {
       const lineNbrString: string = this.lineNumberString(this.symbolLineNumber, this.symbolCharacterOffset);
-      this.logMessage(`- get_element_entries() Ln#${lineNbrString} - type=(${elemTypeStr}), value=(${valueToDisplay})`);
-      this.logMessage(''); // blank line  countColumnsOfLeftEdgeWhite
+      if (this.isLogging) this.logMessage(`- get_element_entries() Ln#${lineNbrString} - type=(${elemTypeStr}), value=(${valueToDisplay})`);
+      if (this.isLogging) this.logMessage(''); // blank line  countColumnsOfLeftEdgeWhite
       const singleElement = new SpinElement(this.srcFile.fileId, typeFound, valueFound, this.symbolLineNumber - 1, this.symbolCharacterOffset);
       let symbolColumn: number = this.lastSymboblEndOffset + 1;
       if (typeFound != eElementType.type_end) {
@@ -443,23 +443,24 @@ export class SpinElementizer {
         this.lastSymboblEndOffset = singleElement.sourceColumnOffset + symbolLengthFound;
         elementsFound.push(singleElement);
         this.lastEmittedIsLineEnd = singleElement.isLineEnd ? true : false;
-        //this.logMessage(`  -- lastEmittedIsLineEnd=(${this.lastEmittedIsLineEnd}) type=[${eElementType[singleElement.type]]`); // blank line
+        //if (this.isLogging) this.logMessage(`  -- lastEmittedIsLineEnd=(${this.lastEmittedIsLineEnd}) type=[${eElementType[singleElement.type]]`); // blank line
       }
     } else {
       // dump our list of values
-      this.logMessage(`- displaying ${elementsFound.length} elements`); // blank line
+      if (this.isLogging) this.logMessage(`- displaying ${elementsFound.length} elements`); // blank line
       // NOTE: we DON'T put 'symbolColumn' into these 'x','x',... lists of symbols
       for (let index = 0; index < elementsFound.length; index++) {
         const element = elementsFound[index];
         const elemTypeStr: string = eElementType[element.type];
         const flagInterp: string = element.isMidStringComma ? `, midString` : '';
         const lineNbrString: string = this.lineNumberString(element.sourceLineIndex, element.sourceCharacterOffset);
-        this.logMessage(`- get_element_entries() Ln#${lineNbrString} - type=(${elemTypeStr}), value=(${element.value})${flagInterp}`);
+        if (this.isLogging)
+          this.logMessage(`- get_element_entries() Ln#${lineNbrString} - type=(${elemTypeStr}), value=(${element.value})${flagInterp}`);
       }
       this.lastEmittedIsLineEnd = false;
       firstElementOfLine = false;
-      //this.logMessage(`  -- lastEmittedIsLineEnd=(${this.lastEmittedIsLineEnd})`); // blank line
-      this.logMessage(''); // blank line
+      //if (this.isLogging) this.logMessage(`  -- lastEmittedIsLineEnd=(${this.lastEmittedIsLineEnd})`); // blank line
+      if (this.isLogging) this.logMessage(''); // blank line
     }
     return elementsFound;
   }
@@ -597,7 +598,8 @@ export class SpinElementizer {
         }
       }
       if (line.includes('enter_element')) {
-        this.logMessage(`* calculateColumnToOffset() line-[${line.substring(0, endCharOffset + 1)}], ofs=(${endCharOffset}) -> (${columnsCount})`);
+        if (this.isLogging)
+          this.logMessage(`* calculateColumnToOffset() line-[${line.substring(0, endCharOffset + 1)}], ofs=(${endCharOffset}) -> (${columnsCount})`);
       }
     }
     return columnsCount + 1; // now make it a column number
@@ -639,7 +641,7 @@ export class SpinElementizer {
         offsetPastClose = closeOffset + (sameLine ? 4 : 2);
         inDocBraceComment = false;
       } else {
-        this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "{{..}}" skipping to next line`);
+        if (this.isLogging) this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "{{..}}" skipping to next line`);
         this.loadNextLine();
         sameLine = false;
         if (this.at_eof) {
@@ -681,7 +683,7 @@ export class SpinElementizer {
         }
       } else {
         // nope, get next line
-        this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "{.." skipping to next line`);
+        if (this.isLogging) this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "{.." skipping to next line`);
         this.loadNextLine();
         sameLine = false;
         // if no more lines the report missing close comment
@@ -754,25 +756,25 @@ export class SpinElementizer {
 
   private isSymbolStartChar(line: string): boolean {
     const findStatus: boolean = /^[A-Z_a-z]+/.test(line);
-    //this.logMessage(`isSymbolStartChar(${line}) = (${findStatus})`);
+    //if (this.isLogging) this.logMessage(`isSymbolStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isHexStartChar(line: string): boolean {
     const findStatus: boolean = /^[A-Fa-f0-9]+/.test(line);
-    //this.logMessage(`isHexStartChar(${line}) = (${findStatus})`);
+    //if (this.isLogging) this.logMessage(`isHexStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isBinStartChar(line: string): boolean {
     const findStatus: boolean = /^[01]+/.test(line);
-    //this.logMessage(`isBinStartChar(${line}) = (${findStatus})`);
+    //if (this.isLogging) this.logMessage(`isBinStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isQuartStartChar(line: string): boolean {
     const findStatus: boolean = /^[0-3]+/.test(line);
-    //this.logMessage(`isQuartStartChar(${line}) = (${findStatus})`);
+    //if (this.isLogging) this.logMessage(`isQuartStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
@@ -789,9 +791,10 @@ export class SpinElementizer {
       charsUsed = findResult.symbol.length;
       type = findResult.type;
       const elemTypeStr: string = eElementType[type];
-      this.logMessage(`  -- symbolConvert() Symbol found [${findResult.symbol}](${charsUsed}), type=(${elemTypeStr}), value=(${value})`);
+      if (this.isLogging)
+        this.logMessage(`  -- symbolConvert() Symbol found [${findResult.symbol}](${charsUsed}), type=(${elemTypeStr}), value=(${value})`);
     } else {
-      this.logMessage(`  -- symbolConvert(${symbolName}) NOT a built-in`);
+      if (this.isLogging) this.logMessage(`  -- symbolConvert(${symbolName}) NOT a built-in`);
     }
     return { foundStatus, charsUsed, value, type };
   }
@@ -810,16 +813,17 @@ export class SpinElementizer {
       searchString = line.substring(0, 3);
     }
     findResult = this.symbol_tables.operatorSymbol(searchString);
-    this.logMessage(`- operatorConvert(${line}) lookfor=[${searchString}]`);
+    if (this.isLogging) this.logMessage(`- operatorConvert(${line}) lookfor=[${searchString}]`);
     if (findResult) {
       foundStatus = true;
       value = BigInt(findResult.value & 0xffffffff);
       charsUsed = findResult.symbol.length;
       type = findResult.type;
       const elemTypeStr: string = eElementType[type];
-      this.logMessage(`  -- operatorConvert() Operator found [${findResult.symbol}](${charsUsed}), type=(${elemTypeStr}), value=(${value})`);
+      if (this.isLogging)
+        this.logMessage(`  -- operatorConvert() Operator found [${findResult.symbol}](${charsUsed}), type=(${elemTypeStr}), value=(${value})`);
     } else {
-      this.logMessage('  -- operatorConvert() NOT a valid operator');
+      if (this.isLogging) this.logMessage('  -- operatorConvert() NOT a valid operator');
     }
     return { foundStatus, charsUsed, value, type };
   }
@@ -865,7 +869,7 @@ export class SpinElementizer {
       // FIXME: TODO: move this to 2nd quote check before calling this method
     }
     const hexString = interpValue.toString(16);
-    this.logMessage(`  -- packedAsciiConversion(${line}) = interpValue=(0x${hexString})`);
+    if (this.isLogging) this.logMessage(`  -- packedAsciiConversion(${line}) = interpValue=(0x${hexString})`);
     return [charsUsed, interpValue];
   }
 
@@ -879,7 +883,7 @@ export class SpinElementizer {
       interpValue = BigInt(parseInt(valueFound.replace(/_/g, ''), 4));
       charsUsed = quaternaryNumberMatch[0].length;
       // ensure that result fits in 32-bits
-      this.logMessage(`  -- quaternaryConversion(${line}) = interpValue=(${interpValue})`);
+      if (this.isLogging) this.logMessage(`  -- quaternaryConversion(${line}) = interpValue=(${interpValue})`);
       this.validate32BitInteger(interpValue);
     }
     return [charsUsed, interpValue];
@@ -892,11 +896,11 @@ export class SpinElementizer {
     const binaryNumberMatch = line.match(isBinaryNumberRegEx);
     if (binaryNumberMatch) {
       const valueFound: string = binaryNumberMatch[0].substring(1);
-      //this.logMessage(`- binaryNumberMatch[0]=(${valueFound})`);
+      //if (this.isLogging) this.logMessage(`- binaryNumberMatch[0]=(${valueFound})`);
       interpValue = BigInt(parseInt(valueFound.replace(/_/g, ''), 2));
       charsUsed = binaryNumberMatch[0].length;
       // ensure that result fits in 32-bits
-      this.logMessage(`  -- binaryConversion(${line}) = interpValue=(${interpValue})`);
+      if (this.isLogging) this.logMessage(`  -- binaryConversion(${line}) = interpValue=(${interpValue})`);
       this.validate32BitInteger(interpValue);
     }
     return [charsUsed, interpValue];
@@ -909,11 +913,11 @@ export class SpinElementizer {
     const hexNumberMatch = line.match(isHexNumberRegEx);
     if (hexNumberMatch) {
       const valueFound: string = hexNumberMatch[0].substring(1);
-      //this.logMessage(`- hexNumberMatch[0]=(${valueFound})(${hexNumberMatch.length})`);
+      //if (this.isLogging) this.logMessage(`- hexNumberMatch[0]=(${valueFound})(${hexNumberMatch.length})`);
       interpValue = BigInt(parseInt(valueFound.replace(/_/g, ''), 16));
       charsUsed = hexNumberMatch[0].length;
       // ensure that result fits in 32-bits
-      this.logMessage(`  -- hexadecimalConversion(${line}) = interpValue=(${interpValue})`);
+      if (this.isLogging) this.logMessage(`  -- hexadecimalConversion(${line}) = interpValue=(${interpValue})`);
       this.validate32BitInteger(interpValue);
     }
     return [charsUsed, interpValue];
@@ -958,7 +962,7 @@ export class SpinElementizer {
         throw new Error(`Floating-point constant must be within +/- 3.4e+38`);
       }
       const floatValueStr: string = `0x${float32ToHexString(interpValue)}`;
-      this.logMessage(`  -- decimalFloatConversion(${line}) = interpValue=(${floatValueStr})`);
+      if (this.isLogging) this.logMessage(`  -- decimalFloatConversion(${line}) = interpValue=(${floatValueStr})`);
     }
     return [didMatch, charsUsed, interpValue];
   }
@@ -981,7 +985,7 @@ export class SpinElementizer {
         interpValue = BigInt(parseInt(decimalNumberMatch[0].replace(/_/g, '')));
         charsUsed = decimalNumberMatch[0].length;
         // ensure that result fits in 32-bits
-        this.logMessage(`  -- decimalConversion(${line}) = interpValue=(${interpValue})`);
+        if (this.isLogging) this.logMessage(`  -- decimalConversion(${line}) = interpValue=(${interpValue})`);
         this.validate32BitInteger(interpValue);
       }
     }
@@ -1009,48 +1013,49 @@ export class SpinElementizer {
     if (whiteSpaceMatch) {
       matchLength = whiteSpaceMatch[0].length;
     }
-    //this.logMessage(`- skipNCountWhite([${line}]) matchLength=(${matchLength})`);
+    //if (this.isLogging) this.logMessage(`- skipNCountWhite([${line}]) matchLength=(${matchLength})`);
     return matchLength;
   }
 
   private skipAhead(symbolLength: number, line: string) {
     this.recordSymbolLocation();
-    //this.logMessage(`- skipAhead(${symbolLength}) currCharacterIndex=(${this.currCharacterIndex}), remLine=[${line}](${line.length})`);
-    this.logMessage(`- SA remLn=[${line}](${line.length}) len(${symbolLength})`);
+    //if (this.isLogging) this.logMessage(`- skipAhead(${symbolLength}) currCharacterIndex=(${this.currCharacterIndex}), remLine=[${line}](${line.length})`);
+    if (this.isLogging) this.logMessage(`- SA remLn=[${line}](${line.length}) len(${symbolLength})`);
     this.currCharacterIndex += symbolLength;
     let remainingLine = line.substring(symbolLength);
-    //this.logMessage(`- skipAhead() EARLY remainingLine=[${remainingLine}]`);
+    //if (this.isLogging) this.logMessage(`- skipAhead() EARLY remainingLine=[${remainingLine}]`);
     if (!remainingLine || remainingLine.length == 0 || symbolLength == line.length) {
       //this.loadNextLine();
       this.at_eol = true;
       remainingLine = this.unprocessedLine;
       //} else {
-      //  this.logMessage(`- skipAhead() remainingLine=[${remainingLine}]`);
+      //  if (this.isLogging) this.logMessage(`- skipAhead() remainingLine=[${remainingLine}]`);
     }
-    //this.logMessage(`- skipAhead() EXIT w/remainingLine=[${remainingLine}]`);
-    this.logMessage(`     remLn=[${remainingLine}](${remainingLine.length})`);
+    //if (this.isLogging) this.logMessage(`- skipAhead() EXIT w/remainingLine=[${remainingLine}]`);
+    if (this.isLogging) this.logMessage(`     remLn=[${remainingLine}](${remainingLine.length})`);
     return remainingLine;
   }
 
   private loadNextLine(): void {
     if (!this.at_eof) {
-      this.logMessage(`Elementizer.loadNextLine() currLineIndex=(${this.currLineIndex}), rawLineCount=(${this.srcFile.rawLineCount})`);
+      if (this.isLogging)
+        this.logMessage(`Elementizer.loadNextLine() currLineIndex=(${this.currLineIndex}), rawLineCount=(${this.srcFile.rawLineCount})`);
       // iterate over all lines of preProcessed source code. Even tho' some are comments placed by preprocessor
       if (this.currLineIndex < this.srcFile.rawLineCount - 1) {
         this.currLineIndex += 1; // at fresh open of file: -1 is incremented zero!
         this.currentTextLine = this.srcFile.rawLineAt(this.currLineIndex);
         this.unprocessedLine = this.currentTextLine.text;
         this.currCharacterIndex = 0;
-        //this.logMessage(`  -- loadNextLine() unprocessedLine=[${this.unprocessedLine}](${this.unprocessedLine.length})`);
-        this.logMessage(`      ( LOADed Ln#${this.sourceLineNumber}(${this.unprocessedLine.length}) )`);
+        //if (this.isLogging) this.logMessage(`  -- loadNextLine() unprocessedLine=[${this.unprocessedLine}](${this.unprocessedLine.length})`);
+        if (this.isLogging) this.logMessage(`      ( LOADed Ln#${this.sourceLineNumber}(${this.unprocessedLine.length}) )`);
         this.at_eol = this.unprocessedLine.length == 0 ? true : false;
       } else {
-        this.logMessage('- WARNING: loadNextLine() not advancing, arrived at end of file!');
+        if (this.isLogging) this.logMessage('- WARNING: loadNextLine() not advancing, arrived at end of file!');
         this.at_eol = true;
         this.at_eof = true;
       }
     } else {
-      this.logMessage('- WARNING: loadNextLine() not advancing, at end of file!');
+      if (this.isLogging) this.logMessage('- WARNING: loadNextLine() not advancing, at end of file!');
     }
   }
 
@@ -1059,7 +1064,7 @@ export class SpinElementizer {
     let displayOffset: number = 0;
     let currOffset = 0;
     const messageHdr = `-- -------- ${dumpId} ------------------ --`;
-    this.logMessageOutline(messageHdr);
+    if (this.isLoggingOutline) this.logMessageOutline(messageHdr);
     while (displayOffset < stringData.length) {
       let hexPart = '';
       let asciiPart = '';
@@ -1072,10 +1077,10 @@ export class SpinElementizer {
       }
       const offsetPart = displayOffset.toString(16).padStart(5, '0').toUpperCase();
 
-      this.logMessageOutline(`${offsetPart}- ${hexPart.padEnd(48, ' ')}  '${asciiPart}'`);
+      if (this.isLoggingOutline) this.logMessageOutline(`${offsetPart}- ${hexPart.padEnd(48, ' ')}  '${asciiPart}'`);
       currOffset += lineLength;
       displayOffset += lineLength;
     }
-    this.logMessageOutline(`-- ${'-'.repeat(messageHdr.length - 6)} --`);
+    if (this.isLoggingOutline) this.logMessageOutline(`-- ${'-'.repeat(messageHdr.length - 6)} --`);
   }
 }
