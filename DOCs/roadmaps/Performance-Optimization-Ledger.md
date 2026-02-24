@@ -11,7 +11,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 
 | Order | Opt# | Description | Before (ms) | After (ms) | Delta (ms) | Delta % | Status |
 |-------|------|-------------|-------------|------------|------------|---------|--------|
-| 1 | 1 | Inline logging guards | ... | ... | ... | ... | pending |
+| 1 | 1 | Inline logging guards | 622,259.7 | 270,672.2 | -351,587.5 | -56.5% | done |
 | 2 | 2 | Static regex class fields | ... | ... | ... | ... | pending |
 | 3 | 3 | Single-pass preprocessor regex | ... | ... | ... | ... | pending |
 | 4 | 6 | Cache per-line column state | ... | ... | ... | ... | pending |
@@ -27,7 +27,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 14 | 17 | Bulk set() distiller copy | ... | ... | ... | ... | pending |
 | 15 | 14 | Array + .join() hex dump | ... | ... | ... | ... | pending |
 
-**Cumulative vs baseline:** ... ms saved (... %)
+**Cumulative vs baseline:** 351,587.5 ms saved (56.5%)
 
 ---
 
