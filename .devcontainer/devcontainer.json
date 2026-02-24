@@ -17,7 +17,7 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y liblept5 libtesseract5 || true; npm install",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y liblept5 libtesseract5 || true; sudo npm install -g @modelcontextprotocol/server-filesystem; sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; npm install",
   "customizations": {
     "vscode": {
       "extensions": [

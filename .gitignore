@@ -260,6 +260,8 @@ scripts-pkg/cs_fixUploadNames.sh
 
 # Claude Code local settings and data
 CLAUDE.md
+CLAUDE-CONVERSATIONS-README.md
+.mcp.json
 /.claude/
 .todo-mcp/
 /tasks/archives
