@@ -63,6 +63,8 @@
     "lint": "eslint ./src --ext .ts,.tsx",
     "prettier-format": "prettier --config .prettierrc.json 'src/**/*.ts' --write",
     "audit-errors": "npx ts-node scripts/audit-error-codes.ts",
+    "perf": "npm run build && node dist/tests/PERF/perf-benchmark.js",
+    "perf-compare": "node dist/tests/PERF/perf-compare.js",
     "bld-dist": "npm run build && npm run esbuild && npm pack && pkg ."
   },
   "repository": {

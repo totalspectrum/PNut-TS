@@ -291,3 +291,6 @@ BUG-*/
 # Temporary test output directories
 TEST/LANG-VER-tests/tmp/
 TEST/LANG-VER-tests/tmp
+
+# Performance benchmark results (machine-specific, not versioned)
+TEST/PERF-results/*.json
