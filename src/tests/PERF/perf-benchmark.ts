@@ -115,9 +115,7 @@ function discoverFiles(category: string, testDirBase: string): string[] {
 
   // LARGE-tests: apply same exclusions as regression tests
   if (category === 'LARGE-tests') {
-    files = files.filter(
-      (f) => !f.includes('BLDC-Motor-drv') && !f.includes('iOTgw') && !f.includes('TOF/')
-    );
+    files = files.filter((f) => !f.includes('BLDC-Motor-drv') && !f.includes('iOTgw') && !f.includes('TOF/'));
   }
 
   files.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
@@ -342,8 +340,7 @@ async function main(): Promise<void> {
   // Compute overall totals
   const allCategories = Object.values(results.categories);
   results.totalFiles = allCategories.reduce((sum, c) => sum + c.files, 0);
-  results.totalTimeMs =
-    Math.round(allCategories.reduce((sum, c) => sum + c.totalMs, 0) * 10) / 10;
+  results.totalTimeMs = Math.round(allCategories.reduce((sum, c) => sum + c.totalMs, 0) * 10) / 10;
 
   // Print summary table
   printSummaryTable(results);
