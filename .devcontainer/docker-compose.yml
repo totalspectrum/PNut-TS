@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   dev:
-    image: node:latest
+    image: node:23-bookworm
     volumes:
       - ..:/workspaces/PNut-TS:cached
       - ${HOME}${USERPROFILE}/.ssh:/tmp/.ssh:ro
