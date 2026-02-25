@@ -15,7 +15,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 2 | 2 | Static regex class fields | 252,007.1 | 250,002.8 | -2,004.3 | -0.8% | done |
 | 3 | 3 | Single-pass preprocessor regex | 250,547.8 | 248,750.4 | -1,797.4 | -0.7% | done |
 | 4 | 6 | Cache per-line column state | 240,090.3 | 248,852.9 | +8,762.6 | +3.6% | shelved |
-| 5 | 7 | Index-based line tracking | ... | ... | ... | ... | pending |
+| 5 | 7 | Index-based line tracking | 243,175.5 | 249,447.8 | +6,272.3 | +2.6% | shelved |
 | 6 | 15 | Exponential buffer doubling | ... | ... | ... | ... | pending |
 | 7 | 18 | Normalize case once at boundary | ... | ... | ... | ... | pending |
 | 8 | 8 | SpinElement object reuse | ... | ... | ... | ... | pending |
@@ -35,4 +35,5 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 
 | Opt# | Description | Root Cause | Revisit When |
 |------|-------------|------------|--------------|
-| 6 | Cache per-line column state | Array allocation per line costs more than repeated char scan; V8 optimizes the simple loop well. Tried both new-array-per-line and reusable-buffer approaches — both regressed ~3-4%. | After Opt#7 (index-based line tracking) which may change the elementizer structure enough to make caching viable |
+| 6 | Cache per-line column state | Array allocation per line costs more than repeated char scan; V8 optimizes the simple loop well. Tried both new-array-per-line and reusable-buffer approaches — both regressed ~3-4%. | If elementizer is substantially restructured |
+| 7 | Index-based line tracking | Deriving unprocessedLine from original text via offset is slower than V8's native sliced-string chaining. The property lookup chain (this.currentTextLine.text) adds overhead that exceeds substring savings. | If V8 changes sliced-string behavior or elementizer is rewritten |
