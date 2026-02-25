@@ -257,6 +257,40 @@ Apply same pattern to all 12+ regex patterns: `RE_SYMBOL_START`, `RE_HEX_START`,
 
 ---
 
+## Task Execution Protocol
+
+This section defines how each optimization is planned and executed using the MCP todo system.
+
+### Planning Phase (before any code)
+
+1. **Study the optimization** — Read the finding in the roadmap, read the relevant source files, understand the scope and all affected call sites.
+2. **Generate MCP tasks** — Create paragraph-length, exhaustive, stand-alone todo items using `todo_create`. Each task must contain enough context that it can be executed without referring back to conversation history. Tasks cover:
+   - Clean working tree verification
+   - Feature branch creation and pre-optimization benchmark
+   - Regression suite baseline confirmation
+   - The core implementation work (detailed description of every change)
+   - Build and full regression validation
+   - Post-optimization benchmark and comparison
+   - Commit, ledger update, merge, and cleanup
+3. **Order tasks by dependency** — Foundational work first (clean tree, branch, baseline), then implementation, then derivative work (benchmark, commit, merge). Set `addBlockedBy` dependencies between tasks.
+
+### Execution Phase (one task at a time)
+
+For each task in order:
+1. **Start the MCP task**: `todo_start position_id:N`
+2. **Clear internal TodoWrite**: Ensure no stale substeps from previous task
+3. **Break the task into substeps** using TodoWrite for step-by-step tracking within the current task only
+4. **Execute the substeps**, checking them off as completed
+5. **Mark the MCP task complete**: `todo_complete position_id:N`
+6. **Clear TodoWrite** and move to the next task
+
+### After All Tasks Complete
+
+1. **Archive completed tasks**: `todo_archive`
+2. **Verify clean state**: `git status` on main, all tests green
+
+---
+
 ## Verification Strategy
 
 For EVERY optimization, the non-negotiable constraint is:
