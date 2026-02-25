@@ -62,6 +62,7 @@ export class SymbolEntry {
  */
 export class SymbolTable {
   private symbols = new Map<string, SymbolEntry>();
+  private _cachedRegex: RegExp | null = null;
 
   /**
    *  Record a new symbol in this symbol table
@@ -77,6 +78,7 @@ export class SymbolTable {
       const newEntry: SymbolEntry = new SymbolEntry(symbolName, symbolType, symbolValue, isInline);
       //const newSymbol: iSymbol = { name: nameKey, type: symbolType, value: symbolValue };
       this.symbols.set(nameKey, newEntry);
+      this._cachedRegex = null;
     }
   }
 
@@ -86,6 +88,7 @@ export class SymbolTable {
     if (!this.exists(nameKey)) {
       //const newSymbol: iSymbol = { name: nameKey, type: symbolType, value: symbolValue };
       this.symbols.set(nameKey, newEntry);
+      this._cachedRegex = null;
     }
   }
 
@@ -105,21 +108,19 @@ export class SymbolTable {
     let removeStatus: boolean = false;
     if (this.exists(nameKey)) {
       this.symbols.delete(nameKey);
+      this._cachedRegex = null;
       removeStatus = true;
     }
     return removeStatus;
   }
 
   replaceSymbolsInString(inputString: string): string {
-    let resultString = inputString;
-
-    this.symbols.forEach((symEntry, symName) => {
-      const regex = new RegExp(symName, 'g');
-      const symValueText: string = `${symEntry.value}`;
-      resultString = resultString.replace(regex, symValueText);
-    });
-
-    return resultString;
+    if (this.symbols.size === 0) return inputString;
+    if (!this._cachedRegex) {
+      const escaped = [...this.symbols.keys()].map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      this._cachedRegex = new RegExp(escaped.join('|'), 'g');
+    }
+    return inputString.replace(this._cachedRegex, (match) => `${this.symbols.get(match)!.value}`);
   }
 
   /**
@@ -166,5 +167,6 @@ export class SymbolTable {
    */
   public reset(): void {
     this.symbols.clear();
+    this._cachedRegex = null;
   }
 }
