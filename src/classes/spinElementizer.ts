@@ -38,6 +38,22 @@ enum eDebugStringState {
 // FIXME: TODO: debug() returns new type debug-statment whose value is a list: SpinSymbol[]
 
 export class SpinElementizer {
+  // Static regex patterns — compiled once, shared across all instances
+  private static readonly RE_DIGIT = /^\d$/;
+  private static readonly RE_SYMBOL_START = /^[A-Z_a-z]+/;
+  private static readonly RE_HEX_START = /^[A-Fa-f0-9]+/;
+  private static readonly RE_BIN_START = /^[01]+/;
+  private static readonly RE_QUART_START = /^[0-3]+/;
+  private static readonly RE_SYMBOL_NAME = /^([A-Z_a-z]+[A-Z_a-z0-9]*)/;
+  private static readonly RE_QUATERNARY = /^%%([[0-3]+[0-3_]*)/;
+  private static readonly RE_BINARY = /^%([[0-1]+[0-1_]*)/;
+  private static readonly RE_HEX = /^\$([0-9A-Fa-f]+[0-9_A-Fa-f]*)/;
+  private static readonly RE_FLOAT1 = /^\d+[\d_]*\.\d+[\d_]*[eE](\+\d|-\d|\d)[\d_]*/;
+  private static readonly RE_FLOAT2 = /^\d+[\d_]*[eE](\+\d|-\d|\d)[\d_]*/;
+  private static readonly RE_FLOAT3 = /^\d+[\d_]*\.\d+[\d_]*/;
+  private static readonly RE_DECIMAL = /^(\d+[\d_]*)/;
+  private static readonly RE_WHITESPACE = /^(\s*)/;
+
   private context: Context;
   private isLogging: boolean;
   private isLoggingOutline: boolean;
@@ -739,7 +755,7 @@ export class SpinElementizer {
   }
 
   private isDigit(line: string): boolean {
-    return /^\d$/.test(line);
+    return SpinElementizer.RE_DIGIT.test(line);
   }
 
   private logMessage(message: string): void {
@@ -755,25 +771,25 @@ export class SpinElementizer {
   }
 
   private isSymbolStartChar(line: string): boolean {
-    const findStatus: boolean = /^[A-Z_a-z]+/.test(line);
+    const findStatus: boolean = SpinElementizer.RE_SYMBOL_START.test(line);
     //if (this.isLogging) this.logMessage(`isSymbolStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isHexStartChar(line: string): boolean {
-    const findStatus: boolean = /^[A-Fa-f0-9]+/.test(line);
+    const findStatus: boolean = SpinElementizer.RE_HEX_START.test(line);
     //if (this.isLogging) this.logMessage(`isHexStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isBinStartChar(line: string): boolean {
-    const findStatus: boolean = /^[01]+/.test(line);
+    const findStatus: boolean = SpinElementizer.RE_BIN_START.test(line);
     //if (this.isLogging) this.logMessage(`isBinStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
 
   private isQuartStartChar(line: string): boolean {
-    const findStatus: boolean = /^[0-3]+/.test(line);
+    const findStatus: boolean = SpinElementizer.RE_QUART_START.test(line);
     //if (this.isLogging) this.logMessage(`isQuartStartChar(${line}) = (${findStatus})`);
     return findStatus;
   }
@@ -829,11 +845,10 @@ export class SpinElementizer {
   }
 
   private symbolNameConversion(line: string): [number, string] {
-    const isSymbolNameRegEx = /^([A-Z_a-z]+[A-Z_a-z0-9]*)/;
     const MAX_SYMBOL_LENGTH = 30;
     let interpValue: string = '';
     let charsUsed: number = 0;
-    const symbolMatch = line.match(isSymbolNameRegEx);
+    const symbolMatch = line.match(SpinElementizer.RE_SYMBOL_NAME);
     if (symbolMatch) {
       if (symbolMatch[0].length > MAX_SYMBOL_LENGTH) {
         throw new Error('Symbol exceeds 30 characters');
@@ -874,10 +889,9 @@ export class SpinElementizer {
   }
 
   private quaternaryConversion(line: string): [number, bigint] {
-    const isQuaternaryNumberRegEx = /^%%([[0-3]+[0-3_]*)/;
     let interpValue: bigint = 0n;
     let charsUsed: number = 0;
-    const quaternaryNumberMatch = line.match(isQuaternaryNumberRegEx);
+    const quaternaryNumberMatch = line.match(SpinElementizer.RE_QUATERNARY);
     if (quaternaryNumberMatch) {
       const valueFound: string = quaternaryNumberMatch[0].substring(2);
       interpValue = BigInt(parseInt(valueFound.replace(/_/g, ''), 4));
@@ -890,10 +904,9 @@ export class SpinElementizer {
   }
 
   private binaryConversion(line: string): [number, bigint] {
-    const isBinaryNumberRegEx = /^%([[0-1]+[0-1_]*)/;
     let interpValue: bigint = 0n;
     let charsUsed: number = 0;
-    const binaryNumberMatch = line.match(isBinaryNumberRegEx);
+    const binaryNumberMatch = line.match(SpinElementizer.RE_BINARY);
     if (binaryNumberMatch) {
       const valueFound: string = binaryNumberMatch[0].substring(1);
       //if (this.isLogging) this.logMessage(`- binaryNumberMatch[0]=(${valueFound})`);
@@ -907,10 +920,9 @@ export class SpinElementizer {
   }
 
   private hexadecimalConversion(line: string): [number, bigint] {
-    const isHexNumberRegEx = /^\$([0-9A-Fa-f]+[0-9_A-Fa-f]*)/;
     let interpValue: bigint = 0n;
     let charsUsed: number = 0;
-    const hexNumberMatch = line.match(isHexNumberRegEx);
+    const hexNumberMatch = line.match(SpinElementizer.RE_HEX);
     if (hexNumberMatch) {
       const valueFound: string = hexNumberMatch[0].substring(1);
       //if (this.isLogging) this.logMessage(`- hexNumberMatch[0]=(${valueFound})(${hexNumberMatch.length})`);
@@ -928,25 +940,23 @@ export class SpinElementizer {
     //    = 1.4e5
     //    = 1e-5
     //    = 1.7exponent
-    const isFloat1NumberRegEx = /^\d+[\d_]*\.\d+[\d_]*[eE](\+\d|-\d|\d)[\d_]*/; // decimal and E
-    const isFloat2NumberRegEx = /^\d+[\d_]*[eE](\+\d|-\d|\d)[\d_]*/; // no decimal but E
-    const isFloat3NumberRegEx = /^\d+[\d_]*\.\d+[\d_]*/; // decimal no E
+    // Float regex patterns: RE_FLOAT1 = decimal+E, RE_FLOAT2 = E only, RE_FLOAT3 = decimal only
     let interpValue: bigint = 0n;
     let charsUsed: number = 0;
     let didMatch: boolean = false;
-    const float1NumberMatch = line.match(isFloat1NumberRegEx);
+    const float1NumberMatch = line.match(SpinElementizer.RE_FLOAT1);
     if (float1NumberMatch) {
       interpValue = stringToFloat32(float1NumberMatch[0].replace(/_/g, ''));
       charsUsed = float1NumberMatch[0].length;
       didMatch = true;
     } else {
-      const float2NumberMatch = line.match(isFloat2NumberRegEx);
+      const float2NumberMatch = line.match(SpinElementizer.RE_FLOAT2);
       if (float2NumberMatch) {
         interpValue = stringToFloat32(float2NumberMatch[0].replace(/_/g, ''));
         charsUsed = float2NumberMatch[0].length;
         didMatch = true;
       } else {
-        const float3NumberMatch = line.match(isFloat3NumberRegEx);
+        const float3NumberMatch = line.match(SpinElementizer.RE_FLOAT3);
         if (float3NumberMatch) {
           interpValue = stringToFloat32(float3NumberMatch[0].replace(/_/g, ''));
           charsUsed = float3NumberMatch[0].length;
@@ -979,8 +989,7 @@ export class SpinElementizer {
       isFloat = true;
     } else {
       // do nonFloat
-      const isDecimalNumberRegEx = /^(\d+[\d_]*)/;
-      const decimalNumberMatch = line.match(isDecimalNumberRegEx);
+      const decimalNumberMatch = line.match(SpinElementizer.RE_DECIMAL);
       if (decimalNumberMatch) {
         interpValue = BigInt(parseInt(decimalNumberMatch[0].replace(/_/g, '')));
         charsUsed = decimalNumberMatch[0].length;
@@ -1007,9 +1016,8 @@ export class SpinElementizer {
 
   private skipNCountWhite(line: string) {
     // FIXME: TODO: expand tabs per Pnut...
-    const leftEdgeSpaceRegEx = /^(\s*)/;
     let matchLength: number = 0;
-    const whiteSpaceMatch = line.match(leftEdgeSpaceRegEx);
+    const whiteSpaceMatch = line.match(SpinElementizer.RE_WHITESPACE);
     if (whiteSpaceMatch) {
       matchLength = whiteSpaceMatch[0].length;
     }
