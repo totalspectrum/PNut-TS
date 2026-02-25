@@ -14,7 +14,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 1 | 1 | Inline logging guards | 622,259.7 | 270,672.2 | -351,587.5 | -56.5% | done |
 | 2 | 2 | Static regex class fields | 252,007.1 | 250,002.8 | -2,004.3 | -0.8% | done |
 | 3 | 3 | Single-pass preprocessor regex | 250,547.8 | 248,750.4 | -1,797.4 | -0.7% | done |
-| 4 | 6 | Cache per-line column state | ... | ... | ... | ... | pending |
+| 4 | 6 | Cache per-line column state | 240,090.3 | 248,852.9 | +8,762.6 | +3.6% | shelved |
 | 5 | 7 | Index-based line tracking | ... | ... | ... | ... | pending |
 | 6 | 15 | Exponential buffer doubling | ... | ... | ... | ... | pending |
 | 7 | 18 | Normalize case once at boundary | ... | ... | ... | ... | pending |
@@ -35,4 +35,4 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 
 | Opt# | Description | Root Cause | Revisit When |
 |------|-------------|------------|--------------|
-| | | | |
+| 6 | Cache per-line column state | Array allocation per line costs more than repeated char scan; V8 optimizes the simple loop well. Tried both new-array-per-line and reusable-buffer approaches — both regressed ~3-4%. | After Opt#7 (index-based line tracking) which may change the elementizer structure enough to make caching viable |
