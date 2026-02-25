@@ -17,7 +17,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 4 | 6 | Cache per-line column state | 240,090.3 | 248,852.9 | +8,762.6 | +3.6% | shelved |
 | 5 | 7 | Index-based line tracking | 243,175.5 | 249,447.8 | +6,272.3 | +2.6% | shelved |
 | 6 | 15 | Exponential buffer doubling | 238,008.4 | 242,491.0 | +4,482.6 | +1.9% | shelved |
-| 7 | 18 | Normalize case once at boundary | ... | ... | ... | ... | pending |
+| 7 | 18 | Normalize case once at boundary | 242,070.5 | 246,576.4 | +4,505.9 | +1.9% | shelved |
 | 8 | 8 | SpinElement object reuse | ... | ... | ... | ... | pending |
 | 9 | 5 | Number for 32-bit BigInt ops | ... | ... | ... | ... | pending |
 | 10 | 9 | Hash-based distiller dedup | ... | ... | ... | ... | pending |
@@ -38,3 +38,4 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 6 | Cache per-line column state | Array allocation per line costs more than repeated char scan; V8 optimizes the simple loop well. Tried both new-array-per-line and reusable-buffer approaches — both regressed ~3-4%. | If elementizer is substantially restructured |
 | 7 | Index-based line tracking | Deriving unprocessedLine from original text via offset is slower than V8's native sliced-string chaining. The property lookup chain (this.currentTextLine.text) adds overhead that exceeds substring savings. | If V8 changes sliced-string behavior or elementizer is rewritten |
 | 15 | Exponential buffer doubling | Initial 128KB allocation already handles most programs; growth events are rare (a few per large compile). V8 handles ArrayBuffer allocation efficiently, so the O(n) vs O(n²/step) copy reduction is negligible. Two benchmark runs showed +3.4% and +1.9% regression. | If object sizes grow significantly or compilation involves many more files |
+| 18 | Normalize case once at boundary | Eliminated redundant `.toUpperCase()` in internal calls and multi-lookup patterns (findSymbol: 6→1, lookupSymbol: 3→1, checkImportedParam: 2→1). V8 optimizes small-string `.toUpperCase()` so well that removing ~8 redundant calls per symbol lookup produces no measurable gain. Two runs showed +1.9% and +2.7% (noise). | If symbol table operations become a profiled bottleneck |
