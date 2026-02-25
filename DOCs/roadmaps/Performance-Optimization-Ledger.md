@@ -18,7 +18,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 5 | 7 | Index-based line tracking | 243,175.5 | 249,447.8 | +6,272.3 | +2.6% | shelved |
 | 6 | 15 | Exponential buffer doubling | 238,008.4 | 242,491.0 | +4,482.6 | +1.9% | shelved |
 | 7 | 18 | Normalize case once at boundary | 242,070.5 | 246,576.4 | +4,505.9 | +1.9% | shelved |
-| 8 | 8 | SpinElement object reuse | ... | ... | ... | ... | pending |
+| 8 | 8 | SpinElement object reuse | 245,579.4 | 247,237.3 | +1,657.9 | +0.7% | shelved |
 | 9 | 5 | Number for 32-bit BigInt ops | ... | ... | ... | ... | pending |
 | 10 | 9 | Hash-based distiller dedup | ... | ... | ... | ... | pending |
 | 11 | 12 | Hash-based debug record lookup | ... | ... | ... | ... | pending |
@@ -39,16 +39,17 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 7 | Index-based line tracking | Deriving unprocessedLine from original text via offset is slower than V8's native sliced-string chaining. The property lookup chain (this.currentTextLine.text) adds overhead that exceeds substring savings. | If V8 changes sliced-string behavior or elementizer is rewritten |
 | 15 | Exponential buffer doubling | Initial 128KB allocation already handles most programs; growth events are rare (a few per large compile). V8 handles ArrayBuffer allocation efficiently, so the O(n) vs O(n²/step) copy reduction is negligible. Two benchmark runs showed +3.4% and +1.9% regression. | If object sizes grow significantly or compilation involves many more files |
 | 18 | Normalize case once at boundary | Eliminated redundant `.toUpperCase()` in internal calls and multi-lookup patterns (findSymbol: 6→1, lookupSymbol: 3→1, checkImportedParam: 2→1). V8 optimizes small-string `.toUpperCase()` so well that removing ~8 redundant calls per symbol lookup produces no measurable gain. Two runs showed +1.9% and +2.7% (noise). | If symbol table operations become a profiled bottleneck |
+| 8 | SpinElement object reuse | Added copyFrom() to SpinElement and used a pre-allocated scratchElement for the intermediate symbol-replacement allocation in getElement(). Full object reuse for currElement was unsafe due to unbounded reference retention across checkIndex()→skipExpression() chains (saved references span dozens of getElement() calls). The safe subset (scratchElement for intermediate only) eliminates ~30-50% of allocations but V8's generational GC handles short-lived SpinElement objects (nursery-age, never promoted) so efficiently that reducing allocations produces no measurable gain. Two runs showed +0.7% and +9.5% (second inflated by system load). | If V8 GC behavior changes or profiling shows SpinElement allocation as a GC hotspot |
 
 ---
 
 ## Sprint Learnings
 
-Key insights from Orders 1-7 that should guide decisions about the remaining 8 pending optimizations.
+Key insights from Orders 1-8 that should guide decisions about the remaining 7 pending optimizations.
 
 ### The Big Picture
 
-The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. All four subsequent attempts (Opt#6, #7, #15, #18) showed no measurable gain and were shelved.
+The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. All five subsequent attempts (Opt#6, #7, #15, #18, #8) showed no measurable gain and were shelved.
 
 **Strategic takeaway:** The compiler's remaining hot paths are already well-optimized by V8's JIT. Sub-system micro-optimizations that look promising on paper (eliminating redundant calls, caching computed values, reducing allocations) consistently fail to produce measurable gains because V8's internal optimizations already handle these patterns efficiently. Future optimization efforts should focus on algorithmic-level changes (e.g., reducing pass counts, changing data structures) rather than micro-level tweaks.
 
@@ -64,6 +65,8 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 4. **Small-string toUpperCase() is negligible (Opt#18):** V8 optimizes short string operations (case conversion on symbol names typically 5-20 chars) so aggressively that eliminating ~8 redundant `.toUpperCase()` calls per symbol lookup chain produces no measurable change.
 
+5. **Generational GC handles short-lived objects efficiently (Opt#8):** SpinElement objects created in getElement() are nursery-age (never survive to old generation). V8's bump-pointer nursery allocation is nearly free, and minor GC pauses for collecting these objects are negligible. Reducing allocations by ~30-50% via a reusable scratch element produced no measurable gain. Note: full object reuse for currElement was unsafe due to unbounded reference retention — code saves `this.currElement` across `checkIndex()→skipExpression()` chains that invoke getElement() an arbitrary number of times.
+
 ### Benchmark Methodology Insights
 
 - **Noise floor is ~3-5% variance** between benchmark runs on the same code. Any measured delta within this band cannot be distinguished from noise.
@@ -72,7 +75,7 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 ### Implications for Remaining Optimizations
 
-Given the pattern that V8 micro-optimizations consistently fail to produce gains, the remaining pending items fall into two categories:
+Given the pattern that V8 micro-optimizations consistently fail to produce gains, the remaining 7 pending items fall into two categories:
 
 **More likely to produce measurable gains** (algorithmic changes):
 - Opt#5 (BigInt → Number): Changes the fundamental numeric type used in expression evaluation. BigInt operations are 10-100x slower than Number ops — this is a V8 implementation reality, not a micro-optimization.
@@ -80,7 +83,7 @@ Given the pattern that V8 micro-optimizations consistently fail to produce gains
 - Opt#10 (Skip unnecessary CON passes): Eliminates entire compilation passes, not individual operations.
 
 **Less likely to produce gains** (micro-optimizations similar to shelved items):
-- Opt#8 (SpinElement object reuse): GC pressure reduction — V8's generational GC may already handle short-lived objects efficiently.
+- ~~Opt#8 (SpinElement object reuse)~~: **Confirmed shelved** — V8's generational GC handles short-lived objects efficiently. Additionally, full object reuse was unsafe due to unbounded reference retention patterns.
 - Opt#12 (Hash-based debug record lookup): Linear → hash lookup, but only affects DEBUG() statements.
 - Opt#4 (copyWithin moveObjectUp): Only called 3-4 times per compilation; absolute time savings minimal.
 - Opt#17 (Bulk set() distiller copy): Similar to Opt#15 — V8 may already optimize the loop.
