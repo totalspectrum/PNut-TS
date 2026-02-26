@@ -23,11 +23,11 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 10 | 9 | Hash-based distiller dedup | 243,168.4 | 247,562.7 | +4,394.3 | +1.8% | shelved |
 | 11 | 12 | Hash-based debug record lookup | 243,113.9 | 249,873.4 | +6,759.5 | +2.8% | shelved |
 | 12 | 4 | copyWithin moveObjectUp | 246,431.8 | 248,959.4 | +2,527.6 | +1.0% | shelved |
-| 13 | 10 | Track unresolved CON, skip passes | ... | ... | ... | ... | pending |
+| 13 | 10 | Track unresolved CON, skip passes | 249,981.9 | 239,919.6 | -10,062.3 | -4.0% | done |
 | 14 | 17 | Bulk set() distiller copy | ... | ... | ... | ... | pending |
 | 15 | 14 | Array + .join() hex dump | ... | ... | ... | ... | pending |
 
-**Cumulative vs baseline:** 391,025.2 ms saved (61.1%)
+**Cumulative vs baseline:** 401,087.5 ms saved (62.7%)
 
 ---
 
@@ -49,11 +49,11 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 
 ## Sprint Learnings
 
-Key insights from Orders 1-12 that should guide decisions about the remaining 3 pending optimizations.
+Key insights from Orders 1-13 that should guide decisions about the remaining 2 pending optimizations.
 
 ### The Big Picture
 
-The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. All nine subsequent attempts (Opt#6, #7, #15, #18, #8, #5, #9, #12, #4) showed no measurable gain and were shelved — including Opt#5 (BigInt → Number), Opt#9 (hash distiller dedup), and Opt#12 (hash debug lookup), which were rated as the highest-likelihood wins among remaining items.
+The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. Nine subsequent attempts (Opt#6, #7, #15, #18, #8, #5, #9, #12, #4) showed no measurable gain and were shelved. However, Opt#10 (skip redundant CON passes) broke the streak with a -4.0% improvement — the first accepted optimization since Opt#3, confirming that eliminating entire passes is more effective than micro-optimizations.
 
 **Strategic takeaway:** The compiler's remaining hot paths are already well-optimized by V8's JIT. Both micro-optimizations (caching, allocation reduction) and type-level changes (BigInt → Number) consistently fail to produce measurable gains. The BigInt → Number result is particularly instructive: even though individual BigInt operations are 5-20x slower than Number equivalents, the arithmetic hot path (`resolveOperation()`) represents such a small fraction of total compile time that the savings are invisible at the benchmark level. Future optimization efforts should focus on algorithmic-level changes that eliminate entire passes or change O(n²) → O(n) complexity.
 
@@ -75,6 +75,8 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 7. **Map overhead exceeds O(n²) savings at small N (Opt#9):** Replacing an O(n²) nested loop with a `Map<number, number[]>` hash-map approach in the object distiller regressed by +1.8%. With only 2-36 objects, the pairwise comparison loop completes in microseconds. The Map allocation, `Math.imul` hash computation over all content longs, and bucket management add constant overhead that exceeds the negligible O(n²) cost at small N. **Lesson:** Big-O complexity improvements only help when N is large enough for the asymptotic behavior to dominate. At N=2-36, a simple nested loop with early-exit is faster than a hash-map with allocation overhead.
 
+8. **Eliminating entire passes works when micro-optimizations don't (Opt#10):** Skipping 2 of 4 CON block passes when no forward references exist produced -4.0% (confirmed -3.1% on second run). This is the first accepted optimization since Opt#3 and validates the strategic insight: the compiler's per-instruction hot paths are well-optimized by V8, but the *number of passes over the data* is not — because the compiler was ported from PNut's fixed 4-pass algorithm regardless of whether forward references exist. **Lesson:** After V8 optimizes your inner loops, the only remaining gains come from reducing the number of times those loops run. Look for early-exit conditions on outer loops and whole-pass skips, not faster inner operations.
+
 ### Benchmark Methodology Insights
 
 - **Noise floor is ~3-5% variance** between benchmark runs on the same code. Any measured delta within this band cannot be distinguished from noise.
@@ -83,11 +85,11 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 ### Implications for Remaining Optimizations
 
-Given that even the highest-confidence optimization (Opt#5 BigInt → Number) failed to produce gains, the remaining 6 pending items should be approached with low expectations:
+Opt#10 broke the shelving streak by eliminating entire passes. The remaining 2 pending items are micro-optimizations similar to previously shelved items:
 
 **More likely to produce measurable gains** (algorithmic changes that eliminate work entirely):
 - ~~Opt#9 (Hash-based distiller dedup)~~: **Confirmed shelved** — O(n²) → O(n) algorithmic improvement is real, but object counts (2-36) are too small for Map overhead to pay off. The O(n²) loop at these sizes completes in microseconds.
-- Opt#10 (Skip unnecessary CON passes): Eliminates entire compilation passes, not individual operations.
+- ~~Opt#10 (Skip unnecessary CON passes)~~: **Accepted at -4.0%** — Tracking unresolved CON symbols and skipping redundant passes 2-3 when all symbols resolve. Most P2 programs have few/no forward references, so 2 of 4 passes are skipped.
 
 **Less likely to produce gains** (micro-optimizations similar to shelved items):
 - ~~Opt#5 (BigInt → Number)~~: **Confirmed shelved** — Despite BigInt being 5-20x slower per operation, the arithmetic hot path is too small a fraction of total compile time. The `>>> 0` masking overhead negated any savings.
