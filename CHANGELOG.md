@@ -19,6 +19,16 @@ Work to appear in upcoming releases:
 - Add User Reqeuested enhancements
 - Keep up with PNut changes soon after they are released.
 
+## [1.52.2] 2026-02-26
+
+### Performance
+
+- Compilation is 62.7% faster vs v1.52.1 baseline (639s -> 239s on full benchmark suite)
+- Add inline logging guards to eliminate template literal evaluation in disabled log paths (-56.5%)
+- Move regex patterns to static readonly class fields (-0.8%)
+- Replace O(NxM) preprocessor symbol replacement with single-pass cached regex (-0.7%)
+- Skip redundant CON block passes when all symbols resolve on first pass (-4.0%)
+
 ## [1.52.1] 2026-02-14
 
 - Add language version support through `{Spin2_v52}`
