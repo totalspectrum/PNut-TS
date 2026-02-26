@@ -25,7 +25,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 12 | 4 | copyWithin moveObjectUp | 246,431.8 | 248,959.4 | +2,527.6 | +1.0% | shelved |
 | 13 | 10 | Track unresolved CON, skip passes | 249,981.9 | 239,919.6 | -10,062.3 | -4.0% | done |
 | 14 | 17 | Bulk set() distiller copy | 240,862.7 | 236,580.6 | -4,282.1 | -1.8% | shelved |
-| 15 | 14 | Array + .join() hex dump | ... | ... | ... | ... | pending |
+| 15 | 14 | Array + .join() hex dump | 239,208.5 | 239,476.9 | +268.4 | +0.1% | shelved |
 
 **Cumulative vs baseline:** 401,087.5 ms saved (62.7%)
 
@@ -45,16 +45,17 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 12 | Hash-based debug record lookup | Added `findOrAddRecord()` to DebugData with `Map<number, number[]>` hash-map (hash of record bytes → entry indices). Replaced linear scan in `debugEnterRecord()` (spinResolver.ts) with O(1) hash lookup + collision verification via existing `recordIsMatch()`. All 250 regression tests passed. Benchmark showed +2.8% regression (+6,760ms). Root cause: Debug record counts are small (≤255 max, typically much fewer); the linear scan with early-exit on first byte mismatch is very fast for small N. The Map allocation, `Math.imul` hash computation over all record bytes, and bucket management add per-DEBUG() overhead that exceeds the negligible linear scan cost. Same pattern as Opt#9: hash-map overhead dominates at small N. | If debug record counts grow significantly, or if DEBUG()-heavy programs become a profiled bottleneck |
 | 4 | copyWithin moveObjectUp | Replaced byte-by-byte reverse copy loop in `moveObjectUp()` (spin2Parser.ts) with `Uint8Array.copyWithin()` — a single native memcpy operation. Made `ensureCapacity()` public on ObjectImage to pre-allocate before the copy. All 250 regression tests passed. Benchmark showed +1.0% regression (+2,528ms), within noise but consistently positive. Root cause: `moveObjectUp()` is only called 3-5 times per compilation (inserting interpreter, debugger, flash loader, clock setter). Even for the largest programs, each call moves at most ~1MB. The per-call savings from native memcpy vs JS loop are microseconds — invisible at the benchmark level. The original byte-by-byte loop with `replaceByte`/`read` was already fast because logging guards (Opt#1) eliminated the template literal overhead. | If object images grow significantly larger or moveObjectUp is called more frequently |
 | 17 | Bulk set() distiller copy | Replaced per-long `appendLong()` loop in `rebuildOptimizedImage()` (objectDistiller.ts) with bulk `Uint8Array.set()` via new `appendFromArray()` method on ObjectImage. All 250 regression tests passed. Benchmarks inconclusive: run 1 showed -1.8% (-4,282ms), run 2 showed +0.5% (+1,229ms) — results straddle zero, indicating no measurable gain. Root cause: `rebuildOptimizedImage()` is called once per compilation after object deduplication. With 2-36 objects and typical object sizes of a few KB, the total bytes copied are small. The `appendLong()` call overhead (4 method calls per long) sounds expensive but V8 inlines these hot calls after JIT warmup. The bulk `set()` savings are negligible at these data sizes. | If object sizes or counts grow significantly, or if profiling shows distiller rebuild as a hotspot |
+| 14 | Array + .join() hex dump | Replaced string concatenation (`+=`) with Array + `.join()` in the two listing hex dump loops in `spin2Parser.ts`. All 250 regression tests passed. Benchmark showed +0.1% (+268ms) — pure noise, effectively zero delta. Root cause: The hex dump code only executes when generating `.lst` listing files. The benchmark uses `-O` (compile only), so this code path is never reached during benchmarking. Even when listing is enabled, hex dumps process at most 16 bytes per line in a cold output path. | Not applicable — this is a cold path that cannot affect compilation benchmarks |
 
 ---
 
 ## Sprint Learnings
 
-Key insights from Orders 1-14 that should guide decisions about the remaining 1 pending optimization.
+Key insights from Orders 1-15 (sprint complete — all 15 optimizations evaluated).
 
 ### The Big Picture
 
-The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. Nine subsequent attempts (Opt#6, #7, #15, #18, #8, #5, #9, #12, #4) showed no measurable gain and were shelved. However, Opt#10 (skip redundant CON passes) broke the streak with a -4.0% improvement — the first accepted optimization since Opt#3, confirming that eliminating entire passes is more effective than micro-optimizations.
+The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. Eleven subsequent attempts were micro-optimizations (Opt#6, #7, #15, #18, #8, #5, #9, #12, #4, #17, #14) — all shelved with no measurable gain. However, Opt#10 (skip redundant CON passes) broke the streak with a -4.0% improvement — the only accepted optimization since Opt#3, confirming that eliminating entire passes is more effective than micro-optimizations. **Sprint complete: all 15 optimizations evaluated.**
 
 **Strategic takeaway:** The compiler's remaining hot paths are already well-optimized by V8's JIT. Both micro-optimizations (caching, allocation reduction) and type-level changes (BigInt → Number) consistently fail to produce measurable gains. The BigInt → Number result is particularly instructive: even though individual BigInt operations are 5-20x slower than Number equivalents, the arithmetic hot path (`resolveOperation()`) represents such a small fraction of total compile time that the savings are invisible at the benchmark level. Future optimization efforts should focus on algorithmic-level changes that eliminate entire passes or change O(n²) → O(n) complexity.
 
@@ -86,7 +87,7 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 ### Implications for Remaining Optimizations
 
-Opt#10 broke the shelving streak by eliminating entire passes. The remaining 2 pending items are micro-optimizations similar to previously shelved items:
+Opt#10 broke the shelving streak by eliminating entire passes. All remaining items were micro-optimizations that produced no measurable gains:
 
 **More likely to produce measurable gains** (algorithmic changes that eliminate work entirely):
 - ~~Opt#9 (Hash-based distiller dedup)~~: **Confirmed shelved** — O(n²) → O(n) algorithmic improvement is real, but object counts (2-36) are too small for Map overhead to pay off. The O(n²) loop at these sizes completes in microseconds.
@@ -98,4 +99,4 @@ Opt#10 broke the shelving streak by eliminating entire passes. The remaining 2 p
 - ~~Opt#12 (Hash-based debug record lookup)~~: **Confirmed shelved** — Same pattern as Opt#9: hash-map overhead dominates at small N. Debug record counts are small enough that linear scan with early-exit is faster.
 - ~~Opt#4 (copyWithin moveObjectUp)~~: **Confirmed shelved** — Only called 3-5 times per compilation; native memcpy vs JS loop saves microseconds per call, invisible at benchmark level.
 - ~~Opt#17 (Bulk set() distiller copy)~~: **Confirmed shelved** — Two benchmark runs straddled zero (-1.8% / +0.5%). V8 inlines the hot `appendLong()` call chain after JIT warmup; bulk `set()` provides no measurable gain at small data sizes.
-- Opt#14 (Array + join hex dump): Cold path (listing generation only).
+- ~~Opt#14 (Array + join hex dump)~~: **Confirmed shelved** — Cold path (listing generation only); benchmark uses `-O` so this code is never executed during measurement. +0.1% delta is pure noise.
