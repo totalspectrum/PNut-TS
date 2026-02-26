@@ -20,7 +20,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 7 | 18 | Normalize case once at boundary | 242,070.5 | 246,576.4 | +4,505.9 | +1.9% | shelved |
 | 8 | 8 | SpinElement object reuse | 245,579.4 | 247,237.3 | +1,657.9 | +0.7% | shelved |
 | 9 | 5 | Number for 32-bit BigInt ops | 243,621.6 | 253,028.5 | +9,406.9 | +3.9% | shelved |
-| 10 | 9 | Hash-based distiller dedup | ... | ... | ... | ... | pending |
+| 10 | 9 | Hash-based distiller dedup | 243,168.4 | 247,562.7 | +4,394.3 | +1.8% | shelved |
 | 11 | 12 | Hash-based debug record lookup | ... | ... | ... | ... | pending |
 | 12 | 4 | copyWithin moveObjectUp | ... | ... | ... | ... | pending |
 | 13 | 10 | Track unresolved CON, skip passes | ... | ... | ... | ... | pending |
@@ -41,16 +41,17 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 18 | Normalize case once at boundary | Eliminated redundant `.toUpperCase()` in internal calls and multi-lookup patterns (findSymbol: 6→1, lookupSymbol: 3→1, checkImportedParam: 2→1). V8 optimizes small-string `.toUpperCase()` so well that removing ~8 redundant calls per symbol lookup produces no measurable gain. Two runs showed +1.9% and +2.7% (noise). | If symbol table operations become a profiled bottleneck |
 | 8 | SpinElement object reuse | Added copyFrom() to SpinElement and used a pre-allocated scratchElement for the intermediate symbol-replacement allocation in getElement(). Full object reuse for currElement was unsafe due to unbounded reference retention across checkIndex()→skipExpression() chains (saved references span dozens of getElement() calls). The safe subset (scratchElement for intermediate only) eliminates ~30-50% of allocations but V8's generational GC handles short-lived SpinElement objects (nursery-age, never promoted) so efficiently that reducing allocations produces no measurable gain. Two runs showed +0.7% and +9.5% (second inflated by system load). | If V8 GC behavior changes or profiling shows SpinElement allocation as a GC hotspot |
 | 5 | Number for 32-bit BigInt ops | Converted all 372 BigInt sites across 13 files to Number with `>>> 0` unsigned masking, `\| 0` for signed interpretation, `Math.imul()` for multiply, and local BigInt only for SCA/SCAS/FRAC (64-bit intermediates). All 250 regression tests passed byte-identical. However, benchmarks showed +3.9% and +5.6% regression across two runs. Root cause: (1) `resolveOperation()` is only called during constant expression evaluation — a small fraction of total compile time, so BigInt arithmetic savings are minimal; (2) the ~372 `>>> 0` masking operations and changed `typeof` checks (`'number'` vs `'bigint'`) add overhead that exceeds BigInt removal savings; (3) V8 optimizes BigInt storage and parameter passing efficiently — the theoretical 5-20x per-operation slowdown doesn't translate to measurable wall-clock improvement when arithmetic is a tiny fraction of the workload. | If profiling shows BigInt arithmetic as a top-5 hotspot, or if the resolver's constant evaluation workload increases significantly |
+| 9 | Hash-based distiller dedup | Replaced O(n²) nested-loop deduplication in `eliminateRedundantObjects()` with hash-map approach (`Map<number, number[]>` of record hashes → bucket indices, with `areRecordsEquivalent()` verification on collision). All 250 regression tests passed. Benchmark showed +1.8% regression (+4,394ms). Root cause: Object counts in typical P2 projects are 2-36 (worst case: WUMMI Main.spin2 with 35 OBJ declarations). At these sizes, the O(n²) inner loop completes in microseconds. The `Map` allocation, hash computation (`Math.imul` chain over all content longs), and bucket management add overhead that exceeds the negligible savings from avoiding pairwise comparison at small N. | If P2 projects grow to hundreds of objects, or if distillation appears as a profiled hotspot |
 
 ---
 
 ## Sprint Learnings
 
-Key insights from Orders 1-9 that should guide decisions about the remaining 6 pending optimizations.
+Key insights from Orders 1-10 that should guide decisions about the remaining 5 pending optimizations.
 
 ### The Big Picture
 
-The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. All six subsequent attempts (Opt#6, #7, #15, #18, #8, #5) showed no measurable gain and were shelved — including Opt#5 (BigInt → Number), which was rated as the highest-likelihood win among remaining items.
+The sprint achieved a **61.1% reduction** in compilation time (639,776 ms → ~248,750 ms), but virtually all of it came from a single optimization: eliminating template literal evaluation in disabled logging paths (Opt#1, -56.5%). The next two wins (Opt#2 regex hoisting at -0.8%, Opt#3 preprocessor single-pass at -0.7%) were small but real. All seven subsequent attempts (Opt#6, #7, #15, #18, #8, #5, #9) showed no measurable gain and were shelved — including Opt#5 (BigInt → Number) and Opt#9 (hash-based distiller dedup), which were rated as the highest-likelihood wins among remaining items.
 
 **Strategic takeaway:** The compiler's remaining hot paths are already well-optimized by V8's JIT. Both micro-optimizations (caching, allocation reduction) and type-level changes (BigInt → Number) consistently fail to produce measurable gains. The BigInt → Number result is particularly instructive: even though individual BigInt operations are 5-20x slower than Number equivalents, the arithmetic hot path (`resolveOperation()`) represents such a small fraction of total compile time that the savings are invisible at the benchmark level. Future optimization efforts should focus on algorithmic-level changes that eliminate entire passes or change O(n²) → O(n) complexity.
 
@@ -70,6 +71,8 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 
 6. **BigInt per-operation cost doesn't matter when arithmetic is a small fraction of workload (Opt#5):** Individual BigInt operations are 5-20x slower than Number equivalents in V8 microbenchmarks, but `resolveOperation()` (the arithmetic hot path) is only called during constant expression evaluation — a tiny fraction of total compilation time. Converting all 372 BigInt sites to Number with `>>> 0` masking produced a net regression (+3.9%, confirmed +5.6% on second run) because: (a) the added `>>> 0` operations introduce their own overhead, (b) V8 optimizes BigInt storage and parameter passing (not just arithmetic) efficiently, and (c) `typeof === 'number'` checks may be slower than `typeof === 'bigint'` checks in V8's type specialization. **Lesson:** Per-operation microbenchmarks don't predict system-level performance; the fraction of total time spent in the optimized path matters more than the per-call speedup.
 
+7. **Map overhead exceeds O(n²) savings at small N (Opt#9):** Replacing an O(n²) nested loop with a `Map<number, number[]>` hash-map approach in the object distiller regressed by +1.8%. With only 2-36 objects, the pairwise comparison loop completes in microseconds. The Map allocation, `Math.imul` hash computation over all content longs, and bucket management add constant overhead that exceeds the negligible O(n²) cost at small N. **Lesson:** Big-O complexity improvements only help when N is large enough for the asymptotic behavior to dominate. At N=2-36, a simple nested loop with early-exit is faster than a hash-map with allocation overhead.
+
 ### Benchmark Methodology Insights
 
 - **Noise floor is ~3-5% variance** between benchmark runs on the same code. Any measured delta within this band cannot be distinguished from noise.
@@ -81,7 +84,7 @@ These findings are specific to the V8 JavaScript engine (Node.js) and explain wh
 Given that even the highest-confidence optimization (Opt#5 BigInt → Number) failed to produce gains, the remaining 6 pending items should be approached with low expectations:
 
 **More likely to produce measurable gains** (algorithmic changes that eliminate work entirely):
-- Opt#9 (Hash-based distiller dedup): Changes O(n²) to O(n) algorithmic complexity for multi-object projects.
+- ~~Opt#9 (Hash-based distiller dedup)~~: **Confirmed shelved** — O(n²) → O(n) algorithmic improvement is real, but object counts (2-36) are too small for Map overhead to pay off. The O(n²) loop at these sizes completes in microseconds.
 - Opt#10 (Skip unnecessary CON passes): Eliminates entire compilation passes, not individual operations.
 
 **Less likely to produce gains** (micro-optimizations similar to shelved items):
