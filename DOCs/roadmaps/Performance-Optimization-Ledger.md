@@ -24,7 +24,7 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 11 | 12 | Hash-based debug record lookup | 243,113.9 | 249,873.4 | +6,759.5 | +2.8% | shelved |
 | 12 | 4 | copyWithin moveObjectUp | 246,431.8 | 248,959.4 | +2,527.6 | +1.0% | shelved |
 | 13 | 10 | Track unresolved CON, skip passes | 249,981.9 | 239,919.6 | -10,062.3 | -4.0% | done |
-| 14 | 17 | Bulk set() distiller copy | ... | ... | ... | ... | pending |
+| 14 | 17 | Bulk set() distiller copy | 240,862.7 | 236,580.6 | -4,282.1 | -1.8% | shelved |
 | 15 | 14 | Array + .join() hex dump | ... | ... | ... | ... | pending |
 
 **Cumulative vs baseline:** 401,087.5 ms saved (62.7%)
@@ -44,12 +44,13 @@ Tracks measured results for each optimization in the [Sprint Plan](Performance-O
 | 9 | Hash-based distiller dedup | Replaced O(n²) nested-loop deduplication in `eliminateRedundantObjects()` with hash-map approach (`Map<number, number[]>` of record hashes → bucket indices, with `areRecordsEquivalent()` verification on collision). All 250 regression tests passed. Benchmark showed +1.8% regression (+4,394ms). Root cause: Object counts in typical P2 projects are 2-36 (worst case: WUMMI Main.spin2 with 35 OBJ declarations). At these sizes, the O(n²) inner loop completes in microseconds. The `Map` allocation, hash computation (`Math.imul` chain over all content longs), and bucket management add overhead that exceeds the negligible savings from avoiding pairwise comparison at small N. | If P2 projects grow to hundreds of objects, or if distillation appears as a profiled hotspot |
 | 12 | Hash-based debug record lookup | Added `findOrAddRecord()` to DebugData with `Map<number, number[]>` hash-map (hash of record bytes → entry indices). Replaced linear scan in `debugEnterRecord()` (spinResolver.ts) with O(1) hash lookup + collision verification via existing `recordIsMatch()`. All 250 regression tests passed. Benchmark showed +2.8% regression (+6,760ms). Root cause: Debug record counts are small (≤255 max, typically much fewer); the linear scan with early-exit on first byte mismatch is very fast for small N. The Map allocation, `Math.imul` hash computation over all record bytes, and bucket management add per-DEBUG() overhead that exceeds the negligible linear scan cost. Same pattern as Opt#9: hash-map overhead dominates at small N. | If debug record counts grow significantly, or if DEBUG()-heavy programs become a profiled bottleneck |
 | 4 | copyWithin moveObjectUp | Replaced byte-by-byte reverse copy loop in `moveObjectUp()` (spin2Parser.ts) with `Uint8Array.copyWithin()` — a single native memcpy operation. Made `ensureCapacity()` public on ObjectImage to pre-allocate before the copy. All 250 regression tests passed. Benchmark showed +1.0% regression (+2,528ms), within noise but consistently positive. Root cause: `moveObjectUp()` is only called 3-5 times per compilation (inserting interpreter, debugger, flash loader, clock setter). Even for the largest programs, each call moves at most ~1MB. The per-call savings from native memcpy vs JS loop are microseconds — invisible at the benchmark level. The original byte-by-byte loop with `replaceByte`/`read` was already fast because logging guards (Opt#1) eliminated the template literal overhead. | If object images grow significantly larger or moveObjectUp is called more frequently |
+| 17 | Bulk set() distiller copy | Replaced per-long `appendLong()` loop in `rebuildOptimizedImage()` (objectDistiller.ts) with bulk `Uint8Array.set()` via new `appendFromArray()` method on ObjectImage. All 250 regression tests passed. Benchmarks inconclusive: run 1 showed -1.8% (-4,282ms), run 2 showed +0.5% (+1,229ms) — results straddle zero, indicating no measurable gain. Root cause: `rebuildOptimizedImage()` is called once per compilation after object deduplication. With 2-36 objects and typical object sizes of a few KB, the total bytes copied are small. The `appendLong()` call overhead (4 method calls per long) sounds expensive but V8 inlines these hot calls after JIT warmup. The bulk `set()` savings are negligible at these data sizes. | If object sizes or counts grow significantly, or if profiling shows distiller rebuild as a hotspot |
 
 ---
 
 ## Sprint Learnings
 
-Key insights from Orders 1-13 that should guide decisions about the remaining 2 pending optimizations.
+Key insights from Orders 1-14 that should guide decisions about the remaining 1 pending optimization.
 
 ### The Big Picture
 
@@ -96,5 +97,5 @@ Opt#10 broke the shelving streak by eliminating entire passes. The remaining 2 p
 - ~~Opt#8 (SpinElement object reuse)~~: **Confirmed shelved** — V8's generational GC handles short-lived objects efficiently. Additionally, full object reuse was unsafe due to unbounded reference retention patterns.
 - ~~Opt#12 (Hash-based debug record lookup)~~: **Confirmed shelved** — Same pattern as Opt#9: hash-map overhead dominates at small N. Debug record counts are small enough that linear scan with early-exit is faster.
 - ~~Opt#4 (copyWithin moveObjectUp)~~: **Confirmed shelved** — Only called 3-5 times per compilation; native memcpy vs JS loop saves microseconds per call, invisible at benchmark level.
-- Opt#17 (Bulk set() distiller copy): Similar to Opt#15 — V8 may already optimize the loop.
+- ~~Opt#17 (Bulk set() distiller copy)~~: **Confirmed shelved** — Two benchmark runs straddled zero (-1.8% / +0.5%). V8 inlines the hot `appendLong()` call chain after JIT warmup; bulk `set()` provides no measurable gain at small data sizes.
 - Opt#14 (Array + join hex dump): Cold path (listing generation only).
