@@ -309,6 +309,7 @@ export class SpinResolver {
 
   // allow registers in CON blocks
   private inConBlock: boolean = false; // PNut con_block_flag
+  private conPassHadUnresolved: boolean = false; // tracks if any CON value failed to resolve in current pass
   private inObjBlock: boolean = false; // PNut obj_block_flag
 
   // Debug()  support
@@ -557,13 +558,17 @@ export class SpinResolver {
     this.objectStructureSet.reset();
     if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_1st() 1of2');
     this.compile_con_blocks(eResolve.BR_Try, FIRST_PASS);
-    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_1st() 2of2');
-    this.compile_con_blocks(eResolve.BR_Try);
+    if (this.conPassHadUnresolved) {
+      if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_1st() 2of2');
+      this.compile_con_blocks(eResolve.BR_Try);
+    }
   }
 
   private compile_con_blocks_2nd() {
-    if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_2nd() 1of2');
-    this.compile_con_blocks(eResolve.BR_Try);
+    if (this.conPassHadUnresolved) {
+      if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_2nd() 1of2');
+      this.compile_con_blocks(eResolve.BR_Try);
+    }
     if (this.isLogging) this.logMessage('*==* COMPILE_con_blocks_2nd() 2of2');
     this.compile_con_blocks(eResolve.BR_Must);
   }
@@ -4924,6 +4929,7 @@ export class SpinResolver {
     // compile all CON blocks in file
     // PNut compile_con_blocks:
     this.inConBlock = true;
+    this.conPassHadUnresolved = false;
     const lastPass: boolean = resolve == eResolve.BR_Must;
     if (this.isLogging) this.logMessage(`*==* COMPILE_con_blocks(firstPass=(${firstPass})) lastPass=${lastPass}`);
     this.logRestoredElementLocation(0); // start from first in list
@@ -4997,6 +5003,8 @@ export class SpinResolver {
               enumValid = true;
               enumValue = resultReturn.value;
               enumStep = 1n;
+            } else {
+              this.conPassHadUnresolved = true;
             }
             // optional step size
             if (this.checkLeftBracket()) {
@@ -5006,6 +5014,7 @@ export class SpinResolver {
               } else {
                 // TODO: COVERAGE test me
                 enumValid = false;
+                this.conPassHadUnresolved = true;
               }
               this.getRightBracket();
             }
@@ -5071,6 +5080,8 @@ export class SpinResolver {
                 // we have a value!
                 // record symbol value (do assign process)
                 this.recordCONSymbolValue(backupSymbolName, result);
+              } else {
+                this.conPassHadUnresolved = true;
               }
             } else if (this.currElement.type == eElementType.type_leftb) {
               const indexResult = this.getValue(eMode.BM_IntOnly, resolve);
@@ -5088,6 +5099,7 @@ export class SpinResolver {
                 // missing new step value... invalidate enum and bail
                 // TODO: COVERAGE test me
                 enumValid = false;
+                this.conPassHadUnresolved = true;
               }
             } else if (this.currElement.type == eElementType.type_comma || this.currElement.type == eElementType.type_end) {
               this.backElement(); // so we can re-discover the comma or EOL at while()
