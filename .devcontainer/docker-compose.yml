@@ -5,10 +5,9 @@ services:
     image: node:23-bookworm
     volumes:
       - ..:/workspaces/PNut-TS:cached
-      - ${HOME}${USERPROFILE}/.ssh:/tmp/.ssh:ro
     ports:
       - "5001:5001"
-      - "9123:8123"
+      - "9125:8123"
     command: sleep infinity
     # Note: features, postCreateCommand, extensions, and settings
     # are handled in devcontainer.json, not here

@@ -1,23 +1,18 @@
-# Local mount configuration template
-# ===================================
-# Copy this file to docker-compose.override.yml and customize for your system.
-# docker-compose.override.yml is gitignored and will not be committed.
+# =============================================================
+# Local mounts override (NOT committed to git)
+# =============================================================
+# Copy this file to docker-compose.override.yml and customize
+# the paths below for your machine.
 #
-# Usage:
-#   cp docker-compose.override.yml.example docker-compose.override.yml
-#   # Edit docker-compose.override.yml with your local paths
-#   # Rebuild container in VS Code
-
-version: '3.8'
-
+# If docker-compose.override.yml doesn't exist, an empty one is
+# auto-created so the container still starts without errors.
+# =============================================================
 services:
   dev:
     volumes:
-      # Claude configuration directory
+      # Claude Code configuration (authentication, settings, history)
       # - /path/to/your/.claude:/home/vscode/.claude
-
-      # Container tools (MCP servers, etc.)
-      # - /path/to/your/container-tools:/opt/container-tools
-
-      # Add any other local mounts you need:
-      # - /your/local/path:/container/path
+      # Container tools (MCP servers: todo-mcp, p2kb-mcp, image-tools-mcp)
+      # - /path/to/container-tools:/opt/container-tools
+      # SSH keys for git operations inside the container
+      # - ${HOME}/.ssh:/tmp/.ssh:ro
