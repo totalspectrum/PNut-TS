@@ -738,6 +738,8 @@ export class SpinDocument {
             continue;
           }
         }
+      } else if (currLine.trim().length === 0) {
+        // blank line - don't stop gathering header comments
       } else {
         // have code line
         this.gatheringHeaderComment = false; // no more gathering once we hit text

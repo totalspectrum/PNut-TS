@@ -3054,6 +3054,26 @@ export class SpinSymbolTables {
     return findResult;
   }
 
+  public requiredVersionForSymbol(symbolName: string): number {
+    // Check if a symbol exists in any versioned table and return the minimum version required
+    // Returns 0 if the symbol is not a versioned built-in keyword
+    const versionedTables: [number, Map<string, iBaseSymbolInfo>][] = [
+      [43, this.automatic_symbols_v43],
+      [45, this.automatic_symbols_v45],
+      [46, this.automatic_symbols_v46],
+      [47, this.automatic_symbols_v47],
+      [50, this.automatic_symbols_v50],
+      [51, this.automatic_symbols_v51],
+      [52, this.automatic_symbols_v52]
+    ];
+    for (const [version, table] of versionedTables) {
+      if (table.has(symbolName)) {
+        return version;
+      }
+    }
+    return 0;
+  }
+
   public operatorSymbol(possibleOperator: string): iSpinSymbol | undefined {
     this.logMessage(`- Utils operatorSymbol(${possibleOperator})`);
     let findResult: iSpinSymbol | undefined = undefined;

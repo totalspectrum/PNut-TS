@@ -5113,6 +5113,10 @@ export class SpinResolver {
               }
             } else {
               // [error_eelcoeol]
+              const requiredVersion = this.spinSymbolTables.requiredVersionForSymbol(backupSymbolName.toUpperCase());
+              if (requiredVersion > 0) {
+                throw new Error(`"${backupSymbolName}" requires {Spin2_v${requiredVersion}} or later`);
+              }
               throw new Error('Expected "=" "[" "," or end of line');
             }
           } else if (this.currElement.type == eElementType.type_struct) {

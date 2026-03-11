@@ -678,7 +678,6 @@ export class SpinElementizer {
     let offsetPastClose: number = 0;
     let nestingDepth: number = 1; // we start at one since we are at '{'
     let inDocBraceComment: boolean = true;
-    let sameLine: boolean = true;
     this.unprocessedLine = this.unprocessedLine.substring(1);
     do {
       // is there an { or } on the rest of this line
@@ -692,7 +691,7 @@ export class SpinElementizer {
           nestingDepth -= 1;
         }
         if (nestingDepth == 0) {
-          offsetPastClose = charOffset + (sameLine ? 2 : 1); // to go past '}'
+          offsetPastClose = charOffset + 1; // to go past '}'
           inDocBraceComment = false;
         } else {
           this.unprocessedLine = this.unprocessedLine.substring(charOffset + 1);
@@ -701,7 +700,6 @@ export class SpinElementizer {
         // nope, get next line
         if (this.isLogging) this.logMessage(`  -- Ln#{${this.sourceLineNumber}} found "{.." skipping to next line`);
         this.loadNextLine();
-        sameLine = false;
         // if no more lines the report missing close comment
         if (this.at_eof) {
           //  [error_erb]

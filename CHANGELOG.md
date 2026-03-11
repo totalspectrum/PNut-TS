@@ -10,7 +10,7 @@ There is one issue which we are unable to address in this implementation:
 
 1. **Floating point constants**: The mantissa (bits 22:0) can be +/- 1 ls-bit different in value (_this is a math library limitation_)
 
-## [Unreleased]
+## [FutureVersions]
 
 Work to appear in upcoming releases:
 
@@ -18,6 +18,14 @@ Work to appear in upcoming releases:
 - Fix any bugs reported by users
 - Add User Reqeuested enhancements
 - Keep up with PNut changes soon after they are released.
+
+## [Unreleased]
+
+### Fixed
+
+- **BUGFIX**: Fixed `{Spin2_v##}` version tag not being detected when preceded by blank lines after header comments. Files with comment blocks followed by a blank line before the version tag would silently default to v41, causing keywords like `STRUCT` and `SIZEOF` to go unrecognized
+- **BUGFIX**: Fixed off-by-one error in inline `{...}` comment handling within the elementizer. Non-doc comments embedded mid-line (e.g., `long {old_value}$FF0000`) would eat the first character after the closing `}`, producing cryptic "Undefined symbol" errors
+- **Diagnostics**: When a version-gated keyword is used without the required language version, the compiler now reports `"STRUCT" requires {Spin2_v45} or later` instead of the misleading `Expected "=" "[" "," or end of line`
 
 ## [1.52.2] 2026-02-26
 
