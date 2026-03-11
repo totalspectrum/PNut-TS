@@ -21,11 +21,21 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.53.0] 2026-03-11
+
+### Added
+
+- **Language**: `OFFSETOF(struct.member)` compile-time function — returns byte offset of a member within a structure definition (PNut v53 parity)
+- **Language**: Support for `{Spin2_v53}` language version directive
+- **CLI**: Allow filename without `.spin2` extension — resolves to `.spin2` if file exists in current directory
+
 ### Fixed
 
+- **Language**: CASE block colon parsing now validates colon token (3 locations changed from get_element to get_colon)
 - **BUGFIX**: Fixed `{Spin2_v##}` version tag not being detected when preceded by blank lines after header comments. Files with comment blocks followed by a blank line before the version tag would silently default to v41, causing keywords like `STRUCT` and `SIZEOF` to go unrecognized
 - **BUGFIX**: Fixed off-by-one error in inline `{...}` comment handling within the elementizer. Non-doc comments embedded mid-line (e.g., `long {old_value}$FF0000`) would eat the first character after the closing `}`, producing cryptic "Undefined symbol" errors
 - **Diagnostics**: When a version-gated keyword is used without the required language version, the compiler now reports `"STRUCT" requires {Spin2_v45} or later` instead of the misleading `Expected "=" "[" "," or end of line`
+- Compatible with PNut_v53.exe
 
 ## [1.52.2] 2026-02-26
 

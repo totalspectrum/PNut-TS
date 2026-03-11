@@ -27,7 +27,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.52.2';
+  private version: string = '1.53.0';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
@@ -496,6 +496,15 @@ export class PNutInTypeScript {
     if (filename !== undefined && filename.endsWith('.json')) {
       // we don't handle .json files if presented
       filename = undefined;
+    }
+
+    // If filename has no extension, try resolving to .spin2 in the same directory
+    if (filename !== undefined && filename.length > 0 && path.extname(filename) === '') {
+      const spin2Filename = filename + '.spin2';
+      if (fs.existsSync(spin2Filename)) {
+        this.context.logger.verboseMsg(`Resolved [${filename}] to [${spin2Filename}]`);
+        filename = spin2Filename;
+      }
     }
 
     if (filename !== undefined && filename.length > 0) {

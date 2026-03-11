@@ -1011,6 +1011,11 @@ enum SYMBOLS_V52 {
   DEBUG_END_SESSION = 'DEBUG_END_SESSION'
 }
 
+// v53 new symbols
+enum SYMBOLS_V53 {
+  OFFSETOF = 'OFFSETOF'
+}
+
 function setAsmcodeValue(v1: number, v2: number, v3: number): number {
   // calculate the actual asm code value from given parts
   //
@@ -1070,6 +1075,7 @@ export class SpinSymbolTables {
   private automatic_symbols_v50 = new Map<string, iBaseSymbolInfo>();
   private automatic_symbols_v51 = new Map<string, iBaseSymbolInfo>();
   private automatic_symbols_v52 = new Map<string, iBaseSymbolInfo>(); // v52a
+  private automatic_symbols_v53 = new Map<string, iBaseSymbolInfo>();
   private flexcodeValues = new Map<eFlexcode, number>();
   private asmcodeValues = new Map<eAsmcode, number>();
   private opcodeValues = new Map<eOpcode, number>();
@@ -2902,6 +2908,11 @@ export class SpinSymbolTables {
     this.automatic_symbols_v52.set(SYMBOLS_V52.ENDIANW, { type: eElementType.type_i_flex, value: this.flexValue(eFlexcode.fc_endianw) });
     this.automatic_symbols_v52.set(SYMBOLS_V52.DEBUG_END_SESSION, { type: eElementType.type_con_int, value: 27 });
 
+    //
+    // HAND generated Automatic symbols table load v53
+    // ---------------------------------------------------------------------------------------
+    this.automatic_symbols_v53.set(SYMBOLS_V53.OFFSETOF, { type: eElementType.type_offsetof, value: 0 });
+
     // Populate the reverse map
     for (const [fcValue, value] of this.flexcodeValues) {
       const bcValue: number = value & 0xff;
@@ -3043,6 +3054,16 @@ export class SpinSymbolTables {
       }
     }
 
+    if (this.currSpinVersion >= 53) {
+      if (this.automatic_symbols_v53.has(symbolName)) {
+        const symbolInfo: iBaseSymbolInfo | undefined = this.automatic_symbols_v53.get(symbolName);
+        if (symbolInfo !== undefined) {
+          this.logMessage(`- builtInSymbolV53(${symbolName}) = (${symbolInfo.value})`);
+          findResult = { symbol: symbolName, type: symbolInfo.type, value: symbolInfo.value };
+        }
+      }
+    }
+
     //const desiredName: string = symbolName.toUpperCase(); // the caller has already done this
     if (findResult === undefined && this.automatic_symbols.has(symbolName)) {
       const symbolInfo: iBaseSymbolInfo | undefined = this.automatic_symbols.get(symbolName);
@@ -3064,7 +3085,8 @@ export class SpinSymbolTables {
       [47, this.automatic_symbols_v47],
       [50, this.automatic_symbols_v50],
       [51, this.automatic_symbols_v51],
-      [52, this.automatic_symbols_v52]
+      [52, this.automatic_symbols_v52],
+      [53, this.automatic_symbols_v53]
     ];
     for (const [version, table] of versionedTables) {
       if (table.has(symbolName)) {

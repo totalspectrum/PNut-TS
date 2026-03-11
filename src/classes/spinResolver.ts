@@ -3368,6 +3368,106 @@ export class SpinResolver {
     return [structFoundStatus, structureSize];
   }
 
+  private get_offset_of_struct_member(): number {
+    // PNut get_offset_of_struct_member:
+    // Returns the byte offset of a member within a structure definition.
+    // Entry: source positioned after OFFSETOF(
+    // Exit: returns computed byte offset
+    this.getElement();
+    if (this.currElement.type != eElementType.type_con_struct) {
+      // [error_easn]
+      throw new Error('Expected an existing STRUCT name');
+    }
+    const structureID: number = this.currElement.numberValue;
+    let record: ObjectStructureRecord = this.objectStructureSet.getStructureRecord(structureID);
+    let offset: number = 0;
+
+    // @@structloop: walk into nested struct levels
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const _recordSize: number = record.nextWord(); // skip record size field
+      const structSize: number = record.nextLong(); // total struct size
+
+      // handle optional [index] at struct level
+      offset = this.offsetof_handle_index(structSize, offset);
+
+      // check for '.' — if no dot, we're done
+      if (!this.checkDot()) {
+        return offset;
+      }
+
+      // get member name after '.'
+      const [foundSymbol, symbolName] = this.getSymbol();
+      if (!foundSymbol) {
+        // [error_easm]
+        throw new Error('Expected a structure member name');
+      }
+
+      // @@checkmember: search through members for matching name
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const memberOffset: number = record.nextLong();
+        const [isStruct, memberType, subStructOffset] = record.skipToName();
+
+        const memberName: string = record.readString();
+
+        if (memberName.toUpperCase() === symbolName) {
+          // found matching member
+          offset += memberOffset;
+
+          if (isStruct) {
+            // nested STRUCT — recurse into sub-struct record
+            record = record.recordWithinStructureRecord(subStructOffset);
+            break; // back to @@structloop
+          } else {
+            // BYTE(0), WORD(1), LONG(2) — compute size = 1 << memberType
+            const memberSize: number = 1 << memberType;
+            offset = this.offsetof_handle_index(memberSize, offset);
+            return offset;
+          }
+        }
+
+        // check continuation byte
+        const continuation: number = record.nextByte();
+        if (continuation === 0) {
+          // [error_sdctn]
+          throw new Error('Structure does not contain this name');
+        }
+        // else continue to next member
+      }
+    }
+  }
+
+  private offsetof_handle_index(size: number, offset: number): number {
+    // PNut @@handleindex: handle optional [constant_index] for OFFSETOF
+    if (!this.checkLeftBracket()) {
+      return offset;
+    }
+    const valueReturn: iValueReturn = this.getValue(eMode.BM_IntOnly, eResolve.BR_Must);
+    const index: number = Number(valueReturn.value);
+
+    if (size > 0xffff) {
+      // [error_iscexb]
+      throw new Error('Indexed structures cannot exceed $FFFF bytes in size');
+    }
+    if (index < 0 || index > 0xffff) {
+      // [error_simbf]
+      throw new Error('Structure index must be from 0 to $FFFF');
+    }
+    const byteOffset: number = index * size;
+    if (byteOffset > this.obj_size_limit) {
+      // [error_sehr]
+      throw new Error('Structure exceeds hub range of $FFFFF');
+    }
+    offset += byteOffset;
+    if (offset > this.obj_size_limit) {
+      // [error_sehr]
+      throw new Error('Structure exceeds hub range of $FFFFF');
+    }
+    this.getRightBracket();
+    return offset;
+  }
+
   private compile_sub_blocks() {
     // Compile sub blocks
     // PNut compile_sub_blocks:
@@ -3806,7 +3906,7 @@ export class SpinResolver {
       this.logRestoredElementLocation(otherCaseElementIndex);
       this.getElement(); // skip 'other'
       this.getColumn(); // set this.lineColumn from currentElement
-      this.getElement(); // skip colon
+      this.getColon(); // skip colon (v53: validate it's actually a colon)
       const savedCaseColumn: number = this.scopeColumn;
       this.setScopeColumn(this.lineColumn); // set to begining of line at 'other'
       this.compileBlock(this.scopeColumn);
@@ -3844,7 +3944,7 @@ export class SpinResolver {
       this.setScopeColumn(this.lineColumn); // set to begining of line
       if (matchIsOtherCase) {
         this.getElement(); // skip 'other'
-        this.getElement(); // skip colon
+        this.getColon(); // skip colon (v53: validate it's actually a colon)
         // skip 'other' block
         this.skipBlock();
       } else {
@@ -3855,7 +3955,7 @@ export class SpinResolver {
           this.skipRange(); // skip range/value (already compiled)
         } while (this.checkComma());
 
-        this.getElement(); // skip colon
+        this.getColon(); // skip colon (v53: validate it's actually a colon)
         this.write_bstack_ptr(++caseCount);
         this.compileBlock(this.scopeColumn);
         this.objImage.appendByte(eByteCode.bc_case_done);
@@ -6907,6 +7007,9 @@ export class SpinResolver {
     } else if (this.currElement.type == eElementType.type_sizeof) {
       // SIZEOF() ?
       this.ct_sizeof();
+    } else if (this.currElement.type == eElementType.type_offsetof) {
+      // OFFSETOF() ?
+      this.ct_offsetof();
     } else if (this.currElement.type == eElementType.type_constr) {
       // STRING() ?
       this.compileConString();
@@ -7391,6 +7494,15 @@ export class SpinResolver {
     this.getLeftParen();
     const structureSize: number = this.get_struct_and_size();
     this.compileConstant(BigInt(structureSize));
+    this.getRightParen();
+  }
+
+  private ct_offsetof() {
+    // PNut ct_offsetof:
+    if (this.isLogging) this.logMessage(`*--* ct_offsetof()`);
+    this.getLeftParen();
+    const offset: number = this.get_offset_of_struct_member();
+    this.compileConstant(BigInt(offset));
     this.getRightParen();
   }
 
@@ -8597,6 +8709,17 @@ export class SpinResolver {
           }
           this.getRightParen();
           resultStatus.value = BigInt(structSize);
+        } else if (this.currElement.type == eElementType.type_offsetof) {
+          if (this.isLogging) this.logMessage(`* getCon() have type_offsetof`);
+          if (this.inConBlock || this.inObjBlock) {
+            // [error_ooioa]
+            throw new Error('OFFSETOF() is only allowed in DAT, VAR, PUB, and PRI blocks');
+          }
+          this.checkIntMode();
+          this.getLeftParen();
+          const memberOffset: number = this.get_offset_of_struct_member();
+          this.getRightParen();
+          resultStatus.value = BigInt(memberOffset);
         } else {
           // DAT section handling
           if (this.isLogging) this.logMessage(` - getCON()  DAT section handling`);
