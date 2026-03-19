@@ -299,3 +299,6 @@ TEST/PERF-results/*.json
 TEST/MAP-tests/test1-simple/simple_top.map
 *.map
 *.map
+DOCs/internals/usage-guides/.vscode/settings.json
+.vscode/settings.json
+/REF-P2-Industr-BUG
