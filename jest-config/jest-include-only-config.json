@@ -1,0 +1,6 @@
+{
+  "displayName": "INCLUDE path tests (-I option)",
+  "roots": ["<rootDir>/../dist/tests/INCLUDE-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}

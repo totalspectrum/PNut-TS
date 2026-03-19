@@ -138,7 +138,7 @@ export function locateSpin2File(filename: string, canSearchLibray: boolean = fal
     // NEW Issue (#9) allow OBJ files to exist in include folders
     if (locatedFSpec === undefined && ctx.preProcessorOptions.includeFolders.length > 0) {
       for (const includeFolder of ctx.preProcessorOptions.includeFolders) {
-        const incFolder: string = path.join(ctx.currentFolder, includeFolder);
+        const incFolder: string = path.isAbsolute(includeFolder) ? includeFolder : path.join(ctx.currentFolder, includeFolder);
         //if (ctx) ctx.logger.logMessage(`TRC: locateSpin2File() CHK inc [${incFolder}]`);
         if (dirExists(incFolder)) {
           fileSpec = path.join(incFolder, filename);
@@ -186,7 +186,7 @@ export function locateDataFile(workingDir: string, filename: string, ctx?: Conte
   // NEW Issue (#9) allow DAT files to exist in include folders
   if (locatedFSpec == undefined && ctx && ctx.preProcessorOptions.includeFolders.length > 0) {
     for (const includeFolder of ctx.preProcessorOptions.includeFolders) {
-      const incFolder: string = path.join(workingDir, includeFolder);
+      const incFolder: string = path.isAbsolute(includeFolder) ? includeFolder : path.join(workingDir, includeFolder);
       //if (ctx) ctx.logger.logMessage(`TRC: locateDataFile() CHK inc [${incFolder}]`);
       if (dirExists(incFolder)) {
         fileSpec = path.join(incFolder, filename);

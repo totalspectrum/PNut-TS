@@ -1,0 +1,6 @@
+OBJ
+  xobj : "inc_test_child"
+
+PUB go()
+
+  xobj.doit()

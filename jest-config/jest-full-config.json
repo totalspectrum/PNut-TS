@@ -1,6 +1,6 @@
 {
   "displayName": "FULL suite of tests",
-  "roots": ["<rootDir>/../dist/tests/FULL/", "<rootDir>/../dist/tests/SHORT/"],
+  "roots": ["<rootDir>/../dist/tests/FULL/", "<rootDir>/../dist/tests/SHORT/", "<rootDir>/../dist/tests/V52A-tests/"],
   "testMatch": ["**/*.test.js"],
   "verbose": true
 }

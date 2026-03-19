@@ -21,6 +21,12 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.53.1] 2026-03-19
+
+### Fixed
+
+- **BUGFIX**: Fixed `-I` with absolute paths (e.g., `-I /home/user/projects/library`) failed to locate .spin2 files. Was internally constructing a bad path.
+
 ## [1.53.0] 2026-03-11
 
 ### Added
