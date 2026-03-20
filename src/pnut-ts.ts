@@ -27,7 +27,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.53.1';
+  private version: string = '1.53.2';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
@@ -187,13 +187,13 @@ export class PNutInTypeScript {
           if (error.name != 'oe' && error.name != 'Ee' && error.name != 'CommanderError2' && error.message != 'outputHelp') {
             this.context.logger.logMessage(`Catch name=[${error.name}], message=[${error.message}]`);
             // Instead of throwing, return a resolved Promise with a specific value, e.g., -1
-            return Promise.resolve(-1);
+            return Promise.resolve(1);
           }
         }
       } else {
         this.context.logger.logMessage(`XYZZY Catch unknown error=[${error}]`);
         // Instead of throwing, return a resolved Promise with a specific value, e.g., -1
-        return Promise.resolve(-1);
+        return Promise.resolve(1);
       }
     }
 
@@ -320,7 +320,7 @@ export class PNutInTypeScript {
         }
       }
       if (needAbort) {
-        return Promise.resolve(-1);
+        return Promise.resolve(1);
       }
     }
 
@@ -520,7 +520,7 @@ export class PNutInTypeScript {
           this.context.logger.errorMsg(`Preprocessing failed: ${error}`);
         }
         this.shouldAbort = true;
-        return Promise.resolve(-1);
+        return Promise.resolve(1);
       }
       if (this.spinDocument === undefined || !this.spinDocument.validFile) {
         this.context.logger.errorMsg(`File [${filename}] does not exist or is not a .spin2 file!`);
@@ -605,10 +605,9 @@ export class PNutInTypeScript {
         const theCompiler = new Compiler(this.context);
         try {
           await theCompiler.Compile();
-        } catch (error) {
-          this.context.logger.errorMsg(`Compilation failed: ${error}`);
-          // Instead of throwing, return a resolved Promise with a specific value, e.g., -1
-          return Promise.resolve(-1);
+        } catch {
+          // Error already logged by Compiler.Compile()
+          return Promise.resolve(1);
         }
       }
     }
@@ -621,7 +620,7 @@ export class PNutInTypeScript {
         this.context.logger.progressMsg('Done');
       }
     }
-    return Promise.resolve(0);
+    return Promise.resolve(this.shouldAbort ? 1 : 0);
   }
 
   //private async loadUsbPortsFound(): Promise<void> {
@@ -672,5 +671,9 @@ export class PNutInTypeScript {
 //
 //if (PNutInTypeScript.isTesting == false) {
 const cliTool = new PNutInTypeScript();
-cliTool.run();
+cliTool.run().then((exitCode) => {
+  if (exitCode !== 0) {
+    process.exitCode = exitCode;
+  }
+});
 //}

@@ -153,6 +153,8 @@ export class Compiler {
           // If it's not an Error object, it could be a string, null, etc.
           this.context.logger.errorMsg(error);
         }
+        // Re-throw so the caller can set a non-zero exit code
+        throw error;
       }
     }
   }

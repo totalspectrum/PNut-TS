@@ -21,9 +21,12 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.53.2] 2026-03-20
+
 ### Fixed
 
 - **BUGFIX**: Removed spurious .obj file (53 bytes) generated on compilation errors even without `-O` flag
+- **BUGFIX**: Compiler now exits with non-zero return code on all error paths. Previously, compilation errors, missing files, and bad options could exit with code 0, misleading CI/CD pipelines and scripts
 
 ## [1.53.1] 2026-03-19
 
