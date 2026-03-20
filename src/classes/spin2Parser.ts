@@ -119,16 +119,7 @@ export class Spin2Parser {
       this.logMessage(
         `  -- OPTS elem(${this.context.logOptions.logElementizer}), parse(${this.context.logOptions.logParser}), comp(${this.context.logOptions.logCompile}), resolv(${this.context.logOptions.logResolver}), preproc(${this.context.logOptions.logPreprocessor})`
       );
-    try {
-      this.spinResolver.compile2(isTopLevel);
-    } catch (error) {
-      // Handle the error here if necessary
-      if (this.context.reportOptions.regressionTesting == false) {
-        const outFilename = this.context.compileOptions.listFilename;
-        this.writeObjectFile(this.objImage, 0, 0x35, outFilename); // full
-      }
-      throw error;
-    }
+    this.spinResolver.compile2(isTopLevel);
     if (this.isLogging) this.logMessage(`* P2Compile2(isTopLevel=(${isTopLevel})) - EXIT`);
   }
 

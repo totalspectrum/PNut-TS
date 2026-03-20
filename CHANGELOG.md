@@ -21,6 +21,10 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+### Fixed
+
+- **BUGFIX**: Removed spurious .obj file (53 bytes) generated on compilation errors even without `-O` flag
+
 ## [1.53.1] 2026-03-19
 
 ### Fixed
