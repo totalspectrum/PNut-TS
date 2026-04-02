@@ -377,10 +377,14 @@ export class Spin2Parser {
           const debugRawData = this.spinResolver.debugRawData;
           const debugRecords = debugRawData.recordCount;
           const debugDataBytes = debugRawData.length - 0x200; // subtract index table size
+          const maxRecords = DebugData.MAX_ENTRIES;
+          const maxDataBytes = DebugData.DEBUG_SIZE_IN_BYTES - 0x200;
           const recordsString = this.rightAlignedDecimalValue(debugRecords, 11);
           const debugBytesString = this.rightAlignedDecimalValue(debugDataBytes, 11);
-          stream.write(`\nDEBUG records: ${recordsString} of ${DebugData.MAX_ENTRIES}\n`);
-          stream.write(`DEBUG data:    ${debugBytesString} of ${DebugData.DEBUG_SIZE_IN_BYTES - 0x200} bytes\n`);
+          const recordsPct = ((debugRecords / maxRecords) * 100).toFixed(1);
+          const dataPct = ((debugDataBytes / maxDataBytes) * 100).toFixed(1);
+          stream.write(`\nDEBUG records: ${recordsString} of ${maxRecords} (${recordsPct}%)\n`);
+          stream.write(`DEBUG data:    ${debugBytesString} of ${maxDataBytes} bytes (${dataPct}%)\n`);
         }
         stream.write(`\n`);
       }
