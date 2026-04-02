@@ -318,7 +318,9 @@ export function compareListingFiles(reportFSpec: string, goldenFSpec: string, st
             'Redundant OBJ bytes removed',
             'Early deduplication bytes saved',
             'Distiller optimization bytes saved',
-            'Total redundant OBJ bytes removed'
+            'Total redundant OBJ bytes removed',
+            'DEBUG records:',
+            'DEBUG data:'
           ];
 
     // Filter out lines based on exclusion criteria

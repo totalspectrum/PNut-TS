@@ -118,6 +118,19 @@ export class DebugData {
     return dataOnlyArray;
   }
 
+  /** Count the number of unique debug records stored */
+  get recordCount(): number {
+    let count = 0;
+    for (let i = 1; i <= DebugData.MAX_ENTRIES; i++) {
+      if (this.readWord(i << 1) !== 0) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
   public recordExists(entryIndex: number): boolean {
     // NOTE: entryIndex should be 1-n
     return this.readWord(entryIndex << 1) != 0;

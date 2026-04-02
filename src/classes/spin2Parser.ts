@@ -19,6 +19,7 @@ import { ExternalFiles } from './externalFiles';
 import { hexLong } from '../utils/formatUtils';
 import path from 'path';
 import { MapGenerator } from './mapGenerator';
+import { DebugData } from './debugData';
 
 // src/classes/spin2Parser.ts
 
@@ -370,7 +371,18 @@ export class Spin2Parser {
           stream.write(`\n`);
         }
         stream.write(`\nOBJ bytes: ${objString}\n`);
-        stream.write(`VAR bytes: ${varString}\n\n`);
+        stream.write(`VAR bytes: ${varString}\n`);
+        // Report debug statistics when compiling with -d
+        if (this.context.compileOptions.enableDebug) {
+          const debugRawData = this.spinResolver.debugRawData;
+          const debugRecords = debugRawData.recordCount;
+          const debugDataBytes = debugRawData.length - 0x200; // subtract index table size
+          const recordsString = this.rightAlignedDecimalValue(debugRecords, 11);
+          const debugBytesString = this.rightAlignedDecimalValue(debugDataBytes, 11);
+          stream.write(`\nDEBUG records: ${recordsString} of ${DebugData.MAX_ENTRIES}\n`);
+          stream.write(`DEBUG data:    ${debugBytesString} of ${DebugData.DEBUG_SIZE_IN_BYTES - 0x200} bytes\n`);
+        }
+        stream.write(`\n`);
       }
 
       // emit hub-bytes use
