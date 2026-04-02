@@ -16,6 +16,7 @@ import path from 'path';
 import { OBJ_LIMIT } from './spinResolver';
 import { ObjInstanceInfo } from './objInstanceInfo';
 import { eElementType } from './types';
+import { ObjectCache, CacheMetadata } from './objectCache';
 
 // src/classes/compiler.ts
 
@@ -53,6 +54,9 @@ export class Compiler {
   private globalChildObjectIndexMap: Map<number, number> = new Map(); // globalLogicalIndex -> physicalIndex
   private globalLogicalIndexCounter: number = 0; // Global unique counter for deduplication
 
+  // Persistent object cache
+  private objectCache: ObjectCache;
+
   constructor(ctx: Context) {
     this.context = ctx;
     this.isLogging = ctx.logOptions.logCompile;
@@ -69,6 +73,11 @@ export class Compiler {
     this.spinFiles.enableLogging(this.isLogging);
     // allocate our local data
     this.childImages = new ChildObjectsImage(ctx, 'childImages');
+    // Initialize persistent object cache
+    this.objectCache = new ObjectCache(ctx.compileOptions.cache);
+    if (ctx.compileOptions.cacheClear) {
+      this.objectCache.clear();
+    }
     // Reset memory statistics for this compilation
     this.resetMemoryStats();
   }
@@ -123,6 +132,9 @@ export class Compiler {
         // Log deduplication statistics if any duplicates were found
         this.logDuplicationStats();
 
+        // Log cache statistics if cache is enabled
+        this.logCacheStats();
+
         // Build object instance info for map file generation
         this.buildObjInstanceInfo();
 
@@ -167,6 +179,44 @@ export class Compiler {
       if (depth > OBJ_STACK_LIMIT) {
         throw new Error(`Object nesting exceeds ${OBJ_STACK_LIMIT} levels - illegal circular reference may exist`);
       }
+
+      // --- CACHE CHECK (for child objects only) ---
+      let cacheKey: string | undefined;
+      if (this.objectCache.isEnabled && depth > 0) {
+        cacheKey = this.objectCache.computeKey(srcFile.allPreprocessedLines, overrideParameters, this.context.compilerVersion);
+        const cachedBinary = this.objectCache.get(cacheKey);
+        if (cachedBinary) {
+          // Cache hit — inject cached binary into childImages, skip full compilation
+          if (this.isLoggingOutline) this.logMessageOutline(`  -- CACHE HIT -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}...`);
+          this.memoryStats.totalObjectsCompiled++;
+          const duplicateInfo = this.childImages.findDuplicateChild(cachedBinary);
+          let physicalFileIndex: number;
+
+          if (duplicateInfo.exists) {
+            physicalFileIndex = duplicateInfo.fileIndex;
+            this.memoryStats.duplicatesDetected++;
+            this.memoryStats.memoryBytesSaved += cachedBinary.length;
+            const sizeCount = this.memoryStats.duplicatesBySize.get(cachedBinary.length) || 0;
+            this.memoryStats.duplicatesBySize.set(cachedBinary.length, sizeCount + 1);
+          } else {
+            physicalFileIndex = this.objectFileCount;
+            if (this.objectFileOffset + cachedBinary.length > this.obj_limit) {
+              throw new Error(`OBJ data exceeds ${this.obj_limit / 1024}k limit`);
+            }
+            this.childImages.setOffset(this.objectFileOffset);
+            this.childImages.ensureFits(this.objectFileOffset, cachedBinary.length);
+            this.childImages.rawUint8Array.set(cachedBinary, this.objectFileOffset);
+            this.childImages.recordLengthOffsetForFile(this.objectFileCount, this.objectFileOffset, cachedBinary.length);
+            this.objectFileOffset += cachedBinary.length;
+            this.objectFileCount++;
+          }
+
+          this.globalChildObjectIndexMap.set(this.globalLogicalIndexCounter, physicalFileIndex);
+          this.globalLogicalIndexCounter++;
+          return; // Skip full compilation
+        }
+      }
+      // --- END CACHE CHECK ---
 
       // local variables
       let objectFiles: number = 0; // pascal ObjFiles
@@ -305,6 +355,23 @@ export class Compiler {
 
           // determine if we need this child copy
           const childImage: Uint8Array = this.objImage.rawUint8Array.subarray(0, 0 + objectLength);
+
+          // --- CACHE STORE (for child objects on cache miss) ---
+          if (cacheKey !== undefined) {
+            const binaryCopy = new Uint8Array(childImage);
+            const metadata: CacheMetadata = {
+              source: srcFile.fileName,
+              overrides: overrideParameters ? this.serializeOverrides(overrideParameters) : '',
+              compilerVersion: this.context.compilerVersion,
+              timestamp: Date.now(),
+              binarySize: objectLength
+            };
+            this.objectCache.set(cacheKey, binaryCopy, metadata);
+            if (this.isLoggingOutline)
+              this.logMessageOutline(`  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., size=${objectLength}`);
+          }
+          // --- END CACHE STORE ---
+
           // Check if binary already exists in list using new method
           const duplicateInfo = this.childImages.findDuplicateChild(childImage);
           let physicalFileIndex: number;
@@ -385,6 +452,26 @@ export class Compiler {
     if (this.isLoggingOutline) {
       this.context.logger.logMessage(message);
     }
+  }
+
+  private logCacheStats(): void {
+    if (!this.objectCache.isEnabled) return;
+    const { hits, misses } = this.objectCache.stats;
+    if (hits > 0 || misses > 0) {
+      const cacheMsg = `Object cache: ${hits} hit(s), ${misses} miss(es) (${this.objectCache.cachePath})`;
+      if (this.isLoggingOutline) {
+        this.logMessageOutline(cacheMsg);
+      } else {
+        this.context.logger.infoMsg(cacheMsg);
+      }
+    }
+  }
+
+  private serializeOverrides(overrides: SymbolTable): string {
+    return overrides.allSymbols
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((s) => `${s.name}:${s.type}:${s.value}`)
+      .join(',');
   }
 
   private validateIndexMapping(): void {

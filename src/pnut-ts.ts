@@ -57,6 +57,7 @@ export class PNutInTypeScript {
       console.log('PNut-TS: stderr was closed');
     });
     this.context = new Context();
+    this.context.compilerVersion = this.version;
   }
 
   public setArgs(runArgs: string[]) {
@@ -109,6 +110,8 @@ export class PNutInTypeScript {
       .option('-D, --Define <symbol...>', 'Define (add) preprocessor symbol(s)')
       .option('-U, --Undefine <symbol...>', 'Undefine (remove) preprocessor symbol(s)')
       .option('-I, --Include <dir...>', 'Add preprocessor include directories')
+      .option('-C, --cache', 'Enable object compilation cache')
+      .option('--cache-clear', 'Clear object cache before compiling')
       .addOption(
         new Option('--log <objectName...>', 'objectName').choices([
           'all',
@@ -259,6 +262,13 @@ export class PNutInTypeScript {
 
     if (this.options.obj) {
       this.context.compileOptions.writeObj = true;
+    }
+
+    if (this.options.cache) {
+      this.context.compileOptions.cache = true;
+    }
+    if (this.options.cacheClear) {
+      this.context.compileOptions.cacheClear = true;
     }
 
     /*

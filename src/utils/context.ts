@@ -70,6 +70,8 @@ export interface CompileOptions {
   flashFilename: string; // write flash image to this file
   writeMapFile: boolean; // write memory map file (.map file)
   mapFilename: string; // write memory map to this file
+  cache: boolean; // enable object compilation cache
+  cacheClear: boolean; // clear object cache before compiling
 }
 
 export interface CompileData {
@@ -147,6 +149,7 @@ export function logContextState(ctx: Context, callerId: string) {
 }
 
 export class Context {
+  public compilerVersion: string = '';
   public libraryFolder: string;
   public extensionFolder: string;
   public currentFolder: string;
@@ -201,7 +204,9 @@ export class Context {
       writeFlashImageFile: false,
       flashFilename: '',
       writeMapFile: false,
-      mapFilename: ''
+      mapFilename: '',
+      cache: false,
+      cacheClear: false
     };
     this.compileData = {
       objectData: new ChildObjectsImage(this, 'GlbObjData'), // pascal P2.ObjData

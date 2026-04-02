@@ -1,0 +1,6 @@
+{
+  "displayName": "CACHE only suite of tests",
+  "roots": ["<rootDir>/../dist/tests/CACHE-tests/"],
+  "testMatch": ["**/*.test.js"],
+  "verbose": true
+}
