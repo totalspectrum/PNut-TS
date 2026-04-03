@@ -27,7 +27,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.53.3';
+  private version: string = '1.53.4';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
@@ -111,6 +111,7 @@ export class PNutInTypeScript {
       .option('-U, --Undefine <symbol...>', 'Undefine (remove) preprocessor symbol(s)')
       .option('-I, --Include <dir...>', 'Add preprocessor include directories')
       .option('-C, --cache', 'Enable object compilation cache')
+      .option('--cache-dir <dir>', 'Set object cache directory (default: .pnut-cache in current directory)')
       .option('--cache-clear', 'Clear object cache before compiling')
       .addOption(
         new Option('--log <objectName...>', 'objectName').choices([
@@ -266,6 +267,9 @@ export class PNutInTypeScript {
 
     if (this.options.cache) {
       this.context.compileOptions.cache = true;
+    }
+    if (this.options.cacheDir) {
+      this.context.compileOptions.cacheDir = this.options.cacheDir;
     }
     if (this.options.cacheClear) {
       this.context.compileOptions.cacheClear = true;

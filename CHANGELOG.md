@@ -21,6 +21,12 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.53.4] 2026-04-03
+
+### Added
+
+- **CLI**: New `--cache-dir <dir>` option to specify a custom object cache directory. By default the cache is placed in `.pnut-cache` relative to the current working directory; `--cache-dir` allows all compilations across different source directories to share a single cache folder, maximizing cache hits in multi-suite test environments
+
 ## [1.53.3] 2026-04-03
 
 ### Added

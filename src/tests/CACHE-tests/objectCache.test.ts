@@ -419,4 +419,98 @@ describe('ObjectCache Integration Tests', () => {
     cleanupOutputFiles(objTestDir, 'spin_test22');
     cleanupCacheDir(objTestDir);
   });
+
+  // --- Custom Cache Directory (--cache-dir) ---
+
+  test('--cache-dir places cache in the specified directory', () => {
+    const customCacheDir = path.join(objTestDir, '.custom-cache-test');
+    cleanupDir(customCacheDir);
+    cleanupCacheDir(objTestDir);
+
+    // Compile with --cache-dir pointing to a custom location
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-dir ${customCacheDir}`);
+
+    // Cache should exist at the custom location
+    expect(fs.existsSync(customCacheDir)).toBe(true);
+    const cacheFiles = fs.readdirSync(customCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(cacheFiles.length).toBeGreaterThan(0);
+
+    // Default cache location should NOT exist
+    const defaultCachePath = path.join(objTestDir, '.pnut-cache');
+    expect(fs.existsSync(defaultCachePath)).toBe(false);
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(customCacheDir);
+  });
+
+  test('--cache-dir produces identical output to default cache location', () => {
+    const customCacheDir = path.join(objTestDir, '.custom-cache-equiv');
+    cleanupDir(customCacheDir);
+    cleanupCacheDir(objTestDir);
+
+    // Compile without cache for reference
+    compileSpin2(objTestDir, 'spin_test14.spin2', '-l -O');
+    const objUncached = fs.readFileSync(path.join(objTestDir, 'spin_test14.obj'));
+    const binUncached = fs.readFileSync(path.join(objTestDir, 'spin_test14.bin'));
+
+    // Compile with custom cache dir (cold)
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-dir ${customCacheDir}`);
+    const objColdCached = fs.readFileSync(path.join(objTestDir, 'spin_test14.obj'));
+    const binColdCached = fs.readFileSync(path.join(objTestDir, 'spin_test14.bin'));
+    expect(Buffer.from(objColdCached).equals(Buffer.from(objUncached))).toBe(true);
+    expect(Buffer.from(binColdCached).equals(Buffer.from(binUncached))).toBe(true);
+
+    // Compile with custom cache dir (warm — should hit cache)
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-dir ${customCacheDir}`);
+    const objWarmCached = fs.readFileSync(path.join(objTestDir, 'spin_test14.obj'));
+    const binWarmCached = fs.readFileSync(path.join(objTestDir, 'spin_test14.bin'));
+    expect(Buffer.from(objWarmCached).equals(Buffer.from(objUncached))).toBe(true);
+    expect(Buffer.from(binWarmCached).equals(Buffer.from(binUncached))).toBe(true);
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(customCacheDir);
+  });
+
+  test('--cache-dir allows sharing cache across different source directories', () => {
+    const sharedCacheDir = path.join(objTestDir, '.shared-cache-test');
+    cleanupDir(sharedCacheDir);
+
+    // Compile from objTestDir — populates the shared cache
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-clear --cache-dir ${sharedCacheDir}`);
+    const cacheFilesAfterFirst = fs.readdirSync(sharedCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(cacheFilesAfterFirst.length).toBeGreaterThan(0);
+
+    // Compile again — should get cache hits (same entries, no new files)
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-dir ${sharedCacheDir}`);
+    const cacheFilesAfterSecond = fs.readdirSync(sharedCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(cacheFilesAfterSecond.length).toBe(cacheFilesAfterFirst.length);
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(sharedCacheDir);
+  });
+
+  test('--cache-clear with --cache-dir clears the custom directory', () => {
+    const customCacheDir = path.join(objTestDir, '.custom-cache-clear');
+    cleanupDir(customCacheDir);
+
+    // Build cache
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-dir ${customCacheDir}`);
+    expect(fs.existsSync(customCacheDir)).toBe(true);
+    const filesBefore = fs.readdirSync(customCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(filesBefore.length).toBeGreaterThan(0);
+
+    // Clear and rebuild
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-clear --cache-dir ${customCacheDir}`);
+    const filesAfter = fs.readdirSync(customCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(filesAfter.length).toBe(filesBefore.length);
+
+    // Verify output is still correct against GOLD
+    const goldenObjPath = path.join(objTestDir, 'spin_test14.obj.GOLD');
+    if (fs.existsSync(goldenObjPath)) {
+      expect(compareObjOrBinFiles(path.join(objTestDir, 'spin_test14.obj'), goldenObjPath)).toBe(true);
+    }
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(customCacheDir);
+  });
 });

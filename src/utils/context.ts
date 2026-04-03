@@ -71,6 +71,7 @@ export interface CompileOptions {
   writeMapFile: boolean; // write memory map file (.map file)
   mapFilename: string; // write memory map to this file
   cache: boolean; // enable object compilation cache
+  cacheDir: string; // object cache directory (default: '.pnut-cache')
   cacheClear: boolean; // clear object cache before compiling
 }
 
@@ -206,6 +207,7 @@ export class Context {
       writeMapFile: false,
       mapFilename: '',
       cache: false,
+      cacheDir: '.pnut-cache',
       cacheClear: false
     };
     this.compileData = {

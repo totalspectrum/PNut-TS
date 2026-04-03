@@ -74,7 +74,7 @@ export class Compiler {
     // allocate our local data
     this.childImages = new ChildObjectsImage(ctx, 'childImages');
     // Initialize persistent object cache
-    this.objectCache = new ObjectCache(ctx.compileOptions.cache);
+    this.objectCache = new ObjectCache(ctx.compileOptions.cache, ctx.compileOptions.cacheDir);
     if (ctx.compileOptions.cacheClear) {
       this.objectCache.clear();
     }
