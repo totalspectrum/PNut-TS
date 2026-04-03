@@ -21,6 +21,13 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.53.3] 2026-04-03
+
+### Added
+
+- **New Feature**: Persistent object cache (`--cache`, `--cache-clear`) avoids recompiling identical child objects across runs. Uses content-addressed SHA-256 keys covering preprocessed source, parameter overrides, and compiler version. Especially useful for large projects and test suites with shared child objects
+- **Diagnostics**: Listing files now show DEBUG capacity usage when compiling with `-d`: record count (of 255 max) and data bytes (of 15872 max) with usage percentages, giving visibility into proximity to debug statement limits
+
 ## [1.53.2] 2026-03-20
 
 ### Fixed
