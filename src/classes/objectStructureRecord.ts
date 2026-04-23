@@ -8,7 +8,7 @@
 import { Context } from '../utils/context';
 import { eMemberType } from './objectStructures';
 
-// 	struct record
+// 	struct record (v54 extended)
 // 	-------------
 // 	word: size_of_struct_record (including this word)
 // 	long: size_of_struct_memory
@@ -16,8 +16,16 @@ import { eMemberType } from './objectStructures';
 // 	    long: member offset address
 // 	    byte: type (0=byte, 1=word, 2=long, 3=struct + struct_record)
 // 	    byte: member_name length
-// 	    byte(s): "member_name"
-// 	    byte: 1 if another member, 0 if end of record
+// 	          (0 allowed ONLY for the first and only nameless BYTE/WORD/LONG member - v54)
+// 	    byte(s): "member_name"    (zero bytes if length == 0)
+// 	    byte: continuation
+// 	          0 = end of struct
+// 	          1 = another member follows
+// 	          2 = bitfield descriptor follows (v54; only after byte/word/long members)
+// 	             byte:    bitfield_name length
+// 	             byte(s): "bitfield_name"
+// 	             word:    packed bitfield = basebit | ((span - 1) << 5)
+// 	             <loops back to read next 0/1/2 byte>
 //
 export class ObjectStructureRecord {
   private context: Context;
@@ -66,7 +74,6 @@ export class ObjectStructureRecord {
     return desiredByte;
   }
 
-  /*
   public peekByte(): number {
     // return byte at current offset without incrementing offset
     let desiredByte: number = 0;
@@ -78,7 +85,54 @@ export class ObjectStructureRecord {
     }
     return desiredByte;
   }
-  //*/
+
+  public get offset(): number {
+    return this.readOffset;
+  }
+
+  public set offset(newOffset: number) {
+    this.readOffset = newOffset;
+  }
+
+  public nextContinuation(): number {
+    // v54: read the continuation byte following a member's name (or the 16-bit packed descriptor of a bitfield entry)
+    //  0 = end of struct, 1 = another member, 2 = bitfield entry follows
+    const cont = this.nextByte();
+    this.logMessage(`* OSRcd: nextContinuation() -> ${cont}`);
+    return cont;
+  }
+
+  public readBitfieldEntry(): { name: string; packedDescriptor: number } {
+    // v54: read a single bitfield-chain entry: length-prefixed name then 16-bit packed descriptor
+    //  caller has already consumed the continuation byte (value == 2).
+    const name = this.readString();
+    const packedDescriptor = this.nextWord();
+    this.logMessage(`* OSRcd: readBitfieldEntry() -> name='${name}', desc=0x${packedDescriptor.toString(16).padStart(4, '0')}`);
+    return { name, packedDescriptor };
+  }
+
+  public skipBitfieldEntry(): void {
+    // v54: skip past a bitfield-chain entry without decoding it (name + 16-bit descriptor)
+    const nameLen = this.nextByte();
+    this.readOffset += nameLen + 2;
+  }
+
+  public isFirstMemberNameless(): boolean {
+    // v54: peek at the first member to detect the nameless single BWL form.
+    //  Record layout leading up to the name-length byte:
+    //    +0..+1 : size (word)
+    //    +2..+5 : memory size (long)
+    //    +6..+9 : first member offset (long)
+    //    +10    : first member type byte (0=BYTE, 1=WORD, 2=LONG; 3=STRUCT is never nameless)
+    //    +11    : first member name-length  <-- what we probe
+    //  Nameless iff type byte is 0/1/2 AND name-length is 0.
+    if (this._recordImage.length < 12) {
+      return false;
+    }
+    const firstType = this._recordImage[10];
+    const firstNameLen = this._recordImage[11];
+    return firstNameLen === 0 && firstType <= eMemberType.MT_LONG;
+  }
 
   public peekWord(): number {
     let desiredWord: number = 0;

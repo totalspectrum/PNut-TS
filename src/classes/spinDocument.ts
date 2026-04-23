@@ -135,7 +135,7 @@ export class SpinDocument {
   private nonDocNestCount: number = 0;
   // PNut-ts version number handling for this .spin2 file
   private defaultVersion: number = 41;
-  private legalVersions: number[] = [41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53];
+  private legalVersions: number[] = [41, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54];
   private requiredVersion: number = 0;
   // errors reported while processing file
   private errorsfound: iError[] = [];

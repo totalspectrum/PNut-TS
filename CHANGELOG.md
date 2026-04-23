@@ -21,6 +21,14 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.0] 2026-04-23
+
+### Added
+
+- **Language**: Support for `{Spin2_v54}` language version directive (accepted unconditionally; not a gate — matches PNut v54 behavior)
+- **Language**: Named bitfields on STRUCT `BYTE`/`WORD`/`LONG` members, e.g. `STRUCT s(LONG flags.ready[0].count[15..8])` with use-site syntax `v.flags.ready := 1` (PNut v54 parity)
+- **Language**: Nameless single `BYTE`/`WORD`/`LONG` STRUCT member, e.g. `STRUCT t(LONG.ready[0])` allowing direct bitfield access as `v.ready := 1`
+
 ## [1.53.4] 2026-04-03
 
 ### Added

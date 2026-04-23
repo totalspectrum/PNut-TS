@@ -15,14 +15,14 @@ import { ObjectStructureRecord } from './objectStructureRecord';
 //
 //  struct_name = existing_struct_name
 //
-//  struct_name({byte/word/long/struct} member_name{[count]}, ...)
+//  struct_name({byte/word/long/struct} member_name{[count]}{.bitfield_name[bit_or_range]}..., ...)
 //
 // 	struct element
 // 	--------------
 // 	type = type_con_struct
 // 	value = struct id
 //
-// 	struct record
+// 	struct record (v54 extended)
 // 	-------------
 // 	word: size_of_struct_record (including this word)
 // 	long: size_of_struct_memory
@@ -30,8 +30,16 @@ import { ObjectStructureRecord } from './objectStructureRecord';
 // 	    long: member offset address
 // 	    byte: type (0=byte, 1=word, 2=long, 3=struct + struct_record)
 // 	    byte: member_name length
-// 	    byte(s): "member_name"
-// 	    byte: 1 if another member, 0 if end of record
+// 	           (0 allowed ONLY for the first and only nameless BYTE/WORD/LONG member - v54)
+// 	    byte(s): "member_name"    (zero bytes if length == 0)
+// 	    byte: continuation
+// 	          0 = end of struct (no more members)
+// 	          1 = another member follows
+// 	          2 = bitfield descriptor follows (v54; only valid after byte/word/long members)
+// 	             byte:    bitfield_name length
+// 	             byte(s): "bitfield_name"
+// 	             word:    packed bitfield = basebit | ((span - 1) << 5)
+// 	             <loops back to read next 0/1/2 byte>
 //
 
 export enum eMemberType {
@@ -235,11 +243,28 @@ export class ObjectStructures {
 
   public recordStructElementName(name: string) {
     // record name found within structure declaration
+    //  v54: empty name (length 0) is the nameless-single-BWL-member marker
     this.logMessage(`* OBJSTRUCT: recordStructElementName('${name}')`);
     this.enterByte(name.length);
     for (let index = 0; index < name.length; index++) {
       this.enterByte(name.charCodeAt(index));
     }
+  }
+
+  public recordBitfieldEntry(name: string, packedDescriptor: number) {
+    // v54: write a bitfield chain entry with its own leading continuation byte (value 2).
+    //  Layout: 0x02, name-length, name chars, 16-bit packed descriptor
+    //  (descriptor = basebit | ((span - 1) << 5)).  The trailing continuation (0 or 1 to
+    //  end the struct / start the next member, or another 2 for another chained bitfield) is
+    //  emitted by the caller — via endMemberRecord for the last one, or another recordBitfieldEntry
+    //  call for the next chained bitfield.
+    this.logMessage(`* OBJSTRUCT: recordBitfieldEntry('${name}', 0x${hexWord(packedDescriptor)})`);
+    this.enterByte(2);
+    this.enterByte(name.length);
+    for (let index = 0; index < name.length; index++) {
+      this.enterByte(name.charCodeAt(index));
+    }
+    this.enterWord(packedDescriptor & 0xffff);
   }
 
   public recordStructWithinStruct(recordId: number) {

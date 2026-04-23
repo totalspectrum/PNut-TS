@@ -46,6 +46,8 @@ interface iVariableReturn {
   indexFlag: boolean;
   bitfieldFlag: boolean;
   bitfieldConstantFlag: boolean;
+  bitfieldStructFlag: boolean; // v54: bitfield was pre-resolved from a STRUCT declaration (no runtime expression to emit)
+  compiledBitfield: number; // v54: packed bitfield descriptor when bitfieldStructFlag is true
   operation: eVariableOperation;
   assignmentBytecode: eByteCode; // used iff VO_ASSIGN
   modifierBytecode: eByteCode; // used iff pre/post inc/dec
@@ -78,6 +80,7 @@ interface iStructureReturn {
   structElemIndex: number; // index of element after symbol name
   objectPtr: number;
   indexMode: eStructureIndexMode;
+  compiledBitfield: number; // v54: 0 = no struct-resolved bitfield; else packed descriptor (low 16 bits = basebit | ((span-1) << 5))
 }
 
 interface iIndexReturn {
@@ -5308,20 +5311,26 @@ export class SpinResolver {
       // save start address for size patching
       this.objectStructureSet.beginRecord();
       let foundComma: boolean = false;
+      let notFirst: boolean = false; // v54: true after the first member has been written
+      let singleBWL: boolean = false; // v54: first-and-only member is nameless BYTE/WORD/LONG
       do {
         // PNut  @@member:
         this.objectStructureSet.beginMemberRecord();
         this.getElementObj();
         if (this.isLogging) this.logMessage(`  -- at [${this.currElement.toString()}]`);
+        let memberType: eMemberType; // v54: captured for bitfield boundary checks
         if (this.currElement.type == eElementType.type_size) {
           const elemSize: number = this.currElement.numberValue;
           // record 0,1,2 byte, word, long
+          memberType = elemSize as eMemberType;
           this.objectStructureSet.recordStructElement(elemSize);
         } else if (this.currElement.type == eElementType.type_con_struct) {
           const structId: number = this.currElement.numberValue;
+          memberType = eMemberType.MT_STRUCT;
           this.objectStructureSet.recordStructWithinStruct(structId);
         } else {
           // PNut @@notstruct:
+          memberType = eMemberType.MT_LONG;
           this.objectStructureSet.recordStructElement(eMemberType.MT_LONG);
           this.backElement(); // back up to name
         }
@@ -5329,12 +5338,21 @@ export class SpinResolver {
         const [isSymbol, symbolString] = this.getSymbol();
         if (this.isLogging) this.logMessage(`  -- at [${this.currElement.toString()}]`);
         if (isSymbol == false) {
-          // [error_eas]
-          throw new Error('Expected a symbol (m191)');
+          // v54: allow nameless first-and-only BYTE/WORD/LONG member
+          if (notFirst || memberType == eMemberType.MT_STRUCT) {
+            // [error_eas]
+            throw new Error('Expected a symbol (m191)');
+          }
+          // nameless case: back out the non-symbol token and write length-0 name
+          this.backElement();
+          this.objectStructureSet.recordStructElementName('');
+          singleBWL = true;
+        } else {
+          this.objectStructureSet.recordStructElementName(symbolString);
         }
-        this.objectStructureSet.recordStructElementName(symbolString);
         let instanceCount: number = 1; // default
-        if (this.checkLeftBracket()) {
+        if (!singleBWL && this.checkLeftBracket()) {
+          // v54: nameless members take no instance count
           // have multiplier
           const resultReturn = this.getValue(eMode.BM_IntOnly, eResolve.BR_Must);
           if (resultReturn.isResolved) {
@@ -5350,10 +5368,62 @@ export class SpinResolver {
           }
           this.getRightBracket();
         }
-        foundComma = this.getCommaOrRightParen();
-        const flagValue: number = foundComma ? 1 : 0;
-        // check sizes and record more or done byte value
-        this.objectStructureSet.endMemberRecord(instanceCount, this.obj_limit, flagValue);
+        // v54: optional named bitfield chain '.bfname[bits]{.bfname[bits]...}'
+        if (this.checkDot()) {
+          if (memberType == eMemberType.MT_STRUCT) {
+            // [error_bfaoa]
+            throw new Error('Bitfields are only allowed for BYTE/WORD/LONG members');
+          }
+          const boundaryLimit: number = 8 << memberType; // 8, 16, 32 for BYTE/WORD/LONG
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            // we just consumed a '.'; parse a bitfield entry
+            const [bfIsSymbol, bfName] = this.getSymbol();
+            if (bfIsSymbol == false) {
+              // [error_eas]
+              throw new Error('Expected a bitfield name');
+            }
+            this.getLeftBracket();
+            const upperResult = this.getValue(eMode.BM_IntOnly, eResolve.BR_Must);
+            const upper: number = Number(upperResult.value);
+            if (upper < 0 || upper >= boundaryLimit) {
+              // [error_bnebwlb]
+              throw new Error('Bit number exceeds BYTE/WORD/LONG boundary');
+            }
+            let lower: number = upper;
+            if (this.checkDotDot()) {
+              const lowerResult = this.getValue(eMode.BM_IntOnly, eResolve.BR_Must);
+              lower = Number(lowerResult.value);
+              if (lower > upper) {
+                // [error_lbnceubn]
+                throw new Error('Lower bit number cannot exceed upper bit number');
+              }
+              if (lower < 0) {
+                // [error_bnebwlb]
+                throw new Error('Bit number exceeds BYTE/WORD/LONG boundary');
+              }
+            }
+            this.getRightBracket();
+            const span: number = upper - lower + 1;
+            const packedDescriptor: number = (lower & 0x1f) | (((span - 1) & 0x3ff) << 5);
+            this.objectStructureSet.recordBitfieldEntry(bfName, packedDescriptor);
+            if (!this.checkDot()) {
+              break;
+            }
+          }
+        }
+        if (singleBWL) {
+          // v54: nameless member terminates the struct immediately
+          this.getRightParen();
+          this.objectStructureSet.endMemberRecord(instanceCount, this.obj_limit, 0);
+          foundComma = false;
+        } else {
+          foundComma = this.getCommaOrRightParen();
+          const flagValue: number = foundComma ? 1 : 0;
+          // check sizes and record more or done byte value
+          this.objectStructureSet.endMemberRecord(instanceCount, this.obj_limit, flagValue);
+        }
+        notFirst = true; // v54: subsequent members cannot be nameless
       } while (foundComma);
       // patch structure record
       newStructId = this.objectStructureSet.endRecord();
@@ -9151,8 +9221,8 @@ private checkDec(): boolean {
     this.logRestoredElementLocation(variable.nextElementIndex);
     //this.getElement(); three more tests fail if i do this!
 
-    // runtime-resolved bitfield
-    if (variable.bitfieldFlag && variable.bitfieldConstantFlag == false) {
+    // runtime-resolved bitfield (v54: exclude struct-resolved bitfields — those need no runtime expression)
+    if (variable.bitfieldFlag && variable.bitfieldConstantFlag == false && variable.bitfieldStructFlag == false) {
       const saveIndex: number = this.logSavedElementLocation();
 
       if (this.isStruct(variable.type)) {
@@ -9251,6 +9321,8 @@ private checkDec(): boolean {
         indexFlag: false,
         bitfieldFlag: false,
         bitfieldConstantFlag: false,
+        bitfieldStructFlag: false,
+        compiledBitfield: 0,
         operation: variable.modifierBytecode == 0 ? eVariableOperation.VO_READ : eVariableOperation.VO_ASSIGN,
         assignmentBytecode: variable.modifierBytecode,
         modifierBytecode: 0,
@@ -9594,6 +9666,22 @@ private checkDec(): boolean {
   private compileVariableBitfield(variable: iVariableReturn) {
     // PNut @@enterbit:
     if (variable.bitfieldFlag === true) {
+      if (variable.bitfieldStructFlag === true) {
+        // v54: struct-resolved bitfield. Source is positioned at '.', then bitfield name.
+        //  Consume both, then emit directly from the pre-resolved descriptor.
+        this.getDot();
+        this.getElement(); // consume bitfield name (already validated against the struct record)
+        const descriptor: number = variable.compiledBitfield & 0xffff;
+        if (descriptor <= 0x1f) {
+          // single bit 0..31 (span == 1)
+          this.objImage.appendByte(eByteCode.bc_setup_bfield_0_31 + descriptor);
+        } else {
+          // multi-bit or bit >= 32 (encoded via rfvar)
+          this.objImage.appendByte(eByteCode.bc_setup_bfield_rfvar);
+          this.compileRfvar(BigInt(descriptor));
+        }
+        return;
+      }
       this.getDot();
       this.getLeftBracket();
       if (variable.bitfieldConstantFlag == false) {
@@ -9809,6 +9897,8 @@ private checkDec(): boolean {
       indexFlag: false,
       bitfieldFlag: false,
       bitfieldConstantFlag: false,
+      bitfieldStructFlag: false,
+      compiledBitfield: 0,
       operation: eVariableOperation.VO_Unknown,
       assignmentBytecode: 0,
       modifierBytecode: 0,
@@ -9888,7 +9978,18 @@ private checkDec(): boolean {
         resultVariable.structSize = compiledStructureInfo.size;
         if (compiledStructureInfo.flags == eStructureType.ST_ResolvedAsBWL) {
           // PNut @@chkbitfield:
-          this.checkVariableBitfield(resultVariable);
+          if (compiledStructureInfo.compiledBitfield != 0) {
+            // v54: struct-declaration-resolved bitfield; source has been backed up so compileVariableBitfield can re-consume `.name`
+            resultVariable.bitfieldFlag = true;
+            resultVariable.bitfieldStructFlag = true;
+            resultVariable.compiledBitfield = compiledStructureInfo.compiledBitfield & 0xffff;
+            // compile_struct_setup left source pointer before `.name` so the emit-pass can re-read it.
+            //  But the outer statement parser needs source past `.name`; advance here.
+            this.getDot();
+            this.getElement();
+          } else {
+            this.checkVariableBitfield(resultVariable);
+          }
         }
         //if (this.isLogging) this.logMessage(`  -- chkVar() compiledStructureInfo=[${JSON.stringify(compiledStructureInfo, null, 2)}]`);
         // PNut @@isvar: this is really an exit
@@ -9939,7 +10040,18 @@ private checkDec(): boolean {
             resultVariable.structSize = compiledStructureInfo.size;
             if (compiledStructureInfo.flags == eStructureType.ST_ResolvedAsBWL) {
               // PNut @@chkbitfield:
-              this.checkVariableBitfield(resultVariable);
+              if (compiledStructureInfo.compiledBitfield != 0) {
+                // v54: struct-declaration-resolved bitfield; source has been backed up so compileVariableBitfield can re-consume `.name`
+                resultVariable.bitfieldFlag = true;
+                resultVariable.bitfieldStructFlag = true;
+                resultVariable.compiledBitfield = compiledStructureInfo.compiledBitfield & 0xffff;
+                // compile_struct_setup left source pointer before `.name` so the emit-pass can re-read it.
+                //  But the outer statement parser needs source past `.name`; advance here.
+                this.getDot();
+                this.getElement();
+              } else {
+                this.checkVariableBitfield(resultVariable);
+              }
             }
             // we are done, no flow into anything (avoid @@notstruct)
             notStruct = false;
@@ -9968,7 +10080,18 @@ private checkDec(): boolean {
           resultVariable.structSize = compiledStructureInfo.size;
           if (compiledStructureInfo.flags == eStructureType.ST_ResolvedAsBWL) {
             // PNut @@chkbitfield:
-            this.checkVariableBitfield(resultVariable);
+            if (compiledStructureInfo.compiledBitfield != 0) {
+              // v54: struct-declaration-resolved bitfield; source has been backed up so compileVariableBitfield can re-consume `.name`
+              resultVariable.bitfieldFlag = true;
+              resultVariable.bitfieldStructFlag = true;
+              resultVariable.compiledBitfield = compiledStructureInfo.compiledBitfield & 0xffff;
+              // compile_struct_setup left source pointer before `.name` so the emit-pass can re-read it.
+              //  But the outer statement parser needs source past `.name`; advance here.
+              this.getDot();
+              this.getElement();
+            } else {
+              this.checkVariableBitfield(resultVariable);
+            }
           }
           // we are done, no flow into anything (avoid @@notstruct)
           notStruct = false;
@@ -10245,7 +10368,8 @@ private checkDec(): boolean {
       wordSize: 0,
       structElemIndex: 0,
       objectPtr: 0,
-      indexMode: eStructureIndexMode.SIM_NoIndexes
+      indexMode: eStructureIndexMode.SIM_NoIndexes,
+      compiledBitfield: 0 // v54: no struct-resolved bitfield unless filled in below
     };
     let popExpressionIndex: number = 0;
     let liveIndexCount: number = 0;
@@ -10265,6 +10389,8 @@ private checkDec(): boolean {
       indexFlag: false,
       bitfieldFlag: false,
       bitfieldConstantFlag: false,
+      bitfieldStructFlag: false,
+      compiledBitfield: 0,
       operation: eVariableOperation.VO_Unknown,
       assignmentBytecode: 0,
       modifierBytecode: 0,
@@ -10299,6 +10425,9 @@ private checkDec(): boolean {
     // PNut @@gotsetup:
     // eslint-disable-next-line no-constant-condition
     let foundMatch: boolean = false;
+    // v54: detect single nameless BYTE/WORD/LONG member - source uses struct var directly (no .member)
+    const namelessSingleBWL: boolean =
+      structureType != eElementType.type_con_struct && structureRecord.length > 0 && structureRecord.isFirstMemberNameless();
     do {
       // PNut @@structloop:
       structureRecord.nextWord(); // skip record size
@@ -10316,6 +10445,39 @@ private checkDec(): boolean {
       }
       resultStructure.size = memberSize;
       resultStructure.wordSize = eMemberType.MT_STRUCT; // default to structure
+
+      // v54: nameless single-BWL short-circuit - fake-match the unnamed member without requiring .name in source
+      if (namelessSingleBWL) {
+        if (this.isLogging) this.logMessage(`  -- CSR() v54 nameless single-BWL member short-circuit`);
+        const memberOffset: number = structureRecord.nextLong();
+        const memberType: number = structureRecord.nextByte(); // 0/1/2
+        structureRecord.nextByte(); // name-length = 0 (already validated by isFirstMemberNameless)
+        offsetInStructure += memberOffset;
+        memberSize = 1 << memberType;
+        resultStructure.flags = eStructureType.ST_ResolvedAsBWL;
+        resultStructure.size = memberSize;
+        resultStructure.wordSize = memberType;
+        resultStructure.structElemIndex = this.logSavedElementLocation(); // source elem at/before .bitfield
+        const savedIndexCount = liveIndexCount;
+        const nIndexResults: iIndexReturn = this.handleStructureIndex(memberSize, liveIndexCount, offsetInStructure);
+        if (nIndexResults.foundIndex) {
+          if (nIndexResults.foundLiveIndex) {
+            liveIndexExpElementIndex[liveIndexCount] = nIndexResults.liveIndexElemIndex;
+            liveIndexSize[liveIndexCount] = memberSize;
+            liveIndexCount++;
+          } else {
+            offsetInStructure = nIndexResults.offsetInStructure;
+          }
+        }
+        resultStructure.indexMode = (savedIndexCount << 2) | liveIndexCount;
+        if (resultStructure.indexMode != 1) {
+          resultStructure.structElemIndex = this.logSavedElementLocation();
+        }
+        resultStructure.address = offsetInStructure; // v54: normal flow sets this at do-while tail; we break earlier, so set it here
+        foundMatch = true;
+        break; // exit @@structloop
+      }
+
       if (!this.checkDot()) {
         // NOT have member
         break; // let's break out of @@structloop (off to @@compile)
@@ -10379,7 +10541,12 @@ private checkDec(): boolean {
         }
         // DON't have match!!!
         // PNut @@notmatch:
-        const rcdSetEndMarker: number = structureRecord.nextByte(); // returns 1 if another member, 0 if end of record
+        let rcdSetEndMarker: number = structureRecord.nextByte(); // v54: 0 = end, 1 = more, 2 = bitfield
+        // v54: if this member carried bitfields, skip the bitfield chain to reach the next 0/1 terminator
+        while (rcdSetEndMarker == 2) {
+          structureRecord.skipBitfieldEntry();
+          rcdSetEndMarker = structureRecord.nextByte();
+        }
         const endMarkerInterp: string = rcdSetEndMarker == 0 ? 'EndOfRcds' : 'MoreRcds';
         if (this.isLogging) this.logMessage(`  -- CSR() recdEndMarker=(${rcdSetEndMarker}) - ${endMarkerInterp}`);
         if (rcdSetEndMarker == 0) {
@@ -10391,6 +10558,57 @@ private checkDec(): boolean {
       resultStructure.address = offsetInStructure;
       // if not a match then continue at @@structloop:
     } while (!foundMatch);
+
+    // v54: after matching a BYTE/WORD/LONG member, peek for a bitfield chain in the struct record.
+    //  If present and the source has `.<name>` (not `.[expr]`), resolve the bitfield descriptor here
+    //  so the downstream compileVariableBitfield can emit it without compiling an expression.
+    if (foundMatch && resultStructure.flags == eStructureType.ST_ResolvedAsBWL && structureRecord.offset < structureRecord.length) {
+      const cont: number = structureRecord.peekByte();
+      if (cont == 2) {
+        // struct member carries bitfield chain; does the source ask for one?
+        if (this.checkDot()) {
+          if (this.checkLeftBracket()) {
+            // v53-style `.[expr]` runtime/constant bitfield — back out and let compileVariableBitfield run
+            this.backElement(); // '['
+            this.backElement(); // '.'
+          } else {
+            // `.name` — match against stored bitfield names
+            const [bfIsSymbol, bfName] = this.getSymbol();
+            if (!bfIsSymbol) {
+              // [error_easmn]
+              throw new Error('Expected a structure bitfield name');
+            }
+            let resolvedDescriptor: number = 0;
+            let matched: boolean = false;
+            // walk bitfield chain in record
+            // eslint-disable-next-line no-constant-condition
+            while (true) {
+              const c: number = structureRecord.nextByte(); // consume continuation byte
+              if (c != 2) {
+                break;
+              }
+              const entry = structureRecord.readBitfieldEntry();
+              if (!matched && entry.name === bfName) {
+                resolvedDescriptor = entry.packedDescriptor & 0xffff;
+                matched = true;
+                // continue skipping remaining entries to leave record offset clean, but no-op for now
+              }
+            }
+            if (!matched) {
+              // [error_sdnctn] — reuse "Structure does not contain this name" for unknown bitfield
+              throw new Error('Structure does not contain this name');
+            }
+            // 0x80000000 sentinel ensures nonzero for any valid descriptor, including descriptor == 0 (bit 0, span 1)
+            resultStructure.compiledBitfield = 0x80000000 | resolvedDescriptor;
+            if (this.isLogging)
+              this.logMessage(`  -- CSR() v54 resolved struct bitfield '${bfName}' -> desc=0x${resolvedDescriptor.toString(16).padStart(4, '0')}`);
+            // Back up so downstream compileVariableBitfield can re-consume `.name` and emit from the stored descriptor.
+            this.backElement(); // bitfield name
+            this.backElement(); // '.'
+          }
+        }
+      }
+    }
 
     // PNut @@compile:
     // save head of location for structure bytecodes
