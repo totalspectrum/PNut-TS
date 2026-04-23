@@ -45,7 +45,7 @@ The features of this new implementation are:
 - Written in a language which is relatively easy to maintain
 - A command line tool with standard option processing
 - Has a full featured light-weight [preprocessor](Preprocessor.md)
-- Listing, object, and binary compatible with PNut of same version.<BR>(PNut v43, initially (at testing release), now at PNut v51a with this release.)
+- Listing, object, and binary compatible with PNut of same version.<BR>(PNut v43, initially (at testing release), now at PNut v54 with this release.)
 - Internal table-size-limits are now easy to adjust if we find a need.
 
 ## Installing PNut-TS
