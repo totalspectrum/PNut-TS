@@ -7,6 +7,7 @@
 import { Command, Option, CommanderError, type OptionValues } from 'commander';
 import { Context } from './utils/context';
 import { Compiler } from './classes/compiler';
+import { ObjectCache } from './classes/objectCache';
 import { eTextSub, SpinDocument } from './classes/spinDocument';
 import path from 'path';
 import fs from 'fs';
@@ -27,7 +28,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.54.0';
+  private version: string = '1.54.1';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
@@ -273,6 +274,13 @@ export class PNutInTypeScript {
     }
     if (this.options.cacheClear) {
       this.context.compileOptions.cacheClear = true;
+      const targetDir = path.resolve(this.context.compileOptions.cacheDir);
+      const removed = ObjectCache.clearCacheDir(targetDir);
+      if (removed) {
+        this.context.logger.infoMsg(`Cleared object cache: ${targetDir}`);
+      } else {
+        this.context.logger.verboseMsg(`Cache directory not present, nothing to clear: ${targetDir}`);
+      }
     }
 
     /*

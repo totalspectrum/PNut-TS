@@ -86,9 +86,17 @@ export class ObjectCache {
 
   /** Clear all cache entries */
   clear(): void {
-    if (fs.existsSync(this.cacheDir)) {
-      fs.rmSync(this.cacheDir, { recursive: true });
+    ObjectCache.clearCacheDir(this.cacheDir);
+  }
+
+  /** Remove the given cache directory if it exists. Returns true if a directory was removed. */
+  static clearCacheDir(cacheDir: string): boolean {
+    const resolved = path.resolve(cacheDir);
+    if (fs.existsSync(resolved)) {
+      fs.rmSync(resolved, { recursive: true });
+      return true;
     }
+    return false;
   }
 
   /** Report cache statistics */

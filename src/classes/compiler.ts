@@ -74,10 +74,8 @@ export class Compiler {
     // allocate our local data
     this.childImages = new ChildObjectsImage(ctx, 'childImages');
     // Initialize persistent object cache
+    // (cacheClear is handled at CLI parse time so it works even when no source file is given)
     this.objectCache = new ObjectCache(ctx.compileOptions.cache, ctx.compileOptions.cacheDir);
-    if (ctx.compileOptions.cacheClear) {
-      this.objectCache.clear();
-    }
     // Reset memory statistics for this compilation
     this.resetMemoryStats();
   }

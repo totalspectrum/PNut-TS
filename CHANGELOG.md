@@ -21,6 +21,13 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.1] 2026-05-05
+
+### Fixed
+
+- `--cache-clear` now runs at CLI parse time instead of inside the compiler constructor, so it takes effect even when no source file is given (e.g., `pnut-ts --cache-clear` or `pnut-ts --cache-clear --cache-dir <dir>`). Previously the clear was silently skipped whenever compilation did not start.
+- `--cache-clear` now reports the cleared directory: `Cleared object cache: <abs-path>`.
+
 ## [1.54.0] 2026-04-23
 
 ### Added
