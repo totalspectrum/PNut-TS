@@ -9,8 +9,8 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { ObjectCache } from '../../classes/objectCache';
-import { SymbolTable } from '../../classes/symbolTable';
+import { CACHE_FORMAT_VERSION, ObjectCache, deserializeSymbols, serializeSymbols } from '../../classes/objectCache';
+import { SymbolEntry, SymbolTable } from '../../classes/symbolTable';
 import { TextLine } from '../../classes/textLine';
 import { eElementType } from '../../classes/types';
 import { compareObjOrBinFiles, removeExistingFile } from '../testUtils';
@@ -54,10 +54,10 @@ describe('ObjectCache Unit Tests', () => {
   test('same inputs produce the same cache key', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['CON', '  _clkfreq = 20_000_000', 'PUB main()']);
-    const version = '1.53.2';
+    const inputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false };
 
-    const key1 = cache.computeKey(lines, undefined, version);
-    const key2 = cache.computeKey(lines, undefined, version);
+    const key1 = cache.computeKey(inputs);
+    const key2 = cache.computeKey(inputs);
     expect(key1).toBe(key2);
     expect(key1).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
   });
@@ -66,10 +66,9 @@ describe('ObjectCache Unit Tests', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines1 = makeTextLines(['CON', '  X = 1']);
     const lines2 = makeTextLines(['CON', '  X = 2']);
-    const version = '1.53.2';
 
-    const key1 = cache.computeKey(lines1, undefined, version);
-    const key2 = cache.computeKey(lines2, undefined, version);
+    const key1 = cache.computeKey({ preprocessedLines: lines1, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
+    const key2 = cache.computeKey({ preprocessedLines: lines2, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
     expect(key1).not.toBe(key2);
   });
 
@@ -78,7 +77,6 @@ describe('ObjectCache Unit Tests', () => {
   test('same source with different overrides produce different keys', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['CON', '  DEFAULT_VALUE = 10']);
-    const version = '1.53.2';
 
     const overrides1 = new SymbolTable();
     overrides1.add('DEFAULT_VALUE', eElementType.type_con_int, BigInt(100));
@@ -86,21 +84,20 @@ describe('ObjectCache Unit Tests', () => {
     const overrides2 = new SymbolTable();
     overrides2.add('DEFAULT_VALUE', eElementType.type_con_int, BigInt(200));
 
-    const key1 = cache.computeKey(lines, overrides1, version);
-    const key2 = cache.computeKey(lines, overrides2, version);
+    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: overrides1, compilerVersion: '1.53.2', enableDebug: false });
+    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: overrides2, compilerVersion: '1.53.2', enableDebug: false });
     expect(key1).not.toBe(key2);
   });
 
   test('same source with no overrides vs with overrides produce different keys', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['CON', '  DEFAULT_VALUE = 10']);
-    const version = '1.53.2';
 
     const overrides = new SymbolTable();
     overrides.add('DEFAULT_VALUE', eElementType.type_con_int, BigInt(100));
 
-    const keyNoOverrides = cache.computeKey(lines, undefined, version);
-    const keyWithOverrides = cache.computeKey(lines, overrides, version);
+    const keyNoOverrides = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
+    const keyWithOverrides = cache.computeKey({ preprocessedLines: lines, overrides, compilerVersion: '1.53.2', enableDebug: false });
     expect(keyNoOverrides).not.toBe(keyWithOverrides);
   });
 
@@ -110,9 +107,28 @@ describe('ObjectCache Unit Tests', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['PUB main()']);
 
-    const key1 = cache.computeKey(lines, undefined, '1.53.0');
-    const key2 = cache.computeKey(lines, undefined, '1.53.1');
+    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.0', enableDebug: false });
+    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.1', enableDebug: false });
     expect(key1).not.toBe(key2);
+  });
+
+  // --- Debug Sensitivity ---
+
+  test('same source with different enableDebug produce different keys', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const lines = makeTextLines(['PUB main()', '  DEBUG("hello")']);
+    const baseInputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.2' };
+
+    const keyNoDebug = cache.computeKey({ ...baseInputs, enableDebug: false });
+    const keyDebug = cache.computeKey({ ...baseInputs, enableDebug: true });
+    expect(keyNoDebug).not.toBe(keyDebug);
+  });
+
+  // --- Format Version Embedded in Key ---
+
+  test('CACHE_FORMAT_VERSION is exported and is a positive integer', () => {
+    expect(CACHE_FORMAT_VERSION).toBeGreaterThan(0);
+    expect(Number.isInteger(CACHE_FORMAT_VERSION)).toBe(true);
   });
 
   // --- Cache Round-trip ---
@@ -178,11 +194,16 @@ describe('ObjectCache Unit Tests', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = 'd'.repeat(64);
     cache.set(key, new Uint8Array([0x01]), {
-      source: 'test.spin2',
-      overrides: '',
-      compilerVersion: '1.53.2',
-      timestamp: Date.now(),
-      binarySize: 1
+      metadata: {
+        source: 'test.spin2',
+        overrides: '',
+        compilerVersion: '1.53.2',
+        enableDebug: false,
+        cacheFormatVersion: CACHE_FORMAT_VERSION,
+        timestamp: Date.now(),
+        binarySize: 1,
+        symbolCount: 0
+      }
     });
 
     const metaPath = path.join(cacheDir, `${key}.meta`);
@@ -190,6 +211,82 @@ describe('ObjectCache Unit Tests', () => {
     const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
     expect(meta.source).toBe('test.spin2');
     expect(meta.compilerVersion).toBe('1.53.2');
+    expect(meta.enableDebug).toBe(false);
+    expect(meta.cacheFormatVersion).toBe(CACHE_FORMAT_VERSION);
+  });
+
+  // --- Symbol Sidecar Round-trip ---
+
+  test('symbols round-trip through .sym sidecar with bigint values preserved', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = 'e'.repeat(64);
+    const symbols: SymbolEntry[] = [
+      new SymbolEntry('FOO', eElementType.type_con_int, BigInt('0xDEADBEEF12345678'), false),
+      new SymbolEntry('BAR', eElementType.type_method, BigInt(42), false),
+      new SymbolEntry('STR', eElementType.type_constr, 'hello world', false),
+      new SymbolEntry('INLINE_X', eElementType.type_register, BigInt(0x1f0), true)
+    ];
+
+    cache.set(key, new Uint8Array([0x01, 0x02]), { symbols });
+    const restored = cache.getSymbols(key);
+
+    expect(restored).toBeDefined();
+    expect(restored!.length).toBe(symbols.length);
+    for (let i = 0; i < symbols.length; i++) {
+      expect(restored![i].name).toBe(symbols[i].name);
+      expect(restored![i].type).toBe(symbols[i].type);
+      expect(restored![i].value).toBe(symbols[i].value);
+      expect(restored![i].isInline).toBe(symbols[i].isInline);
+    }
+  });
+
+  test('serializeSymbols/deserializeSymbols are pure round-trip', () => {
+    const original: SymbolEntry[] = [
+      new SymbolEntry('A', eElementType.type_con_int, BigInt(0), false),
+      new SymbolEntry('B', eElementType.type_con_int, BigInt(-1) << 31n, false), // negative bigint
+      new SymbolEntry('C', eElementType.type_constr, '', false),
+      new SymbolEntry('D', eElementType.type_method, BigInt('0xFFFFFFFFFFFFFFFF'), true)
+    ];
+    const restored = deserializeSymbols(serializeSymbols(original));
+    expect(restored.length).toBe(original.length);
+    for (let i = 0; i < original.length; i++) {
+      expect(restored[i].name).toBe(original[i].name);
+      expect(restored[i].type).toBe(original[i].type);
+      expect(restored[i].value).toBe(original[i].value);
+      expect(restored[i].isInline).toBe(original[i].isInline);
+    }
+  });
+
+  test('getSymbols returns undefined when sidecar is missing', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = 'f'.repeat(64);
+    cache.set(key, new Uint8Array([0x01])); // no symbols
+    expect(cache.getSymbols(key)).toBeUndefined();
+  });
+
+  test('getSymbols returns undefined when sidecar is malformed', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '0'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${key}.sym`), 'this is not json');
+    expect(cache.getSymbols(key)).toBeUndefined();
+  });
+
+  test('getSymbols returns undefined when sidecar has wrong format version', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '1'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${key}.sym`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION + 999, symbols: [] }));
+    expect(cache.getSymbols(key)).toBeUndefined();
+  });
+
+  // --- Write order: .bin written last ---
+
+  test('partial write (no .bin) is treated as miss; .sym/.meta orphans cause no harm', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '2'.repeat(64);
+    // Simulate orphan sidecars without a .bin (e.g. process killed mid-write)
+    fs.writeFileSync(path.join(cacheDir, `${key}.sym`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION, symbols: [] }));
+    fs.writeFileSync(path.join(cacheDir, `${key}.meta`), '{}');
+    expect(cache.get(key)).toBeUndefined(); // .bin gates the hit
   });
 });
 
@@ -512,5 +609,76 @@ describe('ObjectCache Integration Tests', () => {
 
     cleanupOutputFiles(objTestDir, 'spin_test14');
     cleanupDir(customCacheDir);
+  });
+
+  // --- Debug flag must invalidate cache across runs ---
+
+  test('--debug toggle does not return stale non-debug binary from cache', () => {
+    const debugCacheDir = path.join(objTestDir, '.debug-toggle-cache');
+    cleanupDir(debugCacheDir);
+
+    // Step 1: warm the cache with NO debug
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --cache --cache-clear --cache-dir ${debugCacheDir}`);
+    const cacheFilesAfterNoDebug = fs.readdirSync(debugCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(cacheFilesAfterNoDebug.length).toBeGreaterThan(0);
+
+    // Step 2: reference build WITH debug, no cache, captured first
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    compileSpin2(objTestDir, 'spin_test14.spin2', '-l -O --debug');
+    const binDebugUncached = fs.readFileSync(path.join(objTestDir, 'spin_test14.bin'));
+
+    // Step 3: now compile WITH debug using the cache that was warmed without debug.
+    // The cache must NOT return the no-debug binary; the new compile must produce
+    // a binary that matches the uncached --debug reference.
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O --debug --cache --cache-dir ${debugCacheDir}`);
+    const binDebugCached = fs.readFileSync(path.join(objTestDir, 'spin_test14.bin'));
+
+    expect(Buffer.from(binDebugCached).equals(Buffer.from(binDebugUncached))).toBe(true);
+
+    // After the --debug build there should be more cache entries than before
+    // (the debug variants compute different keys and were written fresh).
+    const cacheFilesAfterDebug = fs.readdirSync(debugCacheDir).filter((f) => f.endsWith('.bin'));
+    expect(cacheFilesAfterDebug.length).toBeGreaterThan(cacheFilesAfterNoDebug.length);
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(debugCacheDir);
+  });
+
+  // --- Map file fidelity with cached children ---
+
+  test('warm cache produces identical .map output to uncached --map build', () => {
+    const mapCacheDir = path.join(objTestDir, '.map-cache');
+    cleanupDir(mapCacheDir);
+
+    // The map header embeds a wall-clock timestamp ("Generated: ..."). Strip it
+    // before comparing so we're testing map content, not generation time.
+    const stripTimestamp = (s: string): string => s.replace(/^Generated:.*$/m, 'Generated: <stripped>');
+
+    // Reference: uncached --map run
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    compileSpin2(objTestDir, 'spin_test14.spin2', '-l -O -m');
+    const mapPathUncached = path.join(objTestDir, 'spin_test14.map');
+    expect(fs.existsSync(mapPathUncached)).toBe(true);
+    const mapUncached = stripTimestamp(fs.readFileSync(mapPathUncached, 'utf8'));
+
+    // Cold cache --map run — fills the cache with binary + symbol sidecars
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O -m --cache --cache-clear --cache-dir ${mapCacheDir}`);
+    const mapColdCached = stripTimestamp(fs.readFileSync(path.join(objTestDir, 'spin_test14.map'), 'utf8'));
+    expect(mapColdCached).toBe(mapUncached);
+
+    // Confirm .sym sidecars were written for the cached children
+    const symFiles = fs.readdirSync(mapCacheDir).filter((f) => f.endsWith('.sym'));
+    expect(symFiles.length).toBeGreaterThan(0);
+
+    // Warm cache --map run — children hit cache; symbols restored from .sym
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    compileSpin2(objTestDir, 'spin_test14.spin2', `-l -O -m --cache --cache-dir ${mapCacheDir}`);
+    const mapWarmCached = stripTimestamp(fs.readFileSync(path.join(objTestDir, 'spin_test14.map'), 'utf8'));
+    expect(mapWarmCached).toBe(mapUncached);
+
+    cleanupOutputFiles(objTestDir, 'spin_test14');
+    cleanupDir(mapCacheDir);
   });
 });

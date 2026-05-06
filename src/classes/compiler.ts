@@ -16,7 +16,7 @@ import path from 'path';
 import { OBJ_LIMIT } from './spinResolver';
 import { ObjInstanceInfo } from './objInstanceInfo';
 import { eElementType } from './types';
-import { ObjectCache, CacheMetadata } from './objectCache';
+import { CACHE_FORMAT_VERSION, ObjectCache, CacheMetadata } from './objectCache';
 
 // src/classes/compiler.ts
 
@@ -181,7 +181,12 @@ export class Compiler {
       // --- CACHE CHECK (for child objects only) ---
       let cacheKey: string | undefined;
       if (this.objectCache.isEnabled && depth > 0) {
-        cacheKey = this.objectCache.computeKey(srcFile.allPreprocessedLines, overrideParameters, this.context.compilerVersion);
+        cacheKey = this.objectCache.computeKey({
+          preprocessedLines: srcFile.allPreprocessedLines,
+          overrides: overrideParameters,
+          compilerVersion: this.context.compilerVersion,
+          enableDebug: this.context.compileOptions.enableDebug
+        });
         const cachedBinary = this.objectCache.get(cacheKey);
         if (cachedBinary) {
           // Cache hit — inject cached binary into childImages, skip full compilation
@@ -207,6 +212,21 @@ export class Compiler {
             this.childImages.recordLengthOffsetForFile(this.objectFileCount, this.objectFileOffset, cachedBinary.length);
             this.objectFileOffset += cachedBinary.length;
             this.objectFileCount++;
+          }
+
+          // Restore the child's user symbols so the map file generator sees them.
+          // Only read the .sym sidecar when a map is actually being written —
+          // saves I/O on the common path.
+          if (this.context.compileOptions.writeMapFile) {
+            const cachedSymbols = this.objectCache.getSymbols(cacheKey);
+            if (cachedSymbols !== undefined) {
+              const fileIndex = this.context.sourceFiles.getFileIndex(srcFile);
+              if (fileIndex >= 0) {
+                this.context.objectSymbolStore.storeSymbols(fileIndex, cachedSymbols);
+              }
+            } else if (this.isLoggingOutline) {
+              this.logMessageOutline(`  -- CACHE HIT but .sym missing/invalid for [${srcFile.fileName}] — map will be incomplete for this object`);
+            }
           }
 
           this.globalChildObjectIndexMap.set(this.globalLogicalIndexCounter, physicalFileIndex);
@@ -342,9 +362,9 @@ export class Compiler {
 
           // Save symbols for this object (for map file generation)
           const fileIndex = this.context.sourceFiles.getFileIndex(srcFile);
+          const childSymbols = this.spin2Parser.getUserSymbolTable();
           if (fileIndex >= 0) {
-            const symbols = this.spin2Parser.getUserSymbolTable();
-            this.context.objectSymbolStore.storeSymbols(fileIndex, symbols);
+            this.context.objectSymbolStore.storeSymbols(fileIndex, childSymbols);
           }
 
           const objectLength: number = this.objImage.offset;
@@ -361,12 +381,17 @@ export class Compiler {
               source: srcFile.fileName,
               overrides: overrideParameters ? this.serializeOverrides(overrideParameters) : '',
               compilerVersion: this.context.compilerVersion,
+              enableDebug: this.context.compileOptions.enableDebug,
+              cacheFormatVersion: CACHE_FORMAT_VERSION,
               timestamp: Date.now(),
-              binarySize: objectLength
+              binarySize: objectLength,
+              symbolCount: childSymbols.length
             };
-            this.objectCache.set(cacheKey, binaryCopy, metadata);
+            this.objectCache.set(cacheKey, binaryCopy, { metadata, symbols: childSymbols });
             if (this.isLoggingOutline)
-              this.logMessageOutline(`  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., size=${objectLength}`);
+              this.logMessageOutline(
+                `  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., size=${objectLength}, symbols=${childSymbols.length}`
+              );
           }
           // --- END CACHE STORE ---
 

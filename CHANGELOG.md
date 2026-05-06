@@ -21,6 +21,17 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.2] 2026-05-06
+
+### Fixed
+
+- **Object cache correctness with `--debug`**: the `enableDebug` compile option is now part of the cache key. Previously, mixing debug and non-debug builds against the same `.pnut-cache/` could return a stripped binary into a debug build (or vice versa), producing executables that did not run. Caches written by earlier versions are invalidated automatically by a `CACHE_FORMAT_VERSION` bump baked into the key.
+
+### Added
+
+- **Map file fidelity for cached children**: each cache entry now ships a `.sym` sidecar that holds the child's user symbols. When `--map` is requested, cache hits restore those symbols into the map generator so cached children appear with their methods, DAT, and VAR layout intact. The sidecar is only read when a map is being written, so the no-map common path pays no extra I/O.
+- `CACHE_FORMAT_VERSION` constant in `objectCache.ts`. Bumped any time the on-disk layout, sidecar shape, or set of compile-option key inputs changes; bumping silently invalidates older caches.
+
 ## [1.54.1] 2026-05-05
 
 ### Fixed
