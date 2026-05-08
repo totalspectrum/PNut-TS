@@ -1,0 +1,14 @@
+' exportdef regression: grandchild has #ifdef on the propagated symbol.
+' Same source preprocesses to DIFFERENT bytes depending on whether SYM_X or
+' SYM_Y is defined — so its cache key differs between the two parent contexts.
+CON
+#ifdef SYM_X
+  GC_KIND = 1
+#elseifdef SYM_Y
+  GC_KIND = 2
+#else
+  GC_KIND = 0
+#endif
+
+PUB kind() : result
+  result := GC_KIND

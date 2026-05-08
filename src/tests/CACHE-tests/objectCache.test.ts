@@ -55,7 +55,7 @@ describe('ObjectCache Unit Tests', () => {
   test('same inputs produce the same cache key', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['CON', '  _clkfreq = 20_000_000', 'PUB main()']);
-    const inputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false };
+    const inputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] };
 
     const key1 = cache.computeKey(inputs);
     const key2 = cache.computeKey(inputs);
@@ -68,8 +68,8 @@ describe('ObjectCache Unit Tests', () => {
     const lines1 = makeTextLines(['CON', '  X = 1']);
     const lines2 = makeTextLines(['CON', '  X = 2']);
 
-    const key1 = cache.computeKey({ preprocessedLines: lines1, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
-    const key2 = cache.computeKey({ preprocessedLines: lines2, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
+    const key1 = cache.computeKey({ preprocessedLines: lines1, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] });
+    const key2 = cache.computeKey({ preprocessedLines: lines2, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] });
     expect(key1).not.toBe(key2);
   });
 
@@ -85,8 +85,8 @@ describe('ObjectCache Unit Tests', () => {
     const overrides2 = new SymbolTable();
     overrides2.add('DEFAULT_VALUE', eElementType.type_con_int, BigInt(200));
 
-    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: overrides1, compilerVersion: '1.53.2', enableDebug: false });
-    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: overrides2, compilerVersion: '1.53.2', enableDebug: false });
+    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: overrides1, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] });
+    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: overrides2, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] });
     expect(key1).not.toBe(key2);
   });
 
@@ -97,8 +97,14 @@ describe('ObjectCache Unit Tests', () => {
     const overrides = new SymbolTable();
     overrides.add('DEFAULT_VALUE', eElementType.type_con_int, BigInt(100));
 
-    const keyNoOverrides = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.2', enableDebug: false });
-    const keyWithOverrides = cache.computeKey({ preprocessedLines: lines, overrides, compilerVersion: '1.53.2', enableDebug: false });
+    const keyNoOverrides = cache.computeKey({
+      preprocessedLines: lines,
+      overrides: undefined,
+      compilerVersion: '1.53.2',
+      enableDebug: false,
+      defSymbols: []
+    });
+    const keyWithOverrides = cache.computeKey({ preprocessedLines: lines, overrides, compilerVersion: '1.53.2', enableDebug: false, defSymbols: [] });
     expect(keyNoOverrides).not.toBe(keyWithOverrides);
   });
 
@@ -108,8 +114,8 @@ describe('ObjectCache Unit Tests', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['PUB main()']);
 
-    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.0', enableDebug: false });
-    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.1', enableDebug: false });
+    const key1 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.0', enableDebug: false, defSymbols: [] });
+    const key2 = cache.computeKey({ preprocessedLines: lines, overrides: undefined, compilerVersion: '1.53.1', enableDebug: false, defSymbols: [] });
     expect(key1).not.toBe(key2);
   });
 
@@ -118,11 +124,59 @@ describe('ObjectCache Unit Tests', () => {
   test('same source with different enableDebug produce different keys', () => {
     const cache = new ObjectCache(true, cacheDir);
     const lines = makeTextLines(['PUB main()', '  DEBUG("hello")']);
-    const baseInputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.2' };
+    const baseInputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.2', defSymbols: [] };
 
     const keyNoDebug = cache.computeKey({ ...baseInputs, enableDebug: false });
     const keyDebug = cache.computeKey({ ...baseInputs, enableDebug: true });
     expect(keyNoDebug).not.toBe(keyDebug);
+  });
+
+  // --- defSymbols Sensitivity ---
+
+  test('same source with different defSymbols produce different keys', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const lines = makeTextLines(['PUB main()']);
+    const baseInputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.5', enableDebug: false };
+
+    const keyA = cache.computeKey({ ...baseInputs, defSymbols: ['SYM_X'] });
+    const keyB = cache.computeKey({ ...baseInputs, defSymbols: ['SYM_Y'] });
+    const keyAll = cache.computeKey({ ...baseInputs, defSymbols: ['SD_INCLUDE_ALL'] });
+    expect(keyA).not.toBe(keyB);
+    expect(keyA).not.toBe(keyAll);
+    expect(keyB).not.toBe(keyAll);
+  });
+
+  test('defSymbols hashing is order- and case-insensitive and dedup-stable', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const lines = makeTextLines(['PUB main()']);
+    const baseInputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.5', enableDebug: false };
+
+    // Order doesn't matter — both insertion sequences must hash identically.
+    const keyOrderA = cache.computeKey({ ...baseInputs, defSymbols: ['ALPHA', 'BETA', 'GAMMA'] });
+    const keyOrderB = cache.computeKey({ ...baseInputs, defSymbols: ['GAMMA', 'ALPHA', 'BETA'] });
+    expect(keyOrderA).toBe(keyOrderB);
+
+    // Case is normalized — preprocessor stores symbols uppercase.
+    const keyMixedCase = cache.computeKey({ ...baseInputs, defSymbols: ['alpha', 'Beta', 'GAMMA'] });
+    expect(keyMixedCase).toBe(keyOrderA);
+
+    // Duplicates are deduped so a stray double-push doesn't shift the key.
+    const keyDup = cache.computeKey({ ...baseInputs, defSymbols: ['ALPHA', 'ALPHA', 'BETA', 'GAMMA'] });
+    expect(keyDup).toBe(keyOrderA);
+  });
+
+  test('empty defSymbols matches the historical (no-defs) hash for a given source', () => {
+    // Sanity: the empty defSymbols path must not perturb the key beyond what
+    // the symbol set itself does. Two empty sets must hash identically.
+    const cache = new ObjectCache(true, cacheDir);
+    const lines = makeTextLines(['PUB main()']);
+    const inputs = { preprocessedLines: lines, overrides: undefined, compilerVersion: '1.54.5', enableDebug: false };
+
+    const keyEmpty1 = cache.computeKey({ ...inputs, defSymbols: [] });
+    const keyEmpty2 = cache.computeKey({ ...inputs, defSymbols: [] });
+    expect(keyEmpty1).toBe(keyEmpty2);
+    const keyOne = cache.computeKey({ ...inputs, defSymbols: ['ONE'] });
+    expect(keyOne).not.toBe(keyEmpty1);
   });
 
   // --- Format Version Embedded in Key ---
@@ -845,6 +899,54 @@ describe('ObjectCache Integration Tests', () => {
 
     cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
     cleanupDir(corruptCacheDir);
+  });
+
+  // Regression for the v1.54.4 #pragma exportdef cache-key bug.
+  //
+  // A child whose own source has no #ifdef on the propagated symbols
+  // produces identical preprocessedLines across two parents that exportdef
+  // different symbol sets. v1.54.4's cache key (preprocessedLines +
+  // overrides + version + debug + format) collides in that case — the
+  // child's compiled binary embeds GRANDCHILD bytes, and the grandchild's
+  // preprocessedLines DO depend on the propagated symbols, so the embedded
+  // bytes silently differ between parent contexts.
+  //
+  // Reproducer:
+  //   parentX exports SYM_X → grandchild compiles its SYM_X branch (kind=1)
+  //   parentY exports SYM_Y → grandchild compiles its SYM_Y branch (kind=2)
+  // Shared child has neither symbol in its source. With v1.54.4 the second
+  // compile cache-hits the first parent's shared-child binary (kind=1
+  // baked in) instead of recompiling for kind=2; the resulting parentY.bin
+  // ends up with the wrong embedded constant. v1.54.5 folds defSymbols
+  // into the key so the two contexts get separate cache entries.
+  test('warm cache distinguishes parents with different propagated #pragma exportdef symbols', () => {
+    const fixtureDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const expdefCacheDir = path.join(fixtureDir, '.expdef-cache');
+    cleanupDir(expdefCacheDir);
+    cleanupOutputFiles(fixtureDir, 'expdef_parentX');
+    cleanupOutputFiles(fixtureDir, 'expdef_parentY');
+
+    // Reference 1: parentY built fresh — captures the SYM_Y-shape ground truth.
+    compileSpin2(fixtureDir, 'expdef_parentY.spin2');
+    const binY_uncached = fs.readFileSync(path.join(fixtureDir, 'expdef_parentY.bin'));
+    cleanupOutputFiles(fixtureDir, 'expdef_parentY');
+
+    // Cold-build parentX with cache enabled — populates the cache with the
+    // shared child's SYM_X-branch binary (and the SYM_X grandchild).
+    compileSpin2(fixtureDir, 'expdef_parentX.spin2', `--cache --cache-clear --cache-dir ${expdefCacheDir}`);
+    cleanupOutputFiles(fixtureDir, 'expdef_parentX');
+
+    // Warm-build parentY against the same cache. Pre-fix, the shared-child
+    // entry collides on key (no defSymbols in key), and parentY's binary
+    // ends up with parentX's embedded grandchild (kind=1). Post-fix, the
+    // defSymbols difference forces a key miss → fresh compile → correct
+    // SYM_Y branch (kind=2).
+    compileSpin2(fixtureDir, 'expdef_parentY.spin2', `--cache --cache-dir ${expdefCacheDir}`);
+    const binY_warm = fs.readFileSync(path.join(fixtureDir, 'expdef_parentY.bin'));
+    expect(Buffer.from(binY_warm).equals(Buffer.from(binY_uncached))).toBe(true);
+
+    cleanupOutputFiles(fixtureDir, 'expdef_parentY');
+    cleanupDir(expdefCacheDir);
   });
 
   // Regression for the v1.54.3 "partial fix" bug. v1.54.3 only ever tested

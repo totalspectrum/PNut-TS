@@ -1,0 +1,12 @@
+' exportdef regression: child's OWN source has no #ifdef on SYM_X or SYM_Y, so
+' its preprocessedLines is identical across both parent contexts. The bug
+' surfaces because compile_obj_blocks embeds grandchild bytes into THIS
+' child's binary; the grandchild's bytes DO depend on the propagated symbol,
+' so the cached child binary baked under SYM_X is wrong when reused under
+' SYM_Y. v1.54.4's cache key (preprocessedLines + overrides + version + debug
+' + format) misses this because none of those inputs see SYM_X / SYM_Y.
+OBJ
+  gc : "expdef_grandchild"
+
+PUB run() : result
+  result := gc.kind()

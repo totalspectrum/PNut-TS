@@ -21,6 +21,16 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.5] 2026-05-08
+
+### Fixed
+
+- **Object cache correctness with `#pragma exportdef` (fourth attempt)**: v1.54.4's cache key (`preprocessedLines + overrides + compilerVersion + enableDebug + cacheFormatVersion`) silently collided when two parents propagated different symbol sets via `#pragma exportdef`, *as long as the immediate child's own source had no `#ifdef` on those symbols*. The child's `preprocessedLines` was identical across both contexts, so the key matched — but the child's compiled binary embeds GRANDCHILD bytes (via `compile_obj_blocks`), and grandchildren whose source DID `#ifdef` on the propagated symbols compiled to different bytes. Result: the cache returned one parent's child-binary into the other parent's compile, with silently wrong embedded grandchildren. Symptom in the SD FAT32 driver test suite was `Invalid object image found for file: isp_stack_check.spin2` — the parent's compile correctly detected that the cached child's embedded grandchild didn't match what it expected at OBJ-link time. The fix folds `context.preProcessorOptions.defSymbols` (sorted, deduped, uppercased) into `computeKey()`. This captures both CLI `-D` flags AND any symbols an ancestor propagated via `#pragma exportdef`, so contexts that produce different grandchild content always get separate cache entries. `CACHE_FORMAT_VERSION` bumped to 5; v4 entries silently invalidated by the key change.
+
+### Added
+
+- New regression test `warm cache distinguishes parents with different propagated #pragma exportdef symbols`: cold-builds `expdef_parentX` (which `#pragma exportdef SYM_X`), then warm-builds `expdef_parentY` (which `#pragma exportdef SYM_Y`) and asserts the resulting `.bin` matches a fresh uncached parentY build. The shared child has neither symbol in its source; the grandchild has `#ifdef SYM_X / #elseifdef SYM_Y / #else / #endif` on a CON value, so the embedded grandchild byte differs by symbol — exactly the SD test-suite shape that v1.54.4 missed. Plus unit coverage for `defSymbols` key sensitivity (different symbol sets, order-/case-/dedup-stability, empty-set baseline).
+
 ## [1.54.4] 2026-05-08
 
 ### Fixed

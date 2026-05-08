@@ -1,0 +1,13 @@
+' exportdef regression: parent that propagates SYM_X to all descendant
+' preprocessors via #pragma exportdef. The shared child's binary, when
+' compiled for parentX, embeds the SYM_X branch of the grandchild.
+#pragma exportdef SYM_X
+
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  ch : "expdef_shared_child"
+
+PUB main() : result
+  result := ch.run()

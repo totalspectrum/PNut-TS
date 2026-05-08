@@ -43,9 +43,21 @@
 //     returns at replay time.
 //
 // IMPORTANT: any compile option that can change a child object's bytes MUST be
-// folded into computeKey(). Today that means enableDebug. If you add a new flag
+// folded into computeKey(). Today that means enableDebug and defSymbols (the
+// propagated `#pragma exportdef` + CLI `-D` symbol set). If you add a new flag
 // that affects code generation (e.g. an optimization level), add it to
 // CacheKeyInputs and hash it in computeKey, AND bump CACHE_FORMAT_VERSION.
+//
+// Why defSymbols matters: a child's own `preprocessedLines` is post-#ifdef
+// expansion, so it captures the effect of any preprocessor symbol the CHILD's
+// source gates on. But the child's compiled binary also embeds its
+// grandchildren's bytes (compile_obj_blocks), and those grandchildren's
+// preprocessedLines depend on whatever symbols the parent exportdef'd. A
+// child whose source has no #ifdef on the propagated symbols will have
+// identical preprocessedLines across two different parent contexts — but
+// different embedded grandchild bytes. Without defSymbols in the key, the
+// cache returns one parent's binary into another parent's compile, with
+// silently wrong embedded grandchildren. v1.54.4 missed this case.
 
 'use strict';
 
@@ -66,7 +78,7 @@ import { BrkSite } from './objectImage';
  * Bumping this invalidates every existing cache entry by changing every key.
  * Old <key>.bin files become unreachable and are cleaned by --cache-clear.
  */
-export const CACHE_FORMAT_VERSION = 4;
+export const CACHE_FORMAT_VERSION = 5;
 
 export interface CacheStats {
   hits: number;
@@ -89,6 +101,13 @@ export interface CacheKeyInputs {
   overrides: SymbolTable | undefined;
   compilerVersion: string;
   enableDebug: boolean;
+  /**
+   * Snapshot of `context.preProcessorOptions.defSymbols` at the moment this
+   * child's cache lookup happens. Captures CLI `-D` flags AND any symbols
+   * propagated to descendants via the parent's `#pragma exportdef`. Hashed
+   * sorted+deduped so order/duplication doesn't perturb the key.
+   */
+  defSymbols: string[];
 }
 
 export interface CacheStoreOptions {
@@ -186,6 +205,17 @@ export class ObjectCache {
     hash.update(`v:${inputs.compilerVersion}`);
     hash.update(`d:${inputs.enableDebug ? 1 : 0}`);
     hash.update(`f:${CACHE_FORMAT_VERSION}`);
+    // Active preprocessor symbol set. Sorted+deduped: order in defSymbols is
+    // an artifact of insertion sequence and shouldn't perturb the key, but
+    // membership absolutely must. Without this, a child whose own source has
+    // no #ifdef on a propagated symbol would key-collide across parents that
+    // exportdef different symbols, even though the child's grandchildren may
+    // have compiled to different bytes under those propagated symbols and
+    // gotten embedded into the cached child binary.
+    const sortedDefs = [...new Set(inputs.defSymbols.map((s) => s.toUpperCase()))].sort();
+    for (const sym of sortedDefs) {
+      hash.update(`D:${sym}`);
+    }
     return hash.digest('hex');
   }
 

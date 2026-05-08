@@ -1,0 +1,15 @@
+' exportdef regression: parent that propagates SYM_Y instead of SYM_X. With
+' v1.54.4 cache, compiling this after parentX returns parentX's cached
+' shared-child binary (preprocessedLines collide), so the embedded grandchild
+' is the SYM_X branch — wrong shape for parentY. v1.54.5 folds defSymbols
+' into the cache key, so this case key-misses and recompiles correctly.
+#pragma exportdef SYM_Y
+
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  ch : "expdef_shared_child"
+
+PUB main() : result
+  result := ch.run()

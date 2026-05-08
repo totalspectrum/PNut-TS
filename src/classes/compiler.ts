@@ -178,7 +178,14 @@ export class Compiler {
           preprocessedLines: srcFile.allPreprocessedLines,
           overrides: overrideParameters,
           compilerVersion: this.context.compilerVersion,
-          enableDebug: this.context.compileOptions.enableDebug
+          enableDebug: this.context.compileOptions.enableDebug,
+          // Pass-by-reference is fine: computeKey reads-only, and the caller
+          // doesn't mutate this between key computation and now. defSymbols
+          // captures both CLI `-D` flags and any symbols the parent (or
+          // earlier ancestors) propagated via `#pragma exportdef`, so the key
+          // distinguishes contexts that produce different grandchild content
+          // even when this child's own preprocessedLines is identical.
+          defSymbols: this.context.preProcessorOptions.defSymbols
         });
         const cachedBinary = this.objectCache.get(cacheKey);
         if (cachedBinary) {
