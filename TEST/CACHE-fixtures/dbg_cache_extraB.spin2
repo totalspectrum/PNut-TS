@@ -1,0 +1,11 @@
+' Debug-cache regression: child unique to parentB. Three distinct debug
+' records, designed to push the shared DebugData table forward so the shared
+' child's records, on cache hit, dedup-walk past these and land at indices
+' different from the ones baked into the shared child's cached binary.
+PUB run() | a, b, c
+  a := 0
+  b := 0
+  c := 0
+  debug("extraB alpha", udec_(a))
+  debug("extraB beta",  udec_(b))
+  debug("extraB gamma", udec_(c))

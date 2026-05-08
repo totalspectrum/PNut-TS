@@ -16,7 +16,7 @@ import path from 'path';
 import { OBJ_LIMIT } from './spinResolver';
 import { ObjInstanceInfo } from './objInstanceInfo';
 import { eElementType } from './types';
-import { CACHE_FORMAT_VERSION, ObjectCache, CacheMetadata } from './objectCache';
+import { CACHE_FORMAT_VERSION, ObjectCache, CacheMetadata, DebugInfo, patchBrkSite, recomputeChildChecksum } from './objectCache';
 
 // src/classes/compiler.ts
 
@@ -173,11 +173,6 @@ export class Compiler {
 
       // --- CACHE CHECK (for child objects only) ---
       let cacheKey: string | undefined;
-      // Snapshot the shared DebugData record count before this child compiles.
-      // On cache miss we use it to slice out the records this child contributed
-      // (so they can be replayed on a future cache hit). debugRawData is always
-      // valid; when --debug is off the count stays at 0 throughout.
-      const debugRecordsBefore: number = this.spin2Parser.debugRawData.recordCount;
       if (this.objectCache.isEnabled && depth > 0) {
         cacheKey = this.objectCache.computeKey({
           preprocessedLines: srcFile.allPreprocessedLines,
@@ -191,18 +186,22 @@ export class Compiler {
           if (this.isLoggingOutline) this.logMessageOutline(`  -- CACHE HIT -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}...`);
           this.memoryStats.totalObjectsCompiled++;
 
-          // Replay the child's contributed debug records BEFORE its binary is
-          // injected, so the brkCodes baked into the cached .bin resolve to
-          // the same DebugData indices they had at the original compile. The
-          // dedup walk in injectRecord matches the assignment logic in
-          // debugEnterRecord, so as long as earlier siblings have already
-          // restored their records (cache flow is depth-first), the indices
-          // line up. Without --debug this is a no-op (records list is empty).
+          // Restore the child's debug footprint before its binary is spliced
+          // into childImages. Two steps:
+          //   1. Replay every record this child references back into the
+          //      shared DebugData table. Each injection returns a NEW index
+          //      (depends on what earlier siblings already placed); we record
+          //      origIndex → newIndex.
+          //   2. Patch each brkCode write site in the cached binary so the
+          //      baked-in original index is replaced with the new index. This
+          //      is the step v1.54.3 missed — it assumed indices would line
+          //      up across heterogeneous parents, which they don't.
+          // Without --debug, .dbg is absent and this whole block is a no-op.
           if (this.context.compileOptions.enableDebug) {
-            const cachedDebugRecords = this.objectCache.getDebugRecords(cacheKey);
-            if (cachedDebugRecords === undefined) {
+            const cachedDebugInfo = this.objectCache.getDebugInfo(cacheKey);
+            if (cachedDebugInfo === undefined) {
               // .dbg sidecar missing on a debug-enabled cache hit means a
-              // partial-write or pre-v3 entry slipped through key-version
+              // partial-write or pre-v4 entry slipped through key-version
               // protection. Treat as a corrupted hit: surface a clear error
               // rather than silently producing garbled runtime output.
               throw new Error(
@@ -210,8 +209,32 @@ export class Compiler {
                   `Run with --cache-clear to rebuild.`
               );
             }
-            for (const recordBytes of cachedDebugRecords) {
-              this.spin2Parser.debugRawData.injectRecord(recordBytes);
+            const indexRemap = new Map<number, number>();
+            for (const record of cachedDebugInfo.records) {
+              const newIndex = this.spin2Parser.debugRawData.injectRecord(record.bytes);
+              indexRemap.set(record.origIndex, newIndex);
+            }
+            let needsChecksumFix = false;
+            for (const site of cachedDebugInfo.brkSites) {
+              const newIndex = indexRemap.get(site.origIndex);
+              if (newIndex === undefined) {
+                // Internal corruption: brkSite references a record not in
+                // this child's .dbg payload. Cache must be rebuilt.
+                throw new Error(
+                  `Object cache: brkSite origIndex ${site.origIndex} not in records map for [${srcFile.fileName}] ` +
+                    `(key=${cacheKey.substring(0, 12)}...). Run with --cache-clear to rebuild.`
+                );
+              }
+              if (newIndex !== site.origIndex) needsChecksumFix = true;
+              patchBrkSite(cachedBinary, site, newIndex);
+            }
+            // Spin object loader rejects images whose byte-sum is non-zero;
+            // any brkCode change alters that sum, so refresh the checksum.
+            // Skip when no patch actually changed bytes (identity remap, e.g.
+            // same-parent recompile) — saves a full-binary scan on the common
+            // path.
+            if (needsChecksumFix) {
+              recomputeChildChecksum(cachedBinary);
             }
           }
 
@@ -400,20 +423,21 @@ export class Compiler {
           // --- CACHE STORE (for child objects on cache miss) ---
           if (cacheKey !== undefined) {
             const binaryCopy = new Uint8Array(childImage);
-            // Capture the debug records this child (and its grandchildren)
-            // contributed during the just-completed compile. We slice
-            // [recordsBefore+1 .. recordsAfter] from the shared DebugData
-            // table; entries get sequential indices because debugEnterRecord
-            // adds at the first free slot. brkCodes that dedup'd against
-            // earlier records are NOT captured here — those reference records
-            // that are guaranteed to already be present at any future cache
-            // hit (placed by earlier siblings, which also restore on hit).
-            const debugRecordsAfter: number = this.spin2Parser.debugRawData.recordCount;
-            const childDebugRecords: Uint8Array[] = [];
-            if (this.context.compileOptions.enableDebug && debugRecordsAfter > debugRecordsBefore) {
-              for (let idx = debugRecordsBefore + 1; idx <= debugRecordsAfter; idx++) {
-                childDebugRecords.push(this.spin2Parser.debugRawData.getRecordBytes(idx));
-              }
+            // Build the debug payload: every brkCode write site in this
+            // child's binary, plus the bytes of every record those sites
+            // reference. Records include ones this child dedup'd against
+            // siblings — capturing them here is what lets a later cache hit
+            // succeed even when the same content is now contributed by a
+            // different sibling (or no sibling at all).
+            let debugInfo: DebugInfo | undefined = undefined;
+            if (this.context.compileOptions.enableDebug) {
+              const childBrkSites = this.objImage.brkSites;
+              const uniqueOrigIndices: number[] = [...new Set(childBrkSites.map((s) => s.origIndex))].sort((a, b) => a - b);
+              const records = uniqueOrigIndices.map((origIndex) => ({
+                origIndex,
+                bytes: this.spin2Parser.debugRawData.getRecordBytes(origIndex)
+              }));
+              debugInfo = { records, brkSites: childBrkSites };
             }
             const metadata: CacheMetadata = {
               source: srcFile.fileName,
@@ -425,18 +449,20 @@ export class Compiler {
               binarySize: objectLength,
               symbolCount: childSymbols.length
             };
-            // Always pass debugRecords (even when empty) so the .dbg sidecar
-            // exists on every debug-enabled cache entry — its absence on a
-            // future hit then unambiguously signals corruption.
+            // Always pass debugInfo when --debug is on (even when empty) so
+            // the .dbg sidecar exists on every debug-enabled cache entry —
+            // its absence on a future hit then unambiguously signals
+            // corruption rather than a missing-but-fine record set.
             this.objectCache.set(cacheKey, binaryCopy, {
               metadata,
               symbols: childSymbols,
-              debugRecords: this.context.compileOptions.enableDebug ? childDebugRecords : undefined
+              debugInfo
             });
             if (this.isLoggingOutline)
               this.logMessageOutline(
                 `  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., ` +
-                  `size=${objectLength}, symbols=${childSymbols.length}, dbgRecords=${childDebugRecords.length}`
+                  `size=${objectLength}, symbols=${childSymbols.length}, ` +
+                  `dbgRecords=${debugInfo ? debugInfo.records.length : 0}, brkSites=${debugInfo ? debugInfo.brkSites.length : 0}`
               );
           }
           // --- END CACHE STORE ---

@@ -1,0 +1,19 @@
+' Debug-cache regression: parentB. Reuses the shared child cached during
+' parentA's compile, but precedes it with extraB which contributes THREE
+' records (vs extraA's one). On cache hit, the shared child's records are
+' injected at indices 4-5, but its cached binary still has brkCodes 2-3 baked
+' in from parentA's compile. With v1.54.4's brkSite remap+patch, those bytes
+' are rewritten to 4-5; without it, runtime debug() reads the wrong format
+' strings (extraB's records).
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  extra  : "dbg_cache_extraB"
+  shared : "dbg_cache_shared"
+
+PUB main() | v
+  v := $B2
+  extra.run()
+  shared.run(v)
+  debug("parentB done", uhex_(v))

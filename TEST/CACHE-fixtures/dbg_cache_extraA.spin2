@@ -1,0 +1,4 @@
+' Debug-cache regression: child unique to parentA. One debug record.
+PUB run() | x
+  x := 0
+  debug("extraA marker", udec_(x))

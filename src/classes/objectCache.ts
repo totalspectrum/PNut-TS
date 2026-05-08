@@ -8,20 +8,39 @@
 //   <key>.bin  — compiled child binary (load-bearing)
 //   <key>.sym  — serialized user symbols for map file generation (load-bearing,
 //                read only when writeMapFile is enabled)
-//   <key>.dbg  — serialized debug records contributed by this child (load-
-//                bearing whenever the cached .bin contains BRK opcodes; only
-//                ever produced when --debug was on at store time)
+//   <key>.dbg  — serialized debug records this child references + the in-binary
+//                brkCode write sites that need relocation on hit (load-bearing
+//                whenever the cached .bin contains BRK opcodes; only ever
+//                produced when --debug was on at store time)
 //   <key>.meta — human-readable JSON diagnostic (optional, never required by
 //                the hit path)
 //
 // Why .dbg exists: each debug() call bakes a brkCode (an index into the
 // compile's shared DebugData table) into the child's binary. The actual
 // records — format strings + on-device debugger commands — live only in that
-// table, which is rebuilt from scratch every compile. Without restoring the
-// child's records on cache hit, the brkCodes in the cached .bin alias to
-// whatever the new compile happened to put at those indices, producing
-// nonsense at runtime. .dbg captures the records contributed during the
-// child's original compile so they can be replayed (with dedup) on hit.
+// table, which is rebuilt from scratch every compile.
+//
+// Two failure modes the .dbg sidecar guards against:
+//   1. Records assumed-but-missing. A cached child's brkCode bytes point at
+//      indices that, in a fresh compile, hold whatever records the new
+//      compile happened to emit. Without restoring this child's records,
+//      runtime debug() reads the wrong format string.
+//   2. Records present but at different indices. Even when records replay on
+//      hit, the shared table state at replay time differs from the original
+//      compile (different siblings preceded this child), so injectRecord
+//      assigns different absolute indices than the brkCodes baked in the
+//      cached .bin reference. v1.54.3 missed this — assumed indices would
+//      line up because dedup walks match. They only line up when the same
+//      siblings precede in the same order.
+//
+// .dbg therefore captures BOTH:
+//   - For every unique brkCode this child references in its binary, the raw
+//     record bytes from the original compile. (Includes records this child
+//     dedup'd against siblings — those bytes are needed to re-derive the
+//     "right" index in the new compile.)
+//   - The exact byte/bit positions in the cached .bin where each brkCode
+//     value was baked, so we can patch them to the new index injectRecord
+//     returns at replay time.
 //
 // IMPORTANT: any compile option that can change a child object's bytes MUST be
 // folded into computeKey(). Today that means enableDebug. If you add a new flag
@@ -36,6 +55,7 @@ import path from 'path';
 import { SymbolEntry, SymbolTable } from './symbolTable';
 import { eElementType } from './types';
 import { TextLine } from './textLine';
+import { BrkSite } from './objectImage';
 
 /**
  * Cache format version. Bump whenever:
@@ -46,7 +66,7 @@ import { TextLine } from './textLine';
  * Bumping this invalidates every existing cache entry by changing every key.
  * Old <key>.bin files become unreachable and are cleaned by --cache-clear.
  */
-export const CACHE_FORMAT_VERSION = 3;
+export const CACHE_FORMAT_VERSION = 4;
 
 export interface CacheStats {
   hits: number;
@@ -75,12 +95,31 @@ export interface CacheStoreOptions {
   metadata?: CacheMetadata;
   symbols?: SymbolEntry[];
   /**
-   * Debug records contributed by this child, in the order they were added to
-   * the shared DebugData table. Each entry is the raw bytes of one record
-   * (including its trailing zero terminator). When provided and non-empty, a
-   * .dbg sidecar is written alongside the .bin.
+   * Debug-record/brkSite payload for the .dbg sidecar. Pass `undefined` to
+   * skip writing .dbg (e.g. non-debug compiles). Pass an empty `records` and
+   * empty `brkSites` to write a sidecar that records "this child has no debug
+   * footprint" — that's the unambiguous-not-corrupted signal on later hits.
    */
-  debugRecords?: Uint8Array[];
+  debugInfo?: DebugInfo;
+}
+
+/**
+ * Debug payload for one cached child object.
+ *
+ * `records` lists every DebugData record the child's binary references — both
+ * records the child contributed and records it dedup'd against (e.g. an
+ * earlier sibling in the original compile placed the same content). Each
+ * entry pairs the original index baked in the binary with the raw record
+ * bytes; the bytes get re-injected into the shared table on a cache hit and
+ * the original index becomes the lookup key in the brkCode remap.
+ *
+ * `brkSites` lists every byte/bit position in the cached .bin where a
+ * non-zero brkCode value was baked. On hit, each site's brkCode field is
+ * patched to the new index injectRecord returned for that site's origIndex.
+ */
+export interface DebugInfo {
+  records: { origIndex: number; bytes: Uint8Array }[];
+  brkSites: BrkSite[];
 }
 
 /** Compact serialized form of a SymbolEntry. Field names kept short to
@@ -97,10 +136,21 @@ interface SerializedSymFile {
   symbols: SerializedSymbol[];
 }
 
+interface SerializedDbgRecord {
+  i: number; // origIndex (1-based DebugData entry index from original compile)
+  b: string; // base64-encoded record bytes (including trailing 0 terminator)
+}
+
+interface SerializedBrkSite {
+  o: number; // offset in the cached .bin
+  k: 0 | 1; // 0 = spin (1 byte), 1 = pasm (9-bit field at bits 9-16 of long)
+  i: number; // origIndex baked into the binary
+}
+
 interface SerializedDbgFile {
   cacheFormatVersion: number;
-  /** Each record's bytes encoded as base64 (including the trailing 0 terminator). */
-  records: string[];
+  records: SerializedDbgRecord[];
+  brkSites: SerializedBrkSite[];
 }
 
 export class ObjectCache {
@@ -168,11 +218,11 @@ export class ObjectCache {
     }
   }
 
-  /** Retrieve cached debug records for a key. Returns undefined if the .dbg
+  /** Retrieve cached debug info for a key. Returns undefined if the .dbg
    *  sidecar is missing, malformed, or has a mismatched format version.
-   *  Returns an empty array when the child contributed no records (e.g. it
-   *  contained no debug() calls, or was cached with --debug off). */
-  getDebugRecords(key: string): Uint8Array[] | undefined {
+   *  Returns a `DebugInfo` with empty `records` and empty `brkSites` when the
+   *  child has no debug footprint (e.g. it contained no debug() calls). */
+  getDebugInfo(key: string): DebugInfo | undefined {
     if (!this.enabled) return undefined;
     const dbgPath = this.dbgPath(key);
     if (!fs.existsSync(dbgPath)) return undefined;
@@ -180,8 +230,17 @@ export class ObjectCache {
       const raw = fs.readFileSync(dbgPath, 'utf8');
       const parsed = JSON.parse(raw) as SerializedDbgFile;
       if (parsed.cacheFormatVersion !== CACHE_FORMAT_VERSION) return undefined;
-      if (!Array.isArray(parsed.records)) return undefined;
-      return parsed.records.map((b64) => new Uint8Array(Buffer.from(b64, 'base64')));
+      if (!Array.isArray(parsed.records) || !Array.isArray(parsed.brkSites)) return undefined;
+      const records = parsed.records.map((r) => ({
+        origIndex: r.i,
+        bytes: new Uint8Array(Buffer.from(r.b, 'base64'))
+      }));
+      const brkSites: BrkSite[] = parsed.brkSites.map((s) => ({
+        offset: s.o,
+        kind: s.k === 1 ? 'pasm' : 'spin',
+        origIndex: s.i
+      }));
+      return { records, brkSites };
     } catch {
       return undefined;
     }
@@ -201,10 +260,18 @@ export class ObjectCache {
       };
       fs.writeFileSync(this.symPath(key), JSON.stringify(payload));
     }
-    if (options.debugRecords !== undefined) {
+    if (options.debugInfo !== undefined) {
       const payload: SerializedDbgFile = {
         cacheFormatVersion: CACHE_FORMAT_VERSION,
-        records: options.debugRecords.map((rec) => Buffer.from(rec).toString('base64'))
+        records: options.debugInfo.records.map((r) => ({
+          i: r.origIndex,
+          b: Buffer.from(r.bytes).toString('base64')
+        })),
+        brkSites: options.debugInfo.brkSites.map((s) => ({
+          o: s.offset,
+          k: s.kind === 'pasm' ? 1 : 0,
+          i: s.origIndex
+        }))
       };
       fs.writeFileSync(this.dbgPath(key), JSON.stringify(payload));
     }
@@ -284,4 +351,71 @@ export function deserializeSymbols(serialized: SerializedSymbol[]): SymbolEntry[
     out[i] = new SymbolEntry(s.n, s.t as eElementType, value, s.i === 1);
   }
   return out;
+}
+
+// --- brkCode patching --------------------------------------------------------
+
+/**
+ * Rewrite the brkCode value at a single site in a cached child binary.
+ *
+ * On a cache hit the child's records are replayed into the freshly-built
+ * shared DebugData table, but injectRecord assigns indices based on whatever
+ * earlier siblings have already placed — so the new index typically differs
+ * from the original. The cached .bin still holds the original brkCode bytes,
+ * so we patch each site in place before the binary is spliced into childImages.
+ *
+ * Encoding details:
+ *   - kind 'spin': brkCode is a single byte at `offset` (the third byte of
+ *     a `bc_debug, stack_depth, brkCode` triple emitted by enterDebug).
+ *   - kind 'pasm': brkCode is a 9-bit field at bits 9-16 of the 4-byte
+ *     little-endian long at `offset` (BRK instruction's S immediate). High bit
+ *     of the field is always 0 because brkCode is 0-255. Bits 0-8 (cond/I/D/...)
+ *     and bits 17-31 (cond, effects) are preserved.
+ */
+/**
+ * Rewrite the 1-byte checksum of a Spin child object binary so that the sum
+ * of all bytes (mod 256) is zero, which is what spinResolver validates on
+ * load. Patching brkCode fields in a cached binary changes byte values, so
+ * the checksum recorded at original-compile time no longer holds — without
+ * this fixup the loader would reject the patched object as corrupt.
+ *
+ * Layout (Spin OBJ): bytes 0-3 = vsize (LE long), bytes 4-7 = psize (LE long,
+ * the byte count of the code section), byte at offset 8+psize = checksum,
+ * bytes (8+psize+1)..end = pubConList. We sum all bytes with the checksum
+ * placeholder zeroed, then store the negation.
+ */
+export function recomputeChildChecksum(bin: Uint8Array): void {
+  if (bin.length < 9) {
+    throw new Error(`recomputeChildChecksum: binary too short (${bin.length} bytes) to contain a Spin object header`);
+  }
+  const psize = bin[4] | (bin[5] << 8) | (bin[6] << 16) | (bin[7] << 24);
+  const checksumOffset = 8 + psize;
+  if (checksumOffset >= bin.length) {
+    throw new Error(`recomputeChildChecksum: checksum offset ${checksumOffset} >= binary length ${bin.length} (psize=${psize})`);
+  }
+  bin[checksumOffset] = 0;
+  let sum = 0;
+  for (let i = 0; i < bin.length; i++) {
+    sum -= bin[i];
+  }
+  bin[checksumOffset] = sum & 0xff;
+}
+
+export function patchBrkSite(bin: Uint8Array, site: BrkSite, newBrkCode: number): void {
+  if (newBrkCode < 0 || newBrkCode > 0xff) {
+    throw new Error(`patchBrkSite: brkCode ${newBrkCode} out of range (0-255)`);
+  }
+  if (site.kind === 'spin') {
+    if (site.offset >= bin.length) {
+      throw new Error(`patchBrkSite: spin offset ${site.offset} >= bin length ${bin.length}`);
+    }
+    bin[site.offset] = newBrkCode & 0xff;
+  } else {
+    if (site.offset + 3 >= bin.length) {
+      throw new Error(`patchBrkSite: pasm offset ${site.offset}+3 >= bin length ${bin.length}`);
+    }
+    // newBrkCode << 9 spans byte 1 (bits 9-15) and byte 2 (bit 16).
+    bin[site.offset + 1] = (bin[site.offset + 1] & 0x01) | ((newBrkCode & 0x7f) << 1);
+    bin[site.offset + 2] = (bin[site.offset + 2] & 0xfe) | ((newBrkCode >> 7) & 0x01);
+  }
 }

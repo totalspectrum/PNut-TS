@@ -1,0 +1,11 @@
+' Debug-cache regression: child shared between parentA and parentB.
+' Two distinct debug records — content matches nothing in extraA or extraB,
+' so dedup never collapses across siblings; the bug surfaces purely because
+' the shared child's cached brkCodes assume different sibling-prefix lengths
+' between parentA's compile and parentB's compile.
+PUB run(value) | counter
+  counter := 0
+  debug("shared first: value=", uhex_(value))
+  repeat 2
+    counter += 1
+    debug("shared loop: counter=", udec_(counter))

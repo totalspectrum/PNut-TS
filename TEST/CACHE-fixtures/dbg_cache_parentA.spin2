@@ -1,0 +1,15 @@
+' Debug-cache regression: parentA. Compiles cold to populate the cache for
+' the shared child; its child order is extraA, shared (extraA taking only 1
+' record, leaving shared at indices 2-3 in the original table).
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  extra  : "dbg_cache_extraA"
+  shared : "dbg_cache_shared"
+
+PUB main() | v
+  v := $A1
+  extra.run()
+  shared.run(v)
+  debug("parentA done", uhex_(v))

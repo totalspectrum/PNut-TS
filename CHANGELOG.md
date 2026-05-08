@@ -21,6 +21,12 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.4] 2026-05-08
+
+### Fixed
+
+- **Object cache correctness with `--debug` (third attempt — real real fix)**: v1.54.3's `.dbg` sidecar replayed each cached child's records into the shared `DebugData` table on cache hit, but assumed `injectRecord`'s dedup walk would assign the same indices it had during the original compile. That assumption only holds when the same set of earlier siblings precedes the child in the same order — i.e. when the same parent is recompiled. As soon as a *different* parent compiled the cached child after a sibling that contributed a different number of records, the records replayed at new indices but the `brkCode` bytes baked into the cached `.bin` still pointed at the parentA-era indices. At runtime the `debug()` calls inside the shared child read the wrong format strings (whichever records happened to land at the cached indices), producing the same garbled output v1.54.3 was meant to fix. Symptoms reproduced in the SD FAT32 driver test suite once 4+ test harnesses ran with a warm cache. Two new mechanisms close the gap: (1) every `brkCode` write site (Spin `bc_debug` triple, PASM BRK long) is now captured at emission time as a `BrkSite { offset, kind, origIndex }`; (2) on cache hit the replayed records' new indices are recorded in an `origIndex → newIndex` remap, then each `BrkSite` is patched in the cached binary so its `brkCode` field references the correct DebugData entry. The Spin object checksum is recomputed after patching so the loader still accepts the image. `.dbg` payload now carries `records: [{origIndex, bytes}]` plus `brkSites: [{offset, kind, origIndex}]`. `CACHE_FORMAT_VERSION` bumped to 4 (v3 entries silently invalidated by key change). The cached `records` list now also includes records the child originally dedup'd against siblings — captured by `getRecordBytes(origIndex)` for every unique origIndex any `BrkSite` references — so a cache hit succeeds even when the same content is now contributed by a different sibling (or no sibling at all).
+
 ## [1.54.3] 2026-05-08
 
 ### Fixed

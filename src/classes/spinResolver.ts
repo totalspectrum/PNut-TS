@@ -1858,6 +1858,12 @@ export class SpinResolver {
     // handle operands
     // NOTE: tryD() gets the next element, before it does anything
     let skipInstructionGeneration: boolean = false;
+    // Object-cache support: when this instruction is the BRK long emitted for
+    // an asm `debug(...)`, ci_debug_asm assigns a brkCode that must be tracked
+    // so the cache can relocate it on a future hit. Set inside operand_debug
+    // (only when we actually called ci_debug_asm), checked at the long write
+    // below. Stays 0 for every other instruction and for `debug` without ().
+    let pasmBrkCodeForCapture: number = 0;
     if (this.isLogging) this.logMessage(`  -- AInstruFmLn() operandType=([${eValueType[operandType]}](${operandType}))`);
     switch (operandType) {
       case eValueType.operand_ds:
@@ -2471,6 +2477,7 @@ export class SpinResolver {
                 this.instructionImage |= (1 << 18) | (breakCode << 9);
                 this.getEndOfLine(); // throw exception if NOT end of line!
                 this.backElement(); // allow our effects check to work but do nothing!
+                pasmBrkCodeForCapture = breakCode; // record for the brkSite capture below
               }
             }
           }
@@ -2503,6 +2510,12 @@ export class SpinResolver {
     }
     // if we are not handling debug() we may need to skip instru. generation
     if (skipInstructionGeneration == false) {
+      // For PASM BRK with a real debug record, capture the long's offset so
+      // the object cache can patch the brkCode field (bits 9-16) on a hit
+      // when the shared DebugData table assigns the record a different index.
+      if (pasmBrkCodeForCapture > 0) {
+        this.objImage.addBrkSite({ offset: this.objImage.offset, kind: 'pasm', origIndex: pasmBrkCodeForCapture });
+      }
       // write instruction to obj image
       this.enterDataLong(BigInt(this.instructionImage));
     }
@@ -5464,6 +5477,10 @@ export class SpinResolver {
       for (let writeOffset = this.objImage.offset - 1; writeOffset >= 8; writeOffset--) {
         this.objImage.replaceByte(this.objImage.read(writeOffset - 8), writeOffset);
       }
+      // Each brkCode write site captured during emission was at a pre-shift
+      // offset; the move just relocated those bytes to offset+8. Track them
+      // so the object cache patches the right bytes on a future hit.
+      this.objImage.shiftBrkSites(8);
       // now write our two longs at front of image
       //  vsize is...
       this.objImage.replaceLong(this.varPtr, 0);
@@ -6534,7 +6551,14 @@ export class SpinResolver {
       this.objImage.appendByte(eByteCode.bc_debug); // end of DEBUG data/commands, enter DEBUG bytecode
       this.objImage.appendByte(this.debug_stack_depth); // enter rfvar value for stack popping
       const brkCode: number = this.debugEnterRecord(); // enter record into debug data, returning brk code
+      const brkOffset: number = this.objImage.offset; // brkCode byte will land here
       this.objImage.appendByte(brkCode); // enter BRK code
+      // Capture for the object cache: on a future cache hit, the shared
+      // DebugData table state will differ, so this brkCode byte may need to
+      // be patched to a new index. brkCode 0 means "no record" — skip those.
+      if (brkCode > 0) {
+        this.objImage.addBrkSite({ offset: brkOffset, kind: 'spin', origIndex: brkCode });
+      }
     } else {
       // here is ci_debug:@@enterdebug
       brkCode = this.debugEnterRecord(); // enter record into debug data, returning brk code

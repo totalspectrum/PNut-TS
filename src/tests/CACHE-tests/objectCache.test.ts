@@ -9,7 +9,8 @@
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
-import { CACHE_FORMAT_VERSION, ObjectCache, deserializeSymbols, serializeSymbols } from '../../classes/objectCache';
+import { CACHE_FORMAT_VERSION, ObjectCache, deserializeSymbols, patchBrkSite, serializeSymbols } from '../../classes/objectCache';
+import { BrkSite } from '../../classes/objectImage';
 import { SymbolEntry, SymbolTable } from '../../classes/symbolTable';
 import { TextLine } from '../../classes/textLine';
 import { eElementType } from '../../classes/types';
@@ -291,53 +292,101 @@ describe('ObjectCache Unit Tests', () => {
 
   // --- Debug records sidecar ---
 
-  test('debug records round-trip through .dbg sidecar byte-identical', () => {
+  test('debug info round-trips through .dbg sidecar byte-identical', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '3'.repeat(64);
-    const records: Uint8Array[] = [
-      new Uint8Array([0x04, 0x06, 0x68, 0x69, 0x00, 0x83, 0x00]),
-      new Uint8Array([0x04, 0x06, 0x6c, 0x6f, 0x6f, 0x70, 0x00, 0x43, 0x00]),
-      new Uint8Array([0x04, 0x06, 0x64, 0x6f, 0x6e, 0x65, 0x00, 0x00])
+    const records = [
+      { origIndex: 1, bytes: new Uint8Array([0x04, 0x06, 0x68, 0x69, 0x00, 0x83, 0x00]) },
+      { origIndex: 2, bytes: new Uint8Array([0x04, 0x06, 0x6c, 0x6f, 0x6f, 0x70, 0x00, 0x43, 0x00]) },
+      { origIndex: 3, bytes: new Uint8Array([0x04, 0x06, 0x64, 0x6f, 0x6e, 0x65, 0x00, 0x00]) }
     ];
-    cache.set(key, new Uint8Array([1, 2, 3]), { debugRecords: records });
+    const brkSites: BrkSite[] = [
+      { offset: 16, kind: 'spin', origIndex: 1 },
+      { offset: 32, kind: 'pasm', origIndex: 2 },
+      { offset: 48, kind: 'spin', origIndex: 3 }
+    ];
+    cache.set(key, new Uint8Array([1, 2, 3]), { debugInfo: { records, brkSites } });
     expect(fs.existsSync(path.join(cacheDir, `${key}.dbg`))).toBe(true);
 
-    const loaded = cache.getDebugRecords(key);
+    const loaded = cache.getDebugInfo(key);
     expect(loaded).toBeDefined();
-    expect(loaded!.length).toBe(records.length);
+    expect(loaded!.records.length).toBe(records.length);
     for (let i = 0; i < records.length; i++) {
-      expect(Array.from(loaded![i])).toEqual(Array.from(records[i]));
+      expect(loaded!.records[i].origIndex).toBe(records[i].origIndex);
+      expect(Array.from(loaded!.records[i].bytes)).toEqual(Array.from(records[i].bytes));
     }
+    expect(loaded!.brkSites).toEqual(brkSites);
   });
 
-  test('empty debug records list still produces a .dbg sidecar with empty array', () => {
+  test('empty debug info still produces a .dbg sidecar with empty arrays', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '4'.repeat(64);
-    cache.set(key, new Uint8Array([1]), { debugRecords: [] });
-    const loaded = cache.getDebugRecords(key);
+    cache.set(key, new Uint8Array([1]), { debugInfo: { records: [], brkSites: [] } });
+    const loaded = cache.getDebugInfo(key);
     expect(loaded).toBeDefined();
-    expect(loaded!.length).toBe(0);
+    expect(loaded!.records.length).toBe(0);
+    expect(loaded!.brkSites.length).toBe(0);
   });
 
-  test('getDebugRecords returns undefined when sidecar is missing', () => {
+  test('getDebugInfo returns undefined when sidecar is missing', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '5'.repeat(64);
-    cache.set(key, new Uint8Array([1])); // no debugRecords passed → no .dbg
-    expect(cache.getDebugRecords(key)).toBeUndefined();
+    cache.set(key, new Uint8Array([1])); // no debugInfo passed → no .dbg
+    expect(cache.getDebugInfo(key)).toBeUndefined();
   });
 
-  test('getDebugRecords returns undefined when sidecar is malformed', () => {
+  test('getDebugInfo returns undefined when sidecar is malformed', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '6'.repeat(64);
     fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), '{not valid json');
-    expect(cache.getDebugRecords(key)).toBeUndefined();
+    expect(cache.getDebugInfo(key)).toBeUndefined();
   });
 
-  test('getDebugRecords returns undefined when sidecar has wrong format version', () => {
+  test('getDebugInfo returns undefined when sidecar has wrong format version', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '7'.repeat(64);
-    fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION + 999, records: [] }));
-    expect(cache.getDebugRecords(key)).toBeUndefined();
+    fs.writeFileSync(
+      path.join(cacheDir, `${key}.dbg`),
+      JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION + 999, records: [], brkSites: [] })
+    );
+    expect(cache.getDebugInfo(key)).toBeUndefined();
+  });
+
+  test('getDebugInfo returns undefined when sidecar is missing brkSites field (pre-v4 shape)', () => {
+    // A v3-shaped .dbg with the v4 cacheFormatVersion patched in would still
+    // be missing brkSites; the array check guards that case as malformed.
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '8'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION, records: [] }));
+    expect(cache.getDebugInfo(key)).toBeUndefined();
+  });
+
+  test('patchBrkSite rewrites spin and pasm sites correctly', () => {
+    // Spin: byte at offset replaced verbatim.
+    const spinBin = new Uint8Array([0x10, 0x05, 0xab, 0x20]);
+    patchBrkSite(spinBin, { offset: 2, kind: 'spin', origIndex: 0xab }, 0x42);
+    expect(spinBin[2]).toBe(0x42);
+    // Other bytes untouched.
+    expect(Array.from(spinBin)).toEqual([0x10, 0x05, 0x42, 0x20]);
+
+    // PASM: BRK with brkCode 0x05 baked in (0x05 << 9 = 0x0A00 → byte 1 = 0x0A).
+    // Build a 4-byte long with cond=0xF, BRK opcode bits, brkCode=5, immediate flag.
+    // We just need to verify we patch bits 9-16 without disturbing others.
+    // Start with original brkCode=5 (byte1=0x0A bit pattern, byte2 bit0=0).
+    // Other bits set arbitrarily.
+    const pasmBin = new Uint8Array([0x31, 0x0a, 0xfe, 0xfd]);
+    // Repatch to brkCode 0xFF. Expected: byte1 bits 1-7 = 0x7F << 1 = 0xFE,
+    // preserving original byte1 bit 0 (=0). byte2 bit 0 = 1, preserving bits 1-7 of 0xFE.
+    patchBrkSite(pasmBin, { offset: 0, kind: 'pasm', origIndex: 5 }, 0xff);
+    expect(pasmBin[0]).toBe(0x31); // byte 0 untouched
+    expect(pasmBin[1]).toBe(0xfe); // (0x0a & 0x01)=0 | (0x7f << 1)=0xFE
+    expect(pasmBin[2]).toBe(0xff); // (0xfe & 0xfe)=0xFE | bit0=1 → 0xFF
+    expect(pasmBin[3]).toBe(0xfd); // byte 3 untouched
+
+    // Round-trip: patch back to 5 and confirm bytes match the original.
+    patchBrkSite(pasmBin, { offset: 0, kind: 'pasm', origIndex: 0xff }, 5);
+    expect(pasmBin[1]).toBe(0x0a);
+    expect(pasmBin[2]).toBe(0xfe);
   });
 });
 
@@ -796,5 +845,50 @@ describe('ObjectCache Integration Tests', () => {
 
     cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
     cleanupDir(corruptCacheDir);
+  });
+
+  // Regression for the v1.54.3 "partial fix" bug. v1.54.3 only ever tested
+  // recompiling the SAME parent: same children, same order → cached records
+  // replayed into the same indices, brkCodes lined up by coincidence. The
+  // real failure mode is heterogeneous parents sharing a child: parentA
+  // populates the cache, parentB hits the cached child but precedes it with
+  // DIFFERENT siblings — the shared child's records inject at different
+  // indices, but its cached .bin still has the parentA-era brkCodes baked
+  // in, producing garbled debug() output at runtime. v1.54.4's brkSite
+  // remap+patch fixes this by rewriting each brkCode field in the cached
+  // binary to the new index injectRecord assigns on hit.
+  test('warm cache with --debug stays correct across heterogeneous parents sharing a child', () => {
+    const dbgFixtureDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const sharedCacheDir = path.join(dbgFixtureDir, '.dbg-shared-cache');
+    cleanupDir(sharedCacheDir);
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentA');
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentB');
+
+    // Reference 1: parentA built fresh (no cache).
+    compileSpin2(dbgFixtureDir, 'dbg_cache_parentA.spin2', '-d');
+    const binA_uncached = fs.readFileSync(path.join(dbgFixtureDir, 'dbg_cache_parentA.bin'));
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentA');
+
+    // Reference 2: parentB built fresh (no cache).
+    compileSpin2(dbgFixtureDir, 'dbg_cache_parentB.spin2', '-d');
+    const binB_uncached = fs.readFileSync(path.join(dbgFixtureDir, 'dbg_cache_parentB.bin'));
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentB');
+
+    // Cold cache build of parentA — populates .pnut-cache with extraA + shared.
+    compileSpin2(dbgFixtureDir, 'dbg_cache_parentA.spin2', `-d --cache --cache-clear --cache-dir ${sharedCacheDir}`);
+    const binA_cold = fs.readFileSync(path.join(dbgFixtureDir, 'dbg_cache_parentA.bin'));
+    expect(Buffer.from(binA_cold).equals(Buffer.from(binA_uncached))).toBe(true);
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentA');
+
+    // Warm cache build of parentB — extraB is a cache miss (different source);
+    // shared HITS the entry stored during parentA's compile. extraB contributes
+    // 3 records, pushing shared's records past parentA's prefix length, so the
+    // remap+patch path is exercised on every brkCode in shared's binary.
+    compileSpin2(dbgFixtureDir, 'dbg_cache_parentB.spin2', `-d --cache --cache-dir ${sharedCacheDir}`);
+    const binB_warm = fs.readFileSync(path.join(dbgFixtureDir, 'dbg_cache_parentB.bin'));
+    expect(Buffer.from(binB_warm).equals(Buffer.from(binB_uncached))).toBe(true);
+
+    cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentB');
+    cleanupDir(sharedCacheDir);
   });
 });

@@ -12,6 +12,27 @@ import { OBJ_LIMIT } from './spinResolver';
 // src/classes/objectImage.ts
 const SUPPRESS_LOG_MSG: boolean = true;
 
+/**
+ * A debug brkCode write site within an ObjectImage's bytes.
+ * Captured at code-emission time so the object cache can relocate the brkCode
+ * field on cache hit, when the shared DebugData table has assigned the
+ * underlying record a different index than at original compile.
+ *
+ * - kind 'spin': brkCode is a single byte at `offset`.
+ * - kind 'pasm': brkCode occupies bits 9-16 of the 4-byte little-endian long
+ *   at `offset` (BRK instruction's 9-bit immediate field; high bit always 0
+ *   because brkCode is 0-255).
+ *
+ * `origIndex` is the DebugData entry index baked into the binary at the
+ * original compile; the cache uses it as the lookup key when remapping to the
+ * new index produced by replaying records on a cache hit.
+ */
+export interface BrkSite {
+  offset: number;
+  kind: 'spin' | 'pasm';
+  origIndex: number;
+}
+
 export class ObjectImage {
   private context: Context;
   private isLogging: boolean;
@@ -22,6 +43,7 @@ export class ObjectImage {
   private _objImageByteAr = new Uint8Array(this.ALLOC_SIZE_IN_BYTES); // initial memory size
   private _objOffset: number = 0; // current index into OBJ image
   private _maxOffset: number = 0; // max index into OBJ image
+  private _brkSites: BrkSite[] = []; // debug brkCode write sites in this image (cleared on reset)
 
   constructor(ctx: Context, idString: string) {
     this.context = ctx;
@@ -262,6 +284,37 @@ export class ObjectImage {
     this.logMessage(`* OBJ: reset Offset to zero`);
     // effectively empty our image
     this.setOffsetTo(0); // call method, so logs
+    // brkSites reference offsets within the now-cleared image; drop them so a
+    // new compile pass starts with a clean accumulator.
+    this._brkSites.length = 0;
+  }
+
+  /** Record a brkCode write site for the object cache to potentially relocate
+   *  on a future cache hit. Called by spinResolver immediately around the byte
+   *  / long write that bakes the brkCode value. */
+  public addBrkSite(site: BrkSite) {
+    this._brkSites.push(site);
+  }
+
+  /** Snapshot of brkCode write sites captured during the current image's
+   *  emission pass. Returned as a copy so callers can hold a stable list. */
+  public get brkSites(): BrkSite[] {
+    return [...this._brkSites];
+  }
+
+  /** Number of brkSites currently captured. Cheap accessor for tests/asserts. */
+  public get brkSiteCount(): number {
+    return this._brkSites.length;
+  }
+
+  /** Shift every captured brkSite offset by `byteDelta`. Used by compile_final
+   *  when it prepends vsize/psize and moves the existing image up by 8 bytes:
+   *  brkSites were captured pre-shift, so they need to track the move to keep
+   *  pointing at the right brkCode bytes in the final binary. */
+  public shiftBrkSites(byteDelta: number) {
+    for (const site of this._brkSites) {
+      site.offset += byteDelta;
+    }
   }
 
   public dumpBytes(startOffset: number, byteCount: number, dumpId: string) {
