@@ -5,12 +5,15 @@ describes the trigger that should make us reconsider, the design sketch, and
 the risks.
 
 Background: the persistent object cache is implemented per
-`DOCs/roadmaps/completed/Persistent-Object-Cache-Plan.md`. As of v1.54.2 the
+`DOCs/roadmaps/completed/Persistent-Object-Cache-Plan.md`. As of v1.54.3 the
 key includes preprocessed source, sorted overrides, compiler version,
 `enableDebug`, and `CACHE_FORMAT_VERSION`. Each cache entry on disk consists of
 a `.bin` (load-bearing binary), a `.sym` (load-bearing serialized user symbols
-for map fidelity, only read when `--map` is requested), and a `.meta`
-(human-readable diagnostic JSON, optional).
+for map fidelity, only read when `--map` is requested), a `.dbg` (load-bearing
+serialized debug records contributed by this child, replayed into the shared
+DebugData table on cache hit so the binary's baked-in `brkCode` indices
+resolve correctly — only written when `--debug` was on at store time), and a
+`.meta` (human-readable diagnostic JSON, optional).
 
 ---
 

@@ -288,6 +288,57 @@ describe('ObjectCache Unit Tests', () => {
     fs.writeFileSync(path.join(cacheDir, `${key}.meta`), '{}');
     expect(cache.get(key)).toBeUndefined(); // .bin gates the hit
   });
+
+  // --- Debug records sidecar ---
+
+  test('debug records round-trip through .dbg sidecar byte-identical', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '3'.repeat(64);
+    const records: Uint8Array[] = [
+      new Uint8Array([0x04, 0x06, 0x68, 0x69, 0x00, 0x83, 0x00]),
+      new Uint8Array([0x04, 0x06, 0x6c, 0x6f, 0x6f, 0x70, 0x00, 0x43, 0x00]),
+      new Uint8Array([0x04, 0x06, 0x64, 0x6f, 0x6e, 0x65, 0x00, 0x00])
+    ];
+    cache.set(key, new Uint8Array([1, 2, 3]), { debugRecords: records });
+    expect(fs.existsSync(path.join(cacheDir, `${key}.dbg`))).toBe(true);
+
+    const loaded = cache.getDebugRecords(key);
+    expect(loaded).toBeDefined();
+    expect(loaded!.length).toBe(records.length);
+    for (let i = 0; i < records.length; i++) {
+      expect(Array.from(loaded![i])).toEqual(Array.from(records[i]));
+    }
+  });
+
+  test('empty debug records list still produces a .dbg sidecar with empty array', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '4'.repeat(64);
+    cache.set(key, new Uint8Array([1]), { debugRecords: [] });
+    const loaded = cache.getDebugRecords(key);
+    expect(loaded).toBeDefined();
+    expect(loaded!.length).toBe(0);
+  });
+
+  test('getDebugRecords returns undefined when sidecar is missing', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '5'.repeat(64);
+    cache.set(key, new Uint8Array([1])); // no debugRecords passed → no .dbg
+    expect(cache.getDebugRecords(key)).toBeUndefined();
+  });
+
+  test('getDebugRecords returns undefined when sidecar is malformed', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '6'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), '{not valid json');
+    expect(cache.getDebugRecords(key)).toBeUndefined();
+  });
+
+  test('getDebugRecords returns undefined when sidecar has wrong format version', () => {
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '7'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION + 999, records: [] }));
+    expect(cache.getDebugRecords(key)).toBeUndefined();
+  });
 });
 
 // ====================================================================
@@ -680,5 +731,70 @@ describe('ObjectCache Integration Tests', () => {
 
     cleanupOutputFiles(objTestDir, 'spin_test14');
     cleanupDir(mapCacheDir);
+  });
+
+  // --- Debug-record fidelity on cache hit ---
+
+  // Regression for the v1.54.2 cache-debug bug. Cached child binaries have
+  // brkCodes baked in that index a shared DebugData table rebuilt every
+  // compile. Without restoring the child's contributed records on cache hit,
+  // those brkCodes alias to whatever the new compile happened to put at those
+  // indices, producing garbled runtime output. The .dbg sidecar fixes this;
+  // a warm-cache --debug build must produce a final .bin byte-identical to
+  // an uncached --debug build, debug data table and all.
+  test('warm cache with --debug produces .bin identical to uncached --debug build', () => {
+    const dbgFixtureDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const debugRecordsCacheDir = path.join(dbgFixtureDir, '.dbg-records-cache');
+    cleanupDir(debugRecordsCacheDir);
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+
+    // Reference: uncached --debug build
+    compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', '-d');
+    const binUncached = fs.readFileSync(path.join(dbgFixtureDir, 'spin_dbg_cache_parent.bin'));
+
+    // Cold cache --debug build — fills .pnut-cache with binary + sym + dbg sidecars
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+    compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', `-d --cache --cache-clear --cache-dir ${debugRecordsCacheDir}`);
+    const binColdCached = fs.readFileSync(path.join(dbgFixtureDir, 'spin_dbg_cache_parent.bin'));
+    expect(Buffer.from(binColdCached).equals(Buffer.from(binUncached))).toBe(true);
+
+    // Confirm .dbg sidecars exist for the cached children
+    const dbgFiles = fs.readdirSync(debugRecordsCacheDir).filter((f) => f.endsWith('.dbg'));
+    expect(dbgFiles.length).toBeGreaterThan(0);
+
+    // Warm cache --debug build — child loads from cache; debug records replayed.
+    // This is the path that produced garbled output before the .dbg sidecar fix.
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+    compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', `-d --cache --cache-dir ${debugRecordsCacheDir}`);
+    const binWarmCached = fs.readFileSync(path.join(dbgFixtureDir, 'spin_dbg_cache_parent.bin'));
+    expect(Buffer.from(binWarmCached).equals(Buffer.from(binUncached))).toBe(true);
+
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+    cleanupDir(debugRecordsCacheDir);
+  });
+
+  test('debug+cache hit with missing .dbg sidecar surfaces a clear error', () => {
+    const dbgFixtureDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const corruptCacheDir = path.join(dbgFixtureDir, '.dbg-corrupt-cache');
+    cleanupDir(corruptCacheDir);
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+
+    // Warm cache normally
+    compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', `-d --cache --cache-clear --cache-dir ${corruptCacheDir}`);
+    const dbgFiles = fs.readdirSync(corruptCacheDir).filter((f) => f.endsWith('.dbg'));
+    expect(dbgFiles.length).toBeGreaterThan(0);
+
+    // Delete every .dbg sidecar — simulates a partial-write scenario where
+    // .bin survived but .dbg didn't. Compiler must refuse the hit instead of
+    // silently producing a broken binary.
+    for (const f of dbgFiles) fs.rmSync(path.join(corruptCacheDir, f));
+
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+    expect(() => {
+      compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', `-d --cache --cache-dir ${corruptCacheDir}`);
+    }).toThrow(/missing \.dbg sidecar/);
+
+    cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
+    cleanupDir(corruptCacheDir);
   });
 });

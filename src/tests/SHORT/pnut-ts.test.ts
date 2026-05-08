@@ -30,11 +30,4 @@ describe('PNutInTypeScript', () => {
     cliTool.run();
     expect(process.stdout.write).toHaveBeenCalledWith('pnut-ts: Verbose output is enabled\r\n');
   });
-
-  test('run function logs correct message for --flash option', () => {
-    process.argv = ['node', 'pnut-ts.js', '--flash', 'TEST/emptySpinFile.spin2'];
-    const cliTool = new PNutInTypeScript();
-    cliTool.run();
-    expect(process.stdout.write).toHaveBeenCalledWith('pnut-ts: Downloading to FLASH\r\n');
-  });
 });

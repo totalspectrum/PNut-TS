@@ -6992,24 +6992,10 @@ export class SpinResolver {
     // PNut debug_enter_record:
     if (this.isLogging) this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - ENTRY`);
     this.debugEnterByte(0); // zero-terminate record
-    let entryIndex: number = 1; // PNut bl register
-    let recordPresent: boolean = false;
-    do {
-      recordPresent = this.debug_data.recordExists(entryIndex);
-      if (recordPresent) {
-        if (this.debug_data.recordIsMatch(entryIndex, this.debug_record)) {
-          break; // return != 0 offset out of loop
-        }
-        if (++entryIndex > DebugData.MAX_ENTRIES) {
-          // [error_dditl] WAS: DEBUG data is too long
-          throw new Error(`DEBUG data is too long: too many records: max ${DebugData.MAX_ENTRIES} (m153)`);
-        }
-      }
-    } while (recordPresent);
-    // add new record here
-    if (recordPresent == false) {
-      this.debug_data.setRecord(entryIndex, this.debug_record);
-    }
+    // Delegate the dedup-then-add walk to DebugData.injectRecord so this code
+    // and the object cache's record-replay path share a single implementation
+    // and a single set of error codes.
+    const entryIndex: number = this.debug_data.injectRecord(this.debug_record.rawUint8Array);
     this.debug_record.clear(); // record recorded or skipped, empty it
     if (this.isLogging) this.logMessage(`debugEnterRcd() curr rcd len=(${this.debug_record.length}) - EXIT w/(${entryIndex})`);
     return entryIndex; // index of matched record or new record

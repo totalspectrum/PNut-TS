@@ -1,0 +1,17 @@
+' Debug-cache regression fixture: parent + child both call debug().
+' Used to verify the .dbg sidecar correctly captures and replays
+' debug records on cache hit so the final binary's debug data table
+' matches a fresh compile byte-for-byte.
+
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  child : "spin_dbg_cache_child"
+
+PUB main() | aa, bb
+  aa := $ABCD
+  bb := 7
+  debug("parent main: aa=", uhex_(aa), " bb=", udec_(bb))
+  child.greet(aa)
+  debug("parent done")

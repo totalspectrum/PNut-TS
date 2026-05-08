@@ -132,6 +132,16 @@ export class Spin2Parser {
     return [...this.spinResolver.userSymbolTable];
   }
 
+  /**
+   * Direct access to the in-progress DebugData table. Used by the object
+   * cache to snapshot record counts before/after a child compile, extract
+   * a child's contributed records on cache miss, and replay records on
+   * cache hit.
+   */
+  public get debugRawData(): DebugData {
+    return this.spinResolver.debugRawData;
+  }
+
   private P2MakeFlashFile(objImage: ObjectImage) {
     if (this.context.compileOptions.writeFlashImageFile) {
       if (this.isLogging) this.logMessage('* P2MakeFlashFile() - write flash image file');
@@ -507,8 +517,13 @@ export class Spin2Parser {
     stream.end();
     this.context.logger.progressMsg(`Wrote ${objFilename} (${byteCount} bytes)`);
   }
-  public ComposeRam(programFlash: boolean, ramDownload: boolean) {
+  public ComposeRam() {
     // here is pascal ComposeRAM()
+    // pnut-ts is a compiler-only tool: --flash/--ram download options were
+    // never wired up and the corresponding programFlash/ramDownload code
+    // paths (P2InsertFlashLoader, LoadHardware) are dormant. The flash *image*
+    // file (.flash) for external programmers is still produced when
+    // --flashfile is set; that path goes through P2MakeFlashFile.
     const isPasmMode: boolean = this.spinResolver.isPasmMode;
     const isDebugMode: boolean = this.context.compileOptions.enableDebug;
     if (isPasmMode == false) {
@@ -544,29 +559,9 @@ export class Spin2Parser {
 
     const nonLoaderObjImage = ObjectImage.copyFrom(this.objImage);
 
-    // insert flash loader?
-    if (programFlash) {
-      const codeAndLoaderSize: number = objSize + this.externalFiles.flashLoaderLength;
-      if (codeAndLoaderSize > this.HubLimit) {
-        // [error_PASCAL]
-        throw new Error(`Need to reduce program by ${codeAndLoaderSize - this.HubLimit} bytes, in order to fit flash loader into hub RAM download`);
-      }
-      this.P2InsertFlashLoader();
-      // save binaryF file?
-      if (this.context.compileOptions.writeBin) {
-        const yesIsProgramFlash: boolean = false;
-        this.writeBinaryFile(this.objImage, 0, this.objImage.length, yesIsProgramFlash);
-      }
-    } else {
-      // save binary file?
-      if (this.context.compileOptions.writeBin) {
-        const noProgramFlash: boolean = false;
-        this.writeBinaryFile(this.objImage, 0, this.objImage.length, noProgramFlash);
-      }
-    }
-
-    if (ramDownload) {
-      this.LoadHardware();
+    // save binary file
+    if (this.context.compileOptions.writeBin) {
+      this.writeBinaryFile(this.objImage, 0, this.objImage.length, false);
     }
 
     if (this.context.compileOptions.writeFlashImageFile) {

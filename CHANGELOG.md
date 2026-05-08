@@ -21,6 +21,19 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.3] 2026-05-08
+
+### Fixed
+
+- **Object cache correctness with `--debug` (real fix)**: cached child binaries have `brkCode` bytes baked in by every `debug()` call; those `brkCode`s are indices into a single `DebugData` table that the compiler rebuilds from scratch every run. v1.54.2 fixed the cache *key* so debug and non-debug binaries no longer aliased, but it did not save the records themselves — on cache hit, the table was filled with whatever the new compile produced and the cached child's `brkCode`s pointed at unrelated records. This manifested as garbled `debug()` output once two or more sibling tests hit the cache: format strings printing the wrong values, loop counters appearing under the wrong label, etc. Each cache entry now ships a `.dbg` sidecar that captures the records the child contributed during its original compile; on cache hit those records are replayed through the same dedup walk as `debug_enter_record`, so the indices line up and the resulting top-level `.bin` (debug data table included) is byte-identical to a fresh compile. A missing `.dbg` on a `--debug` cache hit now raises an explicit error rather than silently producing a broken binary. `CACHE_FORMAT_VERSION` is bumped to 3, invalidating all v1.54.2 entries.
+
+### Deferred (see DOCs/roadmaps/Test-Suite-Punch-List.md)
+
+- `op_qlog($FFFFFFFF)` saturation precision bug (resolver regression catches this; one assertion).
+- Stale preprocessor GOLDs (Jan 2024 format predates a deliberate preprocessor output change).
+- 8 pre-existing `npm run audit-errors` duplicate-code issues, mostly clustered around v1.54.0 STRUCT support.
+- Dead flash-loader internal helpers (`P2InsertFlashLoader`, `LoadHardware`) left in place after the CLI cleanup; deletion ripples into `src/ext/` resource bundling.
+
 ## [1.54.2] 2026-05-06
 
 ### Fixed

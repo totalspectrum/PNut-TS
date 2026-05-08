@@ -170,6 +170,55 @@ export class DebugData {
     this.replaceWord(recordOffset + newRecord.length, 0);
   }
 
+  /**
+   * Extract the raw bytes of the record at entryIndex (1-based).
+   * Records are stored back-to-back starting at 0x200, in index order.
+   * Returns an empty array if the index has no record.
+   */
+  public getRecordBytes(entryIndex: number): Uint8Array {
+    if (!this.recordExists(entryIndex)) return new Uint8Array(0);
+    const startOffset = this.readWord(entryIndex << 1);
+    // End is the next-higher record's offset; if this is the last record, the
+    // next-free pointer at slot 0 holds the byte just past the last record.
+    let endOffset = this.readWord(0);
+    for (let i = entryIndex + 1; i <= DebugData.MAX_ENTRIES; i++) {
+      const otherOffset = this.readWord(i << 1);
+      if (otherOffset !== 0) {
+        endOffset = otherOffset;
+        break;
+      }
+    }
+    return this._debugImage.slice(startOffset, endOffset);
+  }
+
+  /**
+   * Inject a pre-built record using the same dedup-then-add walk as
+   * spinResolver.debugEnterRecord. Used by the object cache to replay a
+   * cached child's debug records on cache-hit, so brkCodes baked into the
+   * cached binary resolve to the same indices they had during the original
+   * compile. Returns the resulting brkCode (entryIndex). Wraps the raw bytes
+   * in a DebugRecord so existing recordIsMatch / setRecord enforce the same
+   * size and capacity limits with their original error codes.
+   */
+  public injectRecord(bytes: Uint8Array): number {
+    const wrapper = new DebugRecord(this.context);
+    for (let i = 0; i < bytes.length; i++) {
+      wrapper.append(bytes[i]); // throws (m150) if the saved record overflows MAX_RECORD_LENGTH
+    }
+    let entryIndex = 1;
+    while (this.recordExists(entryIndex)) {
+      if (this.recordIsMatch(entryIndex, wrapper)) {
+        return entryIndex;
+      }
+      if (++entryIndex > DebugData.MAX_ENTRIES) {
+        // [error_dditl] (m153)
+        throw new Error(`DEBUG data is too long: too many records: max ${DebugData.MAX_ENTRIES} (m153)`);
+      }
+    }
+    this.setRecord(entryIndex, wrapper); // throws (m151) if the buffer is full
+    return entryIndex;
+  }
+
   public setOffsetTo(offset: number) {
     // ?? no guard for this for now...
     this.logMessage(`* DebugData: setOffsetTo() (${hexAddress(this._debugOffset)}) -> (${hexAddress(offset)}) diff(${offset - this._debugOffset})`);

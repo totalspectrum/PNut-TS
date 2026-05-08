@@ -101,11 +101,6 @@ export class Compiler {
     if (this.isLogging) this.logMessage(`* Compiler LOGGING is enabled!`);
 
     this.srcFile = this.context.sourceFiles.getTopFile();
-    // TESTING: if requested, run our internal-tables regression report generator
-    if (this.context.reportOptions.writeTablesReport) {
-      const reporter: RegressionReporter = new RegressionReporter(this.context);
-      reporter.writeTableReport(this.srcFile.dirName, this.srcFile.fileName);
-    }
 
     // TESTING: if requested, run our resolver regression test report generator
     if (this.context.reportOptions.writeResolverReport) {
@@ -141,9 +136,7 @@ export class Compiler {
 
         this.spin2Parser.P2List();
         this.spin2Parser.P2Map();
-        const needFLash: boolean = this.context.compileOptions.writeFlash;
-        const ramDownload: boolean = this.context.compileOptions.writeRAM || needFLash; // we need download when flashing too!
-        this.spin2Parser.ComposeRam(needFLash, ramDownload);
+        this.spin2Parser.ComposeRam();
       } catch (error: unknown) {
         if (error instanceof Error) {
           const sourceFileID: number = this.spin2Parser.failingFileID;
@@ -180,6 +173,11 @@ export class Compiler {
 
       // --- CACHE CHECK (for child objects only) ---
       let cacheKey: string | undefined;
+      // Snapshot the shared DebugData record count before this child compiles.
+      // On cache miss we use it to slice out the records this child contributed
+      // (so they can be replayed on a future cache hit). debugRawData is always
+      // valid; when --debug is off the count stays at 0 throughout.
+      const debugRecordsBefore: number = this.spin2Parser.debugRawData.recordCount;
       if (this.objectCache.isEnabled && depth > 0) {
         cacheKey = this.objectCache.computeKey({
           preprocessedLines: srcFile.allPreprocessedLines,
@@ -192,6 +190,31 @@ export class Compiler {
           // Cache hit — inject cached binary into childImages, skip full compilation
           if (this.isLoggingOutline) this.logMessageOutline(`  -- CACHE HIT -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}...`);
           this.memoryStats.totalObjectsCompiled++;
+
+          // Replay the child's contributed debug records BEFORE its binary is
+          // injected, so the brkCodes baked into the cached .bin resolve to
+          // the same DebugData indices they had at the original compile. The
+          // dedup walk in injectRecord matches the assignment logic in
+          // debugEnterRecord, so as long as earlier siblings have already
+          // restored their records (cache flow is depth-first), the indices
+          // line up. Without --debug this is a no-op (records list is empty).
+          if (this.context.compileOptions.enableDebug) {
+            const cachedDebugRecords = this.objectCache.getDebugRecords(cacheKey);
+            if (cachedDebugRecords === undefined) {
+              // .dbg sidecar missing on a debug-enabled cache hit means a
+              // partial-write or pre-v3 entry slipped through key-version
+              // protection. Treat as a corrupted hit: surface a clear error
+              // rather than silently producing garbled runtime output.
+              throw new Error(
+                `Object cache: missing .dbg sidecar for [${srcFile.fileName}] (key=${cacheKey.substring(0, 12)}...). ` +
+                  `Run with --cache-clear to rebuild.`
+              );
+            }
+            for (const recordBytes of cachedDebugRecords) {
+              this.spin2Parser.debugRawData.injectRecord(recordBytes);
+            }
+          }
+
           const duplicateInfo = this.childImages.findDuplicateChild(cachedBinary);
           let physicalFileIndex: number;
 
@@ -377,6 +400,21 @@ export class Compiler {
           // --- CACHE STORE (for child objects on cache miss) ---
           if (cacheKey !== undefined) {
             const binaryCopy = new Uint8Array(childImage);
+            // Capture the debug records this child (and its grandchildren)
+            // contributed during the just-completed compile. We slice
+            // [recordsBefore+1 .. recordsAfter] from the shared DebugData
+            // table; entries get sequential indices because debugEnterRecord
+            // adds at the first free slot. brkCodes that dedup'd against
+            // earlier records are NOT captured here — those reference records
+            // that are guaranteed to already be present at any future cache
+            // hit (placed by earlier siblings, which also restore on hit).
+            const debugRecordsAfter: number = this.spin2Parser.debugRawData.recordCount;
+            const childDebugRecords: Uint8Array[] = [];
+            if (this.context.compileOptions.enableDebug && debugRecordsAfter > debugRecordsBefore) {
+              for (let idx = debugRecordsBefore + 1; idx <= debugRecordsAfter; idx++) {
+                childDebugRecords.push(this.spin2Parser.debugRawData.getRecordBytes(idx));
+              }
+            }
             const metadata: CacheMetadata = {
               source: srcFile.fileName,
               overrides: overrideParameters ? this.serializeOverrides(overrideParameters) : '',
@@ -387,10 +425,18 @@ export class Compiler {
               binarySize: objectLength,
               symbolCount: childSymbols.length
             };
-            this.objectCache.set(cacheKey, binaryCopy, { metadata, symbols: childSymbols });
+            // Always pass debugRecords (even when empty) so the .dbg sidecar
+            // exists on every debug-enabled cache entry — its absence on a
+            // future hit then unambiguously signals corruption.
+            this.objectCache.set(cacheKey, binaryCopy, {
+              metadata,
+              symbols: childSymbols,
+              debugRecords: this.context.compileOptions.enableDebug ? childDebugRecords : undefined
+            });
             if (this.isLoggingOutline)
               this.logMessageOutline(
-                `  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., size=${objectLength}, symbols=${childSymbols.length}`
+                `  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., ` +
+                  `size=${objectLength}, symbols=${childSymbols.length}, dbgRecords=${childDebugRecords.length}`
               );
           }
           // --- END CACHE STORE ---

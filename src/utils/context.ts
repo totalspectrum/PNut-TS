@@ -37,7 +37,6 @@ export interface LogOptions {
 }
 
 export interface ReportOptions {
-  writeTablesReport: boolean; // write elementizer
   writeElementsReport: boolean; // write elementizer
   writePreprocessReport: boolean;
   writeResolverReport: boolean;
@@ -53,8 +52,6 @@ export interface PreProcessorOptions {
 }
 
 export interface CompileOptions {
-  writeFlash: boolean; // after compile, load to flash and run
-  writeRAM: boolean; // after compile, load to RAM and run
   compile: boolean; // compile file
   enableDebug: boolean; // compile with debug
   outputFilename: string; // override output filename with this name
@@ -179,7 +176,6 @@ export class Context {
       logDistiller: false
     };
     this.reportOptions = {
-      writeTablesReport: false,
       writeElementsReport: false,
       writePreprocessReport: false,
       writeResolverReport: false,
@@ -190,8 +186,6 @@ export class Context {
     this.runEnvironment = { serialPortDevices: [], developerModeEnabled: false };
     this.passOptions = { afterPreprocess: false, afterElementize: false, afterConBlock: false };
     this.compileOptions = {
-      writeFlash: false,
-      writeRAM: false,
       compile: false,
       enableDebug: false,
       outputFilename: '',

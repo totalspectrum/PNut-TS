@@ -11,7 +11,7 @@ import { sync as globSync } from 'glob';
 import { appendDiagnosticString, removeExistingFile, topLevel } from '../testUtils';
 
 // test lives in <rootDir>/src/tests/SHORT
-const testDirPath = path.resolve(__dirname, '../../../TEST/SHORT/tablesTESTs');
+const testDirPath = path.resolve(__dirname, '../../../TEST/SHORT/resolverTESTs');
 const toolPath = path.resolve(__dirname, '../../../dist');
 
 const directories = [
@@ -28,7 +28,7 @@ describe('Directory existence tests', () => {
 });
 
 describe('PNut_ts generates correct resolver responses', () => {
-  // Get all .spin2 files in the ./TEST/tablesTESTs/ directory
+  // Get all .spin2 files in the ./TEST/SHORT/resolverTESTs/ directory
   let files: string[] = [];
   try {
     files = globSync(`${testDirPath}/*.spin2`);

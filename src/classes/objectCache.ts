@@ -8,8 +8,20 @@
 //   <key>.bin  — compiled child binary (load-bearing)
 //   <key>.sym  — serialized user symbols for map file generation (load-bearing,
 //                read only when writeMapFile is enabled)
+//   <key>.dbg  — serialized debug records contributed by this child (load-
+//                bearing whenever the cached .bin contains BRK opcodes; only
+//                ever produced when --debug was on at store time)
 //   <key>.meta — human-readable JSON diagnostic (optional, never required by
 //                the hit path)
+//
+// Why .dbg exists: each debug() call bakes a brkCode (an index into the
+// compile's shared DebugData table) into the child's binary. The actual
+// records — format strings + on-device debugger commands — live only in that
+// table, which is rebuilt from scratch every compile. Without restoring the
+// child's records on cache hit, the brkCodes in the cached .bin alias to
+// whatever the new compile happened to put at those indices, producing
+// nonsense at runtime. .dbg captures the records contributed during the
+// child's original compile so they can be replayed (with dedup) on hit.
 //
 // IMPORTANT: any compile option that can change a child object's bytes MUST be
 // folded into computeKey(). Today that means enableDebug. If you add a new flag
@@ -34,7 +46,7 @@ import { TextLine } from './textLine';
  * Bumping this invalidates every existing cache entry by changing every key.
  * Old <key>.bin files become unreachable and are cleaned by --cache-clear.
  */
-export const CACHE_FORMAT_VERSION = 2;
+export const CACHE_FORMAT_VERSION = 3;
 
 export interface CacheStats {
   hits: number;
@@ -62,6 +74,13 @@ export interface CacheKeyInputs {
 export interface CacheStoreOptions {
   metadata?: CacheMetadata;
   symbols?: SymbolEntry[];
+  /**
+   * Debug records contributed by this child, in the order they were added to
+   * the shared DebugData table. Each entry is the raw bytes of one record
+   * (including its trailing zero terminator). When provided and non-empty, a
+   * .dbg sidecar is written alongside the .bin.
+   */
+  debugRecords?: Uint8Array[];
 }
 
 /** Compact serialized form of a SymbolEntry. Field names kept short to
@@ -76,6 +95,12 @@ interface SerializedSymbol {
 interface SerializedSymFile {
   cacheFormatVersion: number;
   symbols: SerializedSymbol[];
+}
+
+interface SerializedDbgFile {
+  cacheFormatVersion: number;
+  /** Each record's bytes encoded as base64 (including the trailing 0 terminator). */
+  records: string[];
 }
 
 export class ObjectCache {
@@ -143,6 +168,25 @@ export class ObjectCache {
     }
   }
 
+  /** Retrieve cached debug records for a key. Returns undefined if the .dbg
+   *  sidecar is missing, malformed, or has a mismatched format version.
+   *  Returns an empty array when the child contributed no records (e.g. it
+   *  contained no debug() calls, or was cached with --debug off). */
+  getDebugRecords(key: string): Uint8Array[] | undefined {
+    if (!this.enabled) return undefined;
+    const dbgPath = this.dbgPath(key);
+    if (!fs.existsSync(dbgPath)) return undefined;
+    try {
+      const raw = fs.readFileSync(dbgPath, 'utf8');
+      const parsed = JSON.parse(raw) as SerializedDbgFile;
+      if (parsed.cacheFormatVersion !== CACHE_FORMAT_VERSION) return undefined;
+      if (!Array.isArray(parsed.records)) return undefined;
+      return parsed.records.map((b64) => new Uint8Array(Buffer.from(b64, 'base64')));
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Store a compiled object in the cache. Writes sidecars first, binary
    *  last, so an interrupted run never leaves a `.bin` without companions. */
   set(key: string, binary: Uint8Array, options: CacheStoreOptions = {}): void {
@@ -156,6 +200,13 @@ export class ObjectCache {
         symbols: serializeSymbols(options.symbols)
       };
       fs.writeFileSync(this.symPath(key), JSON.stringify(payload));
+    }
+    if (options.debugRecords !== undefined) {
+      const payload: SerializedDbgFile = {
+        cacheFormatVersion: CACHE_FORMAT_VERSION,
+        records: options.debugRecords.map((rec) => Buffer.from(rec).toString('base64'))
+      };
+      fs.writeFileSync(this.dbgPath(key), JSON.stringify(payload));
     }
     if (options.metadata !== undefined) {
       fs.writeFileSync(this.metaPath(key), JSON.stringify(options.metadata, null, 2));
@@ -197,6 +248,10 @@ export class ObjectCache {
 
   private symPath(key: string): string {
     return path.join(this.cacheDir, `${key}.sym`);
+  }
+
+  private dbgPath(key: string): string {
+    return path.join(this.cacheDir, `${key}.dbg`);
   }
 
   private metaPath(key: string): string {

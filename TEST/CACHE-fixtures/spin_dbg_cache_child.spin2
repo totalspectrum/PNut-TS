@@ -1,0 +1,9 @@
+' Debug-cache regression fixture child object.
+
+PUB greet(value) | counter
+  counter := 0
+  debug("child greet: value=", uhex_(value))
+  repeat 3
+    counter += 1
+    debug("child loop: counter=", udec_(counter))
+  debug("child greet done")

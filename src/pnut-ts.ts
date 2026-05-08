@@ -28,7 +28,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.54.2';
+  private version: string = '1.54.3';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
@@ -83,25 +83,16 @@ export class PNutInTypeScript {
       })
       .name('pnut-ts')
       .version(`v${this.version}`, '-V, --version', 'Output the version number')
-      //.version(`v${this.version}`)
       .usage('[optons] filename')
-      //.description(`Propeller Spin2 compiler/downloader - v${this.version}`) // not until flasher is activated
       .description(`Propeller Spin2 compiler - v${this.version}`)
       .arguments('[filename]')
       .action((filename: string) => {
         this.options.filename = filename;
       })
-      //.option('-b, --both', 'Compile with DEBUG, download to FLASH and run')
-      //.option('-44, --ver44', 'Listings compatible with PNut_v44 and later')
       .option('-d, --debug', 'Compile with DEBUG')
-      //      .option('-f, --flash', 'Download to FLASH and run')
-      //      .option('-r, --ram', 'Download to RAM and run')
       .option('-l, --list', 'Generate listing files (.lst) from compilation')
       .option('-m, --map', 'Generate memory map file (.map) from compilation')
-      //      .option('-p, --plug <dvcNode>', 'download to/flash Propeller attached to <dvcNode>')
-      //      .option('-n, --dvcnodes', 'List available USB PropPlug device (n)odes')
       .option('-v, --verbose', 'Output verbose messages')
-      //.option('-B, --bin', 'Generate binary files (.bin) suitable for download')
       .option('-a, --altbin', 'Use alternate .binary name vs. .bin')
       .option('-o, --output <name>', 'Specify output file basename')
       .option('-i, --intermediate', 'Generate *__pre.spin2 after preprocessing')
@@ -126,7 +117,7 @@ export class PNutInTypeScript {
           'resolver'
         ])
       )
-      .addOption(new Option('--regression <testName...>', 'testName').choices(['element', 'tables', 'resolver', 'preproc']))
+      .addOption(new Option('--regression <testName...>', 'testName').choices(['element', 'resolver', 'preproc']))
       .addOption(new Option('--pass <passName...>', 'Stop after passName').choices(['preprocess', 'elementize', 'con-block']));
 
     this.program.addHelpText('beforeAll', `$-`);
@@ -139,12 +130,6 @@ export class PNutInTypeScript {
          $ pnut-ts -l my-top-level.spin2      # compile file leaving .bin and .lst files
          `
     );
-
-    // HOLD: (we don't support flash or ram download yet)
-    //   $ pnut-ts -c -d -r my-top-level.spin2   # compile file with Debug and run from RAM
-    //   $ pnut-ts -cf my-top-level.spin2        # compile file without Debug download to FLASH and run
-
-    //this.program.showHelpAfterError('(add --help for additional information)');
 
     this.program.exitOverride(); // throw instead of exit
 
@@ -257,10 +242,7 @@ export class PNutInTypeScript {
       this.context.logger.verboseMsg('Writing .binary suffix binary files');
     }
 
-    //if (this.options.bin) {
-    // ALWAYS SET THIS until we have a built-in flasher
     this.context.compileOptions.writeBin = true;
-    //}
 
     if (this.options.obj) {
       this.context.compileOptions.writeObj = true;
@@ -361,10 +343,6 @@ export class PNutInTypeScript {
         this.context.reportOptions.writeElementsReport = true;
         this.context.logger.verboseMsg('  Element Report');
       }
-      if (choices.includes('tables')) {
-        this.context.reportOptions.writeTablesReport = true;
-        this.context.logger.verboseMsg('  Tables Report');
-      }
       if (choices.includes('preproc')) {
         this.context.reportOptions.writePreprocessReport = true;
         this.context.logger.verboseMsg('  preProcessor Report');
@@ -438,41 +416,12 @@ export class PNutInTypeScript {
       this.context.logger.verboseMsg(`* Override output filename, now [${outFilename}]`);
     }
 
-    /*
-    if (this.options.both) {
-      this.context.logger.verboseMsg('have BOTH: enabling FLASH and DEBUG');
-      this.options.debug = true;
-      this.options.flash = true;
-      this.options.ram = false;
-    }*/
-
     if (this.options.debug) {
       this.context.logger.progressMsg('Compiling with DEBUG');
       this.context.compileOptions.enableDebug = true;
       this.requiresFilename = true;
     }
 
-    /*
-    if (this.options.flash) {
-      this.context.logger.progressMsg('Downloading to FLASH');
-      this.context.compileOptions.writeFlash = true;
-      this.requiresFilename = true;
-    }
-
-    if (this.options.ram) {
-      this.context.logger.progressMsg('Downloading to RAM');
-      this.context.compileOptions.writeRAM = true;
-      this.requiresFilename = true;
-    }
-
-    if (this.options.ram && this.options.flash) {
-      //this.program.error('Please only use one of -f and -r');
-      this.context.logger.errorMsg('Please only use one of -f and -r');
-      this.shouldAbort = true;
-    }*/
-
-    //if (this.options.compile) {
-    // ALWAYS SET THIS until we have a built-in flasher
     if (!showingHelp) {
       if ((foundJest || runningCoverageTesting) && this.options.filename === undefined) {
         // we don't handle this!
