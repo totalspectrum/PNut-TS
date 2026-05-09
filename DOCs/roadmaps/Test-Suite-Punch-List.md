@@ -129,6 +129,142 @@ CLI cleanup that motivated this release.
 
 ---
 
+## 5. Object-cache hardening — items deferred from v1.54.6
+
+Recorded as a group while shipping v1.54.6 (subtree exportdef replay + the
+new comprehensive byte-equivalence regression test). The fix and the
+regression test together close every cache-correctness gap currently known
+to be hit by the SD FAT32 driver suite. These items would further tighten
+the cache against future drift but are not blocking anything observed today.
+
+Background context: `DOCs/roadmaps/Object-Cache-Correctness-Analysis.md`
+(the living analysis written during the v1.54.5 → v1.54.6 root-cause work)
+catalogs the full shared-state surface and the precise mitigation stack.
+Items below are referenced by their analysis-doc identifiers (M1, M2, ...).
+
+### 5a. End-to-end SD test suite verification of v1.54.6
+
+**What:** run the v1.54.6 build against the full SD FAT32 driver suite
+(24 harnesses, the scenario that surfaced v1.54.2 → v1.54.5). The local
+fixture (`expdef_subtree_*.spin2`) proves the mechanism is fixed; the SD
+suite is the production-scale verification.
+
+**Trigger to revisit:** before shelving the cache work as "complete," run
+the SD suite under v1.54.6 and confirm zero compile failures. Reference
+materials are at `REF-CACHE-BUG/cache-bug-v1.54.{3,4,5}/` for comparison.
+
+### 5b. `--cache-verify` CLI flag (M1, deferred)
+
+**What:** a CLI flag that, on every cache hit, also runs a fresh compile
+of the same input and byte-compares the resulting binary. Mismatch raises
+a clear cache-corruption error.
+
+**Why deferred:** the comprehensive byte-equivalence regression test
+(`describe.each` over 9 fixtures in `objectCache.test.ts`) gives the same
+correctness backstop at PR time, which is the higher-leverage path.
+`--cache-verify` becomes useful as an end-user ad-hoc diagnostic ("I'm
+worried, let me run my own project's compile under cache-verify and have
+peace of mind") but isn't structurally necessary if every PR has CI green.
+
+**Trigger to revisit:** a user reports a cache failure on a project we
+don't have a fixture for, AND the byte-equivalence test passes. That
+combination means we want a runtime tool to reproduce in the user's own
+environment.
+
+### 5c. Typed `CacheContract<T>` registry (M2, deferred)
+
+**What:** define an `interface CacheContract<T>` covering "input goes
+into key" + "side effects captured at store" + "side effects replayed
+at hit." Refactor the four current contracts (key inputs, defSymbols
+replay, DebugData replay, symbol replay) into the typed pattern. Add a
+registry test that asserts every mutable container in `Context` is
+registered with a contract or explicitly opted out.
+
+**Why deferred:** medium-effort refactor (~400 LOC + test). Adds the
+structural protection that "the next compiler-feature PR introducing a
+new piece of process-global state can't merge without thinking about
+the cache." The byte-equivalence test catches the bug at PR time
+either way; the registry catches it at TYPE/TEST time, earlier in the
+PR's lifecycle.
+
+**Trigger to revisit:** the next PR that adds shared mutable state to
+`Context` or the resolver. Or when we've shipped a fifth cache fix in
+six months and want to draw a line.
+
+### 5d. Manifest sidecar (Shape B / M3, deferred)
+
+**What:** add `<key>.json` per cache entry listing every sidecar with
+content hashes. Hit path validates manifest before reading sidecars;
+missing or hash-mismatched sidecars fail the hit explicitly.
+
+**Why deferred:** today's "binary last + format-version-in-key" pattern
+covers the partial-write case. A manifest catches a narrow class of
+filesystem corruption (sidecar swap between entries) and forces structural
+discipline ("every sidecar must be declared") that's currently informal.
+
+**Trigger to revisit:** when adding the next sidecar (e.g. for an
+LRU-eviction policy or for `--map`'s distiller restore — see
+`Object-Cache-Future-Enhancements.md`). Shape B is essentially free if
+we're already touching the on-disk layout.
+
+### 5e. Hash DAT FILE bytes into the cache key (theoretical gap A7)
+
+**What:** when a child has `DAT data byte FILE "blob.bin"`, hash the
+loaded bytes into the cache key alongside the source. Today the source
+line `byte FILE "blob.bin"` enters the key; the resolved bytes do not.
+
+**Why deferred:** only bites when `blob.bin` content varies across two
+compiles of the same `.spin2` source — in practice requires either (a)
+running the compile from two different working directories with different
+files at the same logical path, or (b) build pipelines that regenerate
+DAT files between cached compiles. Neither pattern appears in observed
+project layouts.
+
+**Trigger to revisit:** a user reports a "stale embedded blob" failure.
+Fix is ~10 LOC: hash the result of `loadFileAsUint8Array` into the key.
+CACHE_FORMAT_VERSION bump.
+
+### 5f. Distiller record replay on cache hit (latent map-fidelity gap)
+
+**What:** restore `objectDistiller.records` for cached subtrees so
+`--map` output shows the full parent → child → grandchild hierarchy.
+Today the `.sym` sidecar restores user symbols but not distiller
+records, so grandchildren of cache-served children are missing from
+the map.
+
+**Why deferred:** affects `--map` output only; doesn't affect compile
+correctness. Documented at length in
+`DOCs/roadmaps/Object-Cache-Future-Enhancements.md` as "Option C —
+Full distiller-state cache." Implementation is non-trivial because
+distiller records cross-reference each other by IDs that are allocated
+fresh each compile; a snapshot-and-replay approach needs an ID remap
+layer.
+
+**Trigger to revisit:** a user reports a `--cache --map` map file is
+missing a grandchild they expected to see.
+
+### 5g. Eliminate shared mutable state in resolver/preprocessor (M5, far future)
+
+**What:** refactor `defSymbols`, `DebugData`, `objectSymbolStore`,
+`objectDistiller` into per-compile parameters that flow explicitly
+through call signatures. Compile becomes a pure function of declared
+inputs. After this, the cache is correct *by construction* (TypeScript
+enforces "this state has a contract") rather than correct *by
+construction-via-test* (the registry test enforces it).
+
+**Why deferred:** months-long refactor of the resolver and parser. The
+M2 typed registry plus the byte-equivalence regression test together
+give correct-by-CI protection ("incorrect code can't merge"), which is
+the strongest practical guarantee for a system with mutable globals.
+M5 is the right answer for a 5-year-horizon compiler; not justified
+for short-term correctness.
+
+**Trigger to revisit:** PNut-TS feature growth shifts the
+cost-benefit (e.g. parallel compile becomes desirable, which requires
+purity anyway).
+
+---
+
 ## Cross-cutting note: regression tests against "us-vs-us" GOLDs
 
 Three of the items above (`#1 op_qlog`, `#2 preproc GOLDs`, the deleted
