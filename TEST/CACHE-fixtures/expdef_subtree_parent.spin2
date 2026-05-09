@@ -1,0 +1,18 @@
+' v1.54.6 regression parent. Two depth-1 children: sd_child (which has the
+' exportdef-pushing grandchild) and utils_child (which depends on the symbol
+' the grandchild pushes). Children compile in source-declaration order:
+' sd_child first, then utils_child. utils_child's preprocess sees defSymbols
+' AFTER sd_child has compiled (or cache-hit). On a cold compile, sd_child's
+' grandchild pushes GC_FEATURE → utils_child sees it. On a v1.54.5 warm cache,
+' sd_child cache-hits and grandchild's preprocess is skipped → GC_FEATURE
+' missing → utils_child compiles a different binary.
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  sd    : "expdef_subtree_sd_child"
+  utils : "expdef_subtree_utils_child"
+
+PUB main() | a, b
+  a := sd.run()
+  b := utils.tag()

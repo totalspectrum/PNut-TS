@@ -359,7 +359,8 @@ describe('ObjectCache Unit Tests', () => {
       { offset: 32, kind: 'pasm', origIndex: 2 },
       { offset: 48, kind: 'spin', origIndex: 3 }
     ];
-    cache.set(key, new Uint8Array([1, 2, 3]), { debugInfo: { records, brkSites } });
+    const subtreeExports = ['SD_INCLUDE_RAW', 'GC_FEATURE'];
+    cache.set(key, new Uint8Array([1, 2, 3]), { debugInfo: { records, brkSites, subtreeExports } });
     expect(fs.existsSync(path.join(cacheDir, `${key}.dbg`))).toBe(true);
 
     const loaded = cache.getDebugInfo(key);
@@ -370,16 +371,30 @@ describe('ObjectCache Unit Tests', () => {
       expect(Array.from(loaded!.records[i].bytes)).toEqual(Array.from(records[i].bytes));
     }
     expect(loaded!.brkSites).toEqual(brkSites);
+    expect(loaded!.subtreeExports).toEqual(subtreeExports);
   });
 
   test('empty debug info still produces a .dbg sidecar with empty arrays', () => {
     const cache = new ObjectCache(true, cacheDir);
     const key = '4'.repeat(64);
-    cache.set(key, new Uint8Array([1]), { debugInfo: { records: [], brkSites: [] } });
+    cache.set(key, new Uint8Array([1]), { debugInfo: { records: [], brkSites: [], subtreeExports: [] } });
     const loaded = cache.getDebugInfo(key);
     expect(loaded).toBeDefined();
     expect(loaded!.records.length).toBe(0);
     expect(loaded!.brkSites.length).toBe(0);
+    expect(loaded!.subtreeExports.length).toBe(0);
+  });
+
+  test('subtreeExports round-trips and preserves order, case, and duplicates', () => {
+    // The round-trip must be lossless. Replay-side dedup happens in the
+    // preprocessor's defineSymbol (idempotent, see Object-Cache-Correctness-
+    // Analysis.md §5.1), not at sidecar-read time, so we don't normalize here.
+    const cache = new ObjectCache(true, cacheDir);
+    const key = '9'.repeat(64);
+    const subtreeExports = ['ALPHA', 'beta', 'GAMMA', 'ALPHA']; // order varied, case varied, dup
+    cache.set(key, new Uint8Array([0]), { debugInfo: { records: [], brkSites: [], subtreeExports } });
+    const loaded = cache.getDebugInfo(key);
+    expect(loaded!.subtreeExports).toEqual(subtreeExports);
   });
 
   test('getDebugInfo returns undefined when sidecar is missing', () => {
@@ -407,12 +422,24 @@ describe('ObjectCache Unit Tests', () => {
   });
 
   test('getDebugInfo returns undefined when sidecar is missing brkSites field (pre-v4 shape)', () => {
-    // A v3-shaped .dbg with the v4 cacheFormatVersion patched in would still
-    // be missing brkSites; the array check guards that case as malformed.
+    // A v3-shaped .dbg with the current cacheFormatVersion patched in would
+    // still be missing brkSites; the array check guards that case as malformed.
     const cache = new ObjectCache(true, cacheDir);
     const key = '8'.repeat(64);
-    fs.writeFileSync(path.join(cacheDir, `${key}.dbg`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION, records: [] }));
+    fs.writeFileSync(
+      path.join(cacheDir, `${key}.dbg`),
+      JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION, records: [], subtreeExports: [] })
+    );
     expect(cache.getDebugInfo(key)).toBeUndefined();
+  });
+
+  test('getDebugInfo returns undefined when sidecar is missing subtreeExports field (pre-v6 shape)', () => {
+    // v4/v5-shaped .dbg with the current cacheFormatVersion patched in is
+    // missing subtreeExports; the array check guards that case as malformed.
+    const cache = new ObjectCache(true, cacheDir);
+    const keyA = 'a'.repeat(64);
+    fs.writeFileSync(path.join(cacheDir, `${keyA}.dbg`), JSON.stringify({ cacheFormatVersion: CACHE_FORMAT_VERSION, records: [], brkSites: [] }));
+    expect(cache.getDebugInfo(keyA)).toBeUndefined();
   });
 
   test('patchBrkSite rewrites spin and pasm sites correctly', () => {
@@ -895,7 +922,7 @@ describe('ObjectCache Integration Tests', () => {
     cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
     expect(() => {
       compileSpin2(dbgFixtureDir, 'spin_dbg_cache_parent.spin2', `-d --cache --cache-dir ${corruptCacheDir}`);
-    }).toThrow(/missing \.dbg sidecar/);
+    }).toThrow(/missing or invalid \.dbg sidecar/);
 
     cleanupOutputFiles(dbgFixtureDir, 'spin_dbg_cache_parent');
     cleanupDir(corruptCacheDir);
@@ -992,5 +1019,196 @@ describe('ObjectCache Integration Tests', () => {
 
     cleanupOutputFiles(dbgFixtureDir, 'dbg_cache_parentB');
     cleanupDir(sharedCacheDir);
+  });
+
+  // Regression for the v1.54.5 → v1.54.6 bug.
+  //
+  // Mechanism: a depth-1 child's source has no #ifdef on the propagated
+  // exportdef, so its preprocessedLines is identical across parent contexts,
+  // BUT its compile depends on a grandchild that DOES push #pragma exportdef,
+  // and a sibling at depth 1 reads that exportdef in its own #ifdef. On a
+  // cache hit for the depth-1 child, the grandchild's preprocess is skipped,
+  // so its exportdef never pushes onto context.defSymbols. The next sibling
+  // then preprocesses against a stale defSymbols and produces a binary that
+  // differs from the cold-compile output.
+  //
+  // v1.54.6 fix: each cache entry stores `subtreeExports` (the slice of
+  // defSymbols added during that child's subtree compile). On hit, replay
+  // those onto context.defSymbols so subsequent siblings see them.
+  test('warm cache replays subtree exportdef contributions for skipped grandchildren', () => {
+    const fixtureDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const subtreeCacheDir = path.join(fixtureDir, '.subtree-exp-cache');
+    cleanupDir(subtreeCacheDir);
+    cleanupOutputFiles(fixtureDir, 'expdef_subtree_parent');
+
+    // Reference: fresh build with no cache.
+    compileSpin2(fixtureDir, 'expdef_subtree_parent.spin2');
+    const refBinary = fs.readFileSync(path.join(fixtureDir, 'expdef_subtree_parent.bin'));
+    cleanupOutputFiles(fixtureDir, 'expdef_subtree_parent');
+
+    // Cold cache build — populates the cache with sd_child + grandchild + utils_child.
+    compileSpin2(fixtureDir, 'expdef_subtree_parent.spin2', `--cache --cache-clear --cache-dir ${subtreeCacheDir}`);
+    const coldBinary = fs.readFileSync(path.join(fixtureDir, 'expdef_subtree_parent.bin'));
+    expect(Buffer.from(coldBinary).equals(Buffer.from(refBinary))).toBe(true);
+    cleanupOutputFiles(fixtureDir, 'expdef_subtree_parent');
+
+    // Warm cache build — sd_child cache-hits, its grandchild's preprocess is
+    // skipped, but the .dbg sidecar's subtreeExports replay GC_FEATURE before
+    // utils_child's preprocess runs. utils_child's preprocessedLines matches
+    // the cold compile, its cache key matches, it hits cache cleanly.
+    compileSpin2(fixtureDir, 'expdef_subtree_parent.spin2', `--cache --cache-dir ${subtreeCacheDir}`);
+    const warmBinary = fs.readFileSync(path.join(fixtureDir, 'expdef_subtree_parent.bin'));
+    expect(Buffer.from(warmBinary).equals(Buffer.from(refBinary))).toBe(true);
+
+    cleanupOutputFiles(fixtureDir, 'expdef_subtree_parent');
+    cleanupDir(subtreeCacheDir);
+  });
+
+  // ============================================================
+  // COMPREHENSIVE BYTE-EQUIVALENCE REGRESSION
+  // ============================================================
+  //
+  // For every fixture in the table below: produce a fresh-uncached reference
+  // binary, then verify that BOTH a cold-cache build AND a warm-cache build
+  // produce a byte-identical binary. Any future compiler change that the
+  // cache fails to track correctly — for ANY of these fixtures — fails this
+  // test on the PR that introduces the change.
+  //
+  // The fixture set covers every cache-correctness pattern we know about:
+  //   - Simple parent → single child
+  //   - Multi-sibling children (cache key insensitivity to sibling order)
+  //   - Override parameters (parameter overrides part of the key)
+  //   - Deep nesting (3 levels, transitive recursion)
+  //   - --debug + cache (DebugData + brkSite remap path)
+  //   - Heterogeneous parents sharing a child (different defSymbols context)
+  //   - Sibling depends on grandchild's exportdef (subtreeExports replay)
+  //
+  // Adding a new cache-related compiler feature SHOULD include adding a
+  // fixture here that exercises it, OR documenting why it doesn't need
+  // separate coverage.
+  describe('byte-equivalence regression: warm cache must match uncached, every fixture', () => {
+    const objDir = path.resolve(__dirname, '../../../TEST/OBJ-tests');
+    const cacheFixDir = path.resolve(__dirname, '../../../TEST/CACHE-fixtures');
+    const overrideDir = path.resolve(__dirname, '../../../TEST/MAP-tests/test4-override');
+
+    interface Fixture {
+      label: string;
+      dir: string;
+      file: string;
+      basename: string;
+      flags: string; // extra flags, applied to all three compiles
+      pattern: string;
+    }
+
+    const fixtures: Fixture[] = [
+      {
+        label: 'simple parent + 1 child',
+        dir: objDir,
+        file: 'spin_test14.spin2',
+        basename: 'spin_test14',
+        flags: '-O',
+        pattern: 'depth-1 child cached, no overrides, no debug'
+      },
+      {
+        label: 'multi-sibling children sharing one child source',
+        dir: objDir,
+        file: 'spin_test23.spin2',
+        basename: 'spin_test23',
+        flags: '-O',
+        pattern: 'two OBJ siblings reference same child file (dedup path)'
+      },
+      {
+        label: 'override parameters',
+        dir: overrideDir,
+        file: 'override_top.spin2',
+        basename: 'override_top',
+        flags: '',
+        pattern: 'OBJ block with | CONST = N overrides — distinct cache entries per override set'
+      },
+      {
+        label: 'debug + cache (DebugData replay)',
+        dir: cacheFixDir,
+        file: 'spin_dbg_cache_parent.spin2',
+        basename: 'spin_dbg_cache_parent',
+        flags: '-d',
+        pattern: 'parent + child both call debug() — exercises .dbg sidecar replay + brkSite remap'
+      },
+      {
+        label: 'heterogeneous parents — parentA shape',
+        dir: cacheFixDir,
+        file: 'dbg_cache_parentA.spin2',
+        basename: 'dbg_cache_parentA',
+        flags: '-d',
+        pattern: 'extraA + shared, populates the cache that parentB will read'
+      },
+      {
+        label: 'heterogeneous parents — parentB shape',
+        dir: cacheFixDir,
+        file: 'dbg_cache_parentB.spin2',
+        basename: 'dbg_cache_parentB',
+        flags: '-d',
+        pattern: 'extraB + shared, hits parentA-populated entry; brkSite remap exercised'
+      },
+      {
+        label: 'exportdef key-isolation (parentX)',
+        dir: cacheFixDir,
+        file: 'expdef_parentX.spin2',
+        basename: 'expdef_parentX',
+        flags: '',
+        pattern: '#pragma exportdef SYM_X — key includes defSymbols'
+      },
+      {
+        label: 'exportdef key-isolation (parentY)',
+        dir: cacheFixDir,
+        file: 'expdef_parentY.spin2',
+        basename: 'expdef_parentY',
+        flags: '',
+        pattern: '#pragma exportdef SYM_Y — must miss parentX cache despite identical shared-child source'
+      },
+      {
+        label: 'subtree exportdef replay (v1.54.6 regression)',
+        dir: cacheFixDir,
+        file: 'expdef_subtree_parent.spin2',
+        basename: 'expdef_subtree_parent',
+        flags: '',
+        pattern: 'sibling depends on grandchild exportdef; cache hit must replay subtree contribution'
+      }
+    ];
+
+    // Each fixture gets its own cache directory so they don't pollute one
+    // another. Every fixture runs three times: uncached (reference), cold
+    // cache (must match ref), warm cache (must match ref).
+    test.each(fixtures)(
+      'warm cache produces byte-identical output to uncached: $label ($pattern)',
+      ({ dir, file, basename, flags }) => {
+        const cacheDirForFixture = path.join(dir, `.cache-regression-${basename}`);
+        cleanupDir(cacheDirForFixture);
+        cleanupOutputFiles(dir, basename);
+
+        // Reference: fresh, no cache
+        compileSpin2(dir, file, flags);
+        const refBinPath = path.join(dir, `${basename}.bin`);
+        expect(fs.existsSync(refBinPath)).toBe(true);
+        const refBinary = fs.readFileSync(refBinPath);
+        cleanupOutputFiles(dir, basename);
+
+        // Cold cache: cache empty, compile populates it
+        compileSpin2(dir, file, `${flags} --cache --cache-clear --cache-dir ${cacheDirForFixture}`);
+        const coldBinary = fs.readFileSync(path.join(dir, `${basename}.bin`));
+        expect(Buffer.from(coldBinary).equals(Buffer.from(refBinary))).toBe(true);
+        cleanupOutputFiles(dir, basename);
+
+        // Warm cache: every child should hit
+        compileSpin2(dir, file, `${flags} --cache --cache-dir ${cacheDirForFixture}`);
+        const warmBinary = fs.readFileSync(path.join(dir, `${basename}.bin`));
+        expect(Buffer.from(warmBinary).equals(Buffer.from(refBinary))).toBe(true);
+
+        cleanupOutputFiles(dir, basename);
+        cleanupDir(cacheDirForFixture);
+      },
+      // 30 second per-fixture timeout — even the slowest fixture (-d -O) is
+      // well under this in practice. Generous to absorb CI noise.
+      30_000
+    );
   });
 });

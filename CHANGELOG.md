@@ -21,6 +21,17 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.6] 2026-05-09
+
+### Fixed
+
+- **Object cache correctness — replay subtree `#pragma exportdef` contributions on cache hit**: v1.54.5 added `defSymbols` to the cache key, fixing one half of the propagated-symbol problem (cache *lookup* discriminating on context). It missed the other half (cache *hit* preserving the side effects the skipped subtree would have produced). When a depth-1 child cache-hits, its descendant preprocesses are skipped, so any `#pragma exportdef` those descendants would have pushed onto `context.preProcessorOptions.defSymbols` never lands. A subsequent depth-1 sibling then preprocesses against a stale `defSymbols` and produces a binary structurally different from the cold-compile output. Symptom in the SD FAT32 driver suite was `Invalid object image found for file: isp_rt_utilities.spin2` on 9 of 24 harnesses (the `SD_INCLUDE_ALL` ones running after the harnesses that populated the cache). The fix snapshots `defSymbols.length` at cache-key time, slices `defSymbols[snapshot..end]` after the child's full subtree compile to capture the subtree's exportdef contribution (transitively, including grandchildren that themselves cache-hit during this compile), stores that slice in the `.dbg` sidecar's new `subtreeExports` field, and replays each symbol onto `context.preProcessorOptions.defSymbols` on cache hit before subsequent siblings preprocess. `CACHE_FORMAT_VERSION` bumped to 6 (v5 entries silently invalidated by the key change). The `.dbg` sidecar is now load-bearing on every v1.54.6+ cache hit (not just `--debug` ones), since `subtreeExports` may need replay regardless of debug mode.
+
+### Added
+
+- **Comprehensive byte-equivalence regression test** (`src/tests/CACHE-tests/objectCache.test.ts`): a `test.each` over a curated set of 9 fixtures covering simple parent/child, multi-sibling, override parameters, debug+cache, heterogeneous parents, exportdef key-isolation (X vs Y), and the v1.54.6 subtree-exportdef-replay scenario. For each fixture: produces a fresh-uncached reference binary, then verifies BOTH a cold-cache build AND a warm-cache build produce a byte-identical binary. Any future compiler change that the cache fails to track correctly fails this test on the introducing PR. New fixtures `expdef_subtree_*.spin2` reproduce the v1.54.5 → v1.54.6 bug as a 2-byte CON-value difference (verified pre-fix).
+- **Object cache correctness analysis document** (`DOCs/roadmaps/Object-Cache-Correctness-Analysis.md`): living analysis of the cache contract, the complete shared-state catalog (correctness vs map-fidelity vs not-applicable), the cache shape evaluation, and the precise boundary between what's correct-by-construction (test-level: incorrect code can't merge) versus what would require eliminating shared mutable state (type-level: incorrect code won't compile). Documents why v1.54.2 → v1.54.6 each found a different concrete instance of the same abstract bug, and the mitigations planned to prevent the next one.
+
 ## [1.54.5] 2026-05-08
 
 ### Fixed

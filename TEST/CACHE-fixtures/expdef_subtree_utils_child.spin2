@@ -1,0 +1,14 @@
+' v1.54.6 regression: depth-1 SIBLING of sd_child. Its preprocessedLines
+' depends on whether GC_FEATURE is defined when its preprocess runs. The
+' #ifdef branch changes a CON value, which ends up in the compiled binary
+' as a different byte. So utils_child's binary differs based on whether
+' sd_child's grandchild's exportdef has been propagated.
+CON
+#ifdef GC_FEATURE
+  UTILS_TAG = $C0
+#else
+  UTILS_TAG = $0F
+#endif
+
+PUB tag() : result
+  result := UTILS_TAG

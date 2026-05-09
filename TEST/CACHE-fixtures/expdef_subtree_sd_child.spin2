@@ -1,0 +1,11 @@
+' v1.54.6 regression: depth-1 child whose own source has NO #ifdef gates and
+' NO #pragma exportdef. Its preprocessedLines is identical regardless of
+' parent's exportdef state. The grandchild it includes IS what pushes
+' GC_FEATURE; sd_child's compile is what processes the grandchild's preprocess.
+' On a cache hit for sd_child, the grandchild's preprocess (and its
+' exportdef push) are skipped — that's the gap v1.54.6 closes.
+OBJ
+  gc : "expdef_subtree_grandchild"
+
+PUB run() : result
+  result := gc.get_kind()

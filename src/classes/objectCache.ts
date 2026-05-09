@@ -78,7 +78,7 @@ import { BrkSite } from './objectImage';
  * Bumping this invalidates every existing cache entry by changing every key.
  * Old <key>.bin files become unreachable and are cleaned by --cache-clear.
  */
-export const CACHE_FORMAT_VERSION = 5;
+export const CACHE_FORMAT_VERSION = 6;
 
 export interface CacheStats {
   hits: number;
@@ -123,22 +123,41 @@ export interface CacheStoreOptions {
 }
 
 /**
- * Debug payload for one cached child object.
+ * Hit-replay payload for one cached child object — everything we need to
+ * restore the world-state mutations the child's compile would have produced
+ * if it weren't cache-hit. Three pieces, all in one sidecar (.dbg) because
+ * they share the same lifecycle: written at store, read at hit, replayed
+ * onto shared global state before the cached binary is spliced in.
  *
- * `records` lists every DebugData record the child's binary references — both
- * records the child contributed and records it dedup'd against (e.g. an
- * earlier sibling in the original compile placed the same content). Each
- * entry pairs the original index baked in the binary with the raw record
- * bytes; the bytes get re-injected into the shared table on a cache hit and
- * the original index becomes the lookup key in the brkCode remap.
+ * 1. `records` — every DebugData record the child's binary references (its
+ *    own contributions PLUS records it dedup'd against earlier siblings in
+ *    the original compile). Each entry pairs the original index baked in
+ *    the binary with the raw record bytes; on hit the bytes re-inject into
+ *    the shared table and the original index becomes the lookup key in the
+ *    brkCode remap.
  *
- * `brkSites` lists every byte/bit position in the cached .bin where a
- * non-zero brkCode value was baked. On hit, each site's brkCode field is
- * patched to the new index injectRecord returned for that site's origIndex.
+ * 2. `brkSites` — every byte/bit position in the cached .bin where a
+ *    non-zero brkCode value was baked. On hit, each site's brkCode field
+ *    is patched to the new index injectRecord returned for that origIndex.
+ *
+ * 3. `subtreeExports` — symbols this child's *subtree* (its descendants'
+ *    preprocesses) pushed onto `context.preProcessorOptions.defSymbols`.
+ *    Captured as the slice from "after this child's preprocess" to "after
+ *    this child's full compile." On hit, replay onto defSymbols so
+ *    subsequent siblings preprocess against the same world they would have
+ *    seen under a fresh compile. v1.54.6's specific fix.
+ *
+ * Despite the type name, this payload is no longer "just debug." Renamed
+ * to `HitReplayInfo` would be clearer but requires touching too many call
+ * sites; keeping `DebugInfo` for now and documenting here that it covers
+ * the full hit-replay surface.
  */
 export interface DebugInfo {
   records: { origIndex: number; bytes: Uint8Array }[];
   brkSites: BrkSite[];
+  /** Symbols this child's subtree pushed via #pragma exportdef during cold
+   *  compile. Empty when the subtree had no exportdef contribution. */
+  subtreeExports: string[];
 }
 
 /** Compact serialized form of a SymbolEntry. Field names kept short to
@@ -170,6 +189,10 @@ interface SerializedDbgFile {
   cacheFormatVersion: number;
   records: SerializedDbgRecord[];
   brkSites: SerializedBrkSite[];
+  /** Symbols the child's subtree pushed via #pragma exportdef during cold
+   *  compile (v1.54.6+). Replayed onto `context.preProcessorOptions.defSymbols`
+   *  on cache hit. Always present in v1.54.6+ entries (may be empty array). */
+  subtreeExports: string[];
 }
 
 export class ObjectCache {
@@ -248,10 +271,10 @@ export class ObjectCache {
     }
   }
 
-  /** Retrieve cached debug info for a key. Returns undefined if the .dbg
+  /** Retrieve cached hit-replay info for a key. Returns undefined if the .dbg
    *  sidecar is missing, malformed, or has a mismatched format version.
-   *  Returns a `DebugInfo` with empty `records` and empty `brkSites` when the
-   *  child has no debug footprint (e.g. it contained no debug() calls). */
+   *  Returns a `DebugInfo` with empty `records` / `brkSites` / `subtreeExports`
+   *  when the child had no world-state contribution to replay. */
   getDebugInfo(key: string): DebugInfo | undefined {
     if (!this.enabled) return undefined;
     const dbgPath = this.dbgPath(key);
@@ -260,7 +283,9 @@ export class ObjectCache {
       const raw = fs.readFileSync(dbgPath, 'utf8');
       const parsed = JSON.parse(raw) as SerializedDbgFile;
       if (parsed.cacheFormatVersion !== CACHE_FORMAT_VERSION) return undefined;
-      if (!Array.isArray(parsed.records) || !Array.isArray(parsed.brkSites)) return undefined;
+      if (!Array.isArray(parsed.records) || !Array.isArray(parsed.brkSites) || !Array.isArray(parsed.subtreeExports)) {
+        return undefined;
+      }
       const records = parsed.records.map((r) => ({
         origIndex: r.i,
         bytes: new Uint8Array(Buffer.from(r.b, 'base64'))
@@ -270,7 +295,7 @@ export class ObjectCache {
         kind: s.k === 1 ? 'pasm' : 'spin',
         origIndex: s.i
       }));
-      return { records, brkSites };
+      return { records, brkSites, subtreeExports: parsed.subtreeExports };
     } catch {
       return undefined;
     }
@@ -301,7 +326,8 @@ export class ObjectCache {
           o: s.offset,
           k: s.kind === 'pasm' ? 1 : 0,
           i: s.origIndex
-        }))
+        })),
+        subtreeExports: options.debugInfo.subtreeExports
       };
       fs.writeFileSync(this.dbgPath(key), JSON.stringify(payload));
     }

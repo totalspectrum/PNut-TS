@@ -173,7 +173,12 @@ export class Compiler {
 
       // --- CACHE CHECK (for child objects only) ---
       let cacheKey: string | undefined;
+      // Snapshot of defSymbols length BEFORE this child's recursion begins.
+      // Used on the cache-miss store path to slice out the subtree exportdef
+      // contribution so a future cache hit can replay it.
+      let defSymbolsLengthAtKey: number = 0;
       if (this.objectCache.isEnabled && depth > 0) {
+        defSymbolsLengthAtKey = this.context.preProcessorOptions.defSymbols.length;
         cacheKey = this.objectCache.computeKey({
           preprocessedLines: srcFile.allPreprocessedLines,
           overrides: overrideParameters,
@@ -193,29 +198,36 @@ export class Compiler {
           if (this.isLoggingOutline) this.logMessageOutline(`  -- CACHE HIT -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}...`);
           this.memoryStats.totalObjectsCompiled++;
 
-          // Restore the child's debug footprint before its binary is spliced
-          // into childImages. Two steps:
-          //   1. Replay every record this child references back into the
-          //      shared DebugData table. Each injection returns a NEW index
-          //      (depends on what earlier siblings already placed); we record
-          //      origIndex → newIndex.
-          //   2. Patch each brkCode write site in the cached binary so the
-          //      baked-in original index is replaced with the new index. This
-          //      is the step v1.54.3 missed — it assumed indices would line
-          //      up across heterogeneous parents, which they don't.
-          // Without --debug, .dbg is absent and this whole block is a no-op.
+          // The .dbg sidecar carries the child's full hit-replay payload
+          // (debug records + brkSites + subtree exportdef contributions).
+          // It's load-bearing on EVERY v1.54.6+ cache hit, even when --debug
+          // is off, because the subtree exports must replay so subsequent
+          // siblings preprocess against the same defSymbols state they would
+          // have under a cold compile.
+          const cachedDebugInfo = this.objectCache.getDebugInfo(cacheKey);
+          if (cachedDebugInfo === undefined) {
+            throw new Error(
+              `Object cache: missing or invalid .dbg sidecar for [${srcFile.fileName}] (key=${cacheKey.substring(0, 12)}...). ` +
+                `Run with --cache-clear to rebuild.`
+            );
+          }
+
+          // Replay this child's subtree exportdef contributions onto the
+          // shared defSymbols so subsequent siblings see them. v1.54.6's
+          // critical fix: without this, sibling preprocesses run against a
+          // stale defSymbols (missing what skipped grandchildren would have
+          // pushed) and produce wrong binaries. defineSymbol is idempotent
+          // (verified §5.1 of Object-Cache-Correctness-Analysis.md), so
+          // duplicates and ordering don't matter.
+          for (const sym of cachedDebugInfo.subtreeExports) {
+            this.context.preProcessorOptions.defSymbols.push(sym);
+          }
+
+          // Replay debug records + patch brkSites only when debug is on.
+          // The records and brkSites lists are empty for non-debug compiles
+          // anyway, but we gate explicitly to skip the checksum-recompute
+          // walk on the common path.
           if (this.context.compileOptions.enableDebug) {
-            const cachedDebugInfo = this.objectCache.getDebugInfo(cacheKey);
-            if (cachedDebugInfo === undefined) {
-              // .dbg sidecar missing on a debug-enabled cache hit means a
-              // partial-write or pre-v4 entry slipped through key-version
-              // protection. Treat as a corrupted hit: surface a clear error
-              // rather than silently producing garbled runtime output.
-              throw new Error(
-                `Object cache: missing .dbg sidecar for [${srcFile.fileName}] (key=${cacheKey.substring(0, 12)}...). ` +
-                  `Run with --cache-clear to rebuild.`
-              );
-            }
             const indexRemap = new Map<number, number>();
             for (const record of cachedDebugInfo.records) {
               const newIndex = this.spin2Parser.debugRawData.injectRecord(record.bytes);
@@ -225,8 +237,6 @@ export class Compiler {
             for (const site of cachedDebugInfo.brkSites) {
               const newIndex = indexRemap.get(site.origIndex);
               if (newIndex === undefined) {
-                // Internal corruption: brkSite references a record not in
-                // this child's .dbg payload. Cache must be rebuilt.
                 throw new Error(
                   `Object cache: brkSite origIndex ${site.origIndex} not in records map for [${srcFile.fileName}] ` +
                     `(key=${cacheKey.substring(0, 12)}...). Run with --cache-clear to rebuild.`
@@ -430,22 +440,29 @@ export class Compiler {
           // --- CACHE STORE (for child objects on cache miss) ---
           if (cacheKey !== undefined) {
             const binaryCopy = new Uint8Array(childImage);
-            // Build the debug payload: every brkCode write site in this
-            // child's binary, plus the bytes of every record those sites
-            // reference. Records include ones this child dedup'd against
-            // siblings — capturing them here is what lets a later cache hit
-            // succeed even when the same content is now contributed by a
-            // different sibling (or no sibling at all).
-            let debugInfo: DebugInfo | undefined = undefined;
-            if (this.context.compileOptions.enableDebug) {
-              const childBrkSites = this.objImage.brkSites;
-              const uniqueOrigIndices: number[] = [...new Set(childBrkSites.map((s) => s.origIndex))].sort((a, b) => a - b);
-              const records = uniqueOrigIndices.map((origIndex) => ({
-                origIndex,
-                bytes: this.spin2Parser.debugRawData.getRecordBytes(origIndex)
-              }));
-              debugInfo = { records, brkSites: childBrkSites };
-            }
+            // Build the hit-replay payload. Three pieces, all in the .dbg
+            // sidecar (see DebugInfo in objectCache.ts):
+            //   1. debug records the child references (when --debug on)
+            //   2. brkSite write positions in the binary (when --debug on)
+            //   3. subtree exportdef contributions — symbols this child's
+            //      descendants pushed onto context.defSymbols during compile.
+            //      These need to replay on cache hit so siblings see them.
+            //      v1.54.6's specific fix; written regardless of --debug.
+            const childBrkSites = this.context.compileOptions.enableDebug ? this.objImage.brkSites : [];
+            const uniqueOrigIndices: number[] = [...new Set(childBrkSites.map((s) => s.origIndex))].sort((a, b) => a - b);
+            const records = uniqueOrigIndices.map((origIndex) => ({
+              origIndex,
+              bytes: this.spin2Parser.debugRawData.getRecordBytes(origIndex)
+            }));
+            // Slice defSymbols additions made during this child's subtree
+            // compile. The slice covers descendant preprocesses that pushed
+            // exportdefs AND any subtree-exports replays from grandchildren
+            // that themselves cache-hit during this compile (those replays
+            // pushed onto the same shared array, so they're in the slice).
+            // Recursive correctness: each cache entry captures its full
+            // transitive contribution.
+            const subtreeExports = this.context.preProcessorOptions.defSymbols.slice(defSymbolsLengthAtKey);
+            const debugInfo: DebugInfo = { records, brkSites: childBrkSites, subtreeExports };
             const metadata: CacheMetadata = {
               source: srcFile.fileName,
               overrides: overrideParameters ? this.serializeOverrides(overrideParameters) : '',
@@ -456,10 +473,9 @@ export class Compiler {
               binarySize: objectLength,
               symbolCount: childSymbols.length
             };
-            // Always pass debugInfo when --debug is on (even when empty) so
-            // the .dbg sidecar exists on every debug-enabled cache entry —
-            // its absence on a future hit then unambiguously signals
-            // corruption rather than a missing-but-fine record set.
+            // Always store .dbg in v1.54.6+. Its absence on a future hit
+            // unambiguously signals corruption (partial write or stale entry
+            // that slipped through key-version protection).
             this.objectCache.set(cacheKey, binaryCopy, {
               metadata,
               symbols: childSymbols,
@@ -469,7 +485,7 @@ export class Compiler {
               this.logMessageOutline(
                 `  -- CACHE STORE -- [${srcFile.fileName}], key=${cacheKey.substring(0, 12)}..., ` +
                   `size=${objectLength}, symbols=${childSymbols.length}, ` +
-                  `dbgRecords=${debugInfo ? debugInfo.records.length : 0}, brkSites=${debugInfo ? debugInfo.brkSites.length : 0}`
+                  `dbgRecords=${records.length}, brkSites=${childBrkSites.length}, subtreeExports=${subtreeExports.length}`
               );
           }
           // --- END CACHE STORE ---

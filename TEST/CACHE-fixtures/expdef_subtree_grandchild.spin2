@@ -1,0 +1,12 @@
+' v1.54.6 regression: a grandchild that pushes #pragma exportdef GC_FEATURE.
+' This symbol must propagate to siblings of the grandchild's parent (sd_child)
+' on a cache hit, even when sd_child's compile is skipped — otherwise the
+' sibling utils_child preprocesses with a stale defSymbols state and produces
+' a different binary than a fresh compile.
+#pragma exportdef GC_FEATURE
+
+CON
+  GC_KIND = 7
+
+PUB get_kind() : result
+  result := GC_KIND
