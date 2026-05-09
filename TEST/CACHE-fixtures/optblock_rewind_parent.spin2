@@ -1,0 +1,13 @@
+' v1.54.7 regression parent: drives the optblock_rewind_child child with
+' multiple call sites so its compile-time optimizer-rewind paths execute.
+' The byte-equivalence regression test asserts cold + warm cache produce
+' the same binary as a fresh uncached compile.
+CON
+  _clkfreq = 200_000_000
+
+OBJ
+  ch : "optblock_rewind_child"
+
+PUB main() | a, b
+  a := ch.run(5)
+  b := ch.run(0)

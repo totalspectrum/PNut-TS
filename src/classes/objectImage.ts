@@ -148,6 +148,22 @@ export class ObjectImage {
     this.logMessage(
       `* OBJ[${this._id}]: setOffsetTo() (${hexAddress(this._objOffset)}) -> (${hexAddress(offset)}) diff(${this._objOffset - offset})`
     );
+    // Backward seek invalidates brkSites at or beyond the new write cursor:
+    // the bytes those sites point at are about to be overwritten by the
+    // caller (e.g. spinResolver's optimizeBlock do-while loop, which
+    // recompiles the same block multiple times until its byte length
+    // stabilizes). Without this, we accumulate stale brkSites pointing at
+    // bytes that were overwritten by a later iteration; on cache hit, the
+    // patch path then mutates random bytes in the binary and the loader
+    // rejects the image. Forward seeks (offset > _objOffset) leave existing
+    // brkSites untouched — they're still pointing at valid live bytes.
+    if (offset < this._objOffset && this._brkSites.length > 0) {
+      const before = this._brkSites.length;
+      this._brkSites = this._brkSites.filter((s) => s.offset < offset);
+      if (this._brkSites.length !== before) {
+        this.logMessage(`* OBJ[${this._id}]: setOffsetTo() invalidated ${before - this._brkSites.length} brkSite(s) at offset >= ${offset}`);
+      }
+    }
     this._objOffset = offset;
   }
 

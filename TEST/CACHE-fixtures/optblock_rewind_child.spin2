@@ -1,0 +1,33 @@
+' v1.54.7 regression: a child with many debug() calls inside Spin control
+' structures (REPEAT, IF/ELSE, CASE) that trigger optimizeBlock's rewind-
+' and-recompile loop in spinResolver.compile2. Each rewind sets objImage
+' offset back to the block-start; brkSites captured during earlier
+' iterations would point at bytes about to be overwritten if we don't
+' invalidate them on backward seeks.
+'
+' Without the v1.54.7 fix, a cache hit on this child runs the brkSite
+' patch path with stale offsets (pointing at non-brkCode bytes), corrupts
+' random bytes in the binary, and the loader rejects the result as an
+' invalid object image.
+PUB run(value) : result | i, j, k
+  result := 0
+  if value > 0
+    debug("if-branch ", udec_(value))
+    repeat i from 1 to 3
+      debug("repeat-1 i=", udec_(i))
+      if i & 1
+        debug("repeat-1 odd ", udec_(i))
+      else
+        debug("repeat-1 even ", udec_(i))
+      repeat j from 0 to 1
+        debug("repeat-2 j=", udec_(j))
+    case value
+      1: debug("case 1")
+      2: debug("case 2")
+      3: debug("case 3")
+      other: debug("case other ", udec_(value))
+  else
+    debug("else-branch ", udec_(value))
+    repeat k from 5 to 1
+      debug("repeat-down k=", udec_(k))
+  debug("run done ", udec_(result))

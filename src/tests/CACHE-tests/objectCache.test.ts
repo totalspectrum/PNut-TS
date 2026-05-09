@@ -1172,6 +1172,23 @@ describe('ObjectCache Integration Tests', () => {
         basename: 'expdef_subtree_parent',
         flags: '',
         pattern: 'sibling depends on grandchild exportdef; cache hit must replay subtree contribution'
+      },
+      {
+        // SD FAT32 driver suite root cause. spinResolver's optimizeBlock
+        // do-while loop calls objImage.setOffsetTo(savedObjOffset) to rewind
+        // and recompile a block until its byte length stabilizes. brkSites
+        // captured during earlier iterations point at bytes that get
+        // overwritten in later iterations. Without invalidating those stale
+        // brkSites, the cache-hit patch path mutates random non-brkCode
+        // bytes and the loader rejects the binary as "Invalid object image".
+        // Fix in v1.54.7: ObjectImage.setOffsetTo drops brkSites at offsets
+        // >= newOffset on backward seeks.
+        label: 'optimizer-rewind brkSite tracking (v1.54.7 regression)',
+        dir: cacheFixDir,
+        file: 'optblock_rewind_parent.spin2',
+        basename: 'optblock_rewind_parent',
+        flags: '-d',
+        pattern: 'debug() inside REPEAT/IF/CASE that triggers optimizeBlock rewinds; brkSite capture must follow setOffsetTo'
       }
     ];
 

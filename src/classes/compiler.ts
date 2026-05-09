@@ -177,8 +177,19 @@ export class Compiler {
       // Used on the cache-miss store path to slice out the subtree exportdef
       // contribution so a future cache hit can replay it.
       let defSymbolsLengthAtKey: number = 0;
+      // Snapshot of debugRawData recordCount BEFORE this child's recursion
+      // begins. On the cache-miss store path we slice
+      // [recordCountAtKey+1 .. recordCountAfter] to capture every debug
+      // record the child's subtree contributed (including grandchildren that
+      // compiled fresh under this child). Without this slice, sd's .dbg only
+      // contains records that sd's own brkSites reference — and grandchild
+      // records that aren't dedup'd against sd's debug() calls would be lost
+      // on a future cache hit, leaving the top-level binary's debug data
+      // table 100-200 bytes shorter than a fresh compile.
+      let recordCountAtKey: number = 0;
       if (this.objectCache.isEnabled && depth > 0) {
         defSymbolsLengthAtKey = this.context.preProcessorOptions.defSymbols.length;
+        recordCountAtKey = this.spin2Parser.debugRawData.recordCount;
         cacheKey = this.objectCache.computeKey({
           preprocessedLines: srcFile.allPreprocessedLines,
           overrides: overrideParameters,
@@ -449,7 +460,30 @@ export class Compiler {
             //      These need to replay on cache hit so siblings see them.
             //      v1.54.6's specific fix; written regardless of --debug.
             const childBrkSites = this.context.compileOptions.enableDebug ? this.objImage.brkSites : [];
-            const uniqueOrigIndices: number[] = [...new Set(childBrkSites.map((s) => s.origIndex))].sort((a, b) => a - b);
+            // Records to capture in the .dbg sidecar are the UNION of:
+            //   (a) records added to debug_data during this child's subtree
+            //       compile — slice [recordCountAtKey+1 .. recordCountAfter].
+            //       This catches grandchild debug records that aren't
+            //       referenced by THIS child's brkSites (e.g., stack_check's
+            //       records when sd has different debug() content). Without
+            //       this slice, a cache hit on sd skips the grandchild
+            //       compile, the grandchild's records are never re-added,
+            //       and the top-level debug data table comes out shorter
+            //       than a fresh compile.
+            //   (b) records this child's brkSites reference — captures
+            //       cross-sibling-deduped records (e.g. utils.debug() that
+            //       dedup'd against sd's record). The bytes are stored so
+            //       on cache hit we re-inject and remap origIndex correctly
+            //       even if the producing sibling didn't run in this compile.
+            const subtreeOrigIndices: number[] = [];
+            if (this.context.compileOptions.enableDebug) {
+              const recordsAfter = this.spin2Parser.debugRawData.recordCount;
+              for (let idx = recordCountAtKey + 1; idx <= recordsAfter; idx++) {
+                subtreeOrigIndices.push(idx);
+              }
+            }
+            const brkSiteOrigIndices = childBrkSites.map((s) => s.origIndex);
+            const uniqueOrigIndices: number[] = [...new Set([...subtreeOrigIndices, ...brkSiteOrigIndices])].sort((a, b) => a - b);
             const records = uniqueOrigIndices.map((origIndex) => ({
               origIndex,
               bytes: this.spin2Parser.debugRawData.getRecordBytes(origIndex)

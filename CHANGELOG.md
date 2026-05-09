@@ -21,6 +21,31 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.54.7] 2026-05-09
+
+### Fixed
+
+- **Object cache correctness — actual SD FAT32 driver suite root cause**: this is the fix that v1.54.5 and v1.54.6 didn't deliver. The bug was in v1.54.4's brkSite tracking, not in defSymbols handling. Two separate gaps in the cache contract, both rooted in v1.54.4:
+
+  1. **Stale brkSites through `optimizeBlock` rewinds.** `spinResolver.optimizeBlock` runs a do-while loop that calls `objImage.setOffsetTo(savedObjOffset)` to rewind and recompile a Spin block until its byte length stabilizes. brkSites captured during early iterations point at bytes that get overwritten in later iterations. v1.54.4 never invalidated those stale brkSites, so the `.dbg` sidecar accumulated 50%+ duplicates pointing at non-brkCode bytes. On cache hit, the patch path mutated random bytes in the cached binary and the parent's compile rejected it as `Invalid object image found for file: <child>`. Fix: `ObjectImage.setOffsetTo(newOffset)` now drops every brkSite whose offset is `>= newOffset` on backward seeks. Forward seeks leave brkSites untouched.
+
+  2. **Missing grandchild debug records in cached child's `.dbg`.** v1.54.6's `.dbg` records list captured only records this child's own brkSites referenced. Records added by *grandchildren* during the child's subtree compile (e.g. `isp_stack_check.spin2` running inside `micro_sd_fat32_fs.spin2`'s compile) were never saved. On cache hit, the grandchild compile is skipped and its records are never replayed — the top-level binary's debug data table came out shorter than a fresh compile by exactly the size of the missing grandchild records. Symptoms: cached compile succeeded but produced a binary 100-200 bytes shorter than uncached. Fix: cache STORE now captures the UNION of (a) records added during the child's subtree compile (slice `[recordCountBefore..recordCountAfter]` of the shared `DebugData` table) and (b) records this child's brkSites reference (preserves cross-sibling-dedup'd records). The first catches grandchild contributions; the second catches sibling-dedup'd records.
+
+  Both fixes are in v1.54.7. `CACHE_FORMAT_VERSION` stays at 6 — the on-disk format is unchanged; what changed is the data we put into the existing fields. Pre-v1.54.7 entries stored under format version 6 will key-collide with v1.54.7 entries (same hash inputs), but v1.54.7's `.dbg` records list is a superset of v1.54.6's, so older entries are functionally upgraded on first warm hit's miss path. Users running into "Invalid object image" should `--cache-clear` once.
+
+### Verified against the SD FAT32 driver suite
+
+- Local reproduction of the failing SD scenario (24 harnesses, byte-equivalence between cached and uncached compiles) now passes 24/24.
+- 59/59 cache unit/integration tests pass.
+- 275/275 full regression tests pass.
+- New regression fixture `optblock_rewind_*.spin2` exercises `optimizeBlock` rewinds with `debug()` inside REPEAT/IF/CASE blocks; added to the byte-equivalence regression as a permanent guardrail.
+
+### Honest reassessment of v1.54.5 and v1.54.6
+
+These releases addressed real bug classes — propagated `#pragma exportdef` symbols can affect grandchild content (v1.54.5) and skipping a cached subtree elides its `defSymbols` mutations (v1.54.6) — but neither fix was triggered by the SD FAT32 suite, which has no `#pragma exportdef`-conditional content in its cached children. v1.54.5 and v1.54.6 are belt-and-suspenders against bug classes the SD suite doesn't exercise; the SD bug was sitting in v1.54.4's brkSite-capture-misses-rewinds since the day v1.54.4 shipped.
+
+The v1.54.5 and v1.54.6 fixes are kept because the bug classes they address are real for projects that DO use propagated `#pragma exportdef` extensively. They're not removed.
+
 ## [1.54.6] 2026-05-09
 
 ### Fixed
