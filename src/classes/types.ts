@@ -678,13 +678,13 @@ export enum eByteCode {
   bc_frac = 157, // 0x9d
   bc_string = 158, // 0x9e
   bc_bitrange = 159, // 0x9f
-  bc_con_n = 160, // 0xa0
+  bc_con_n1_14 = 160, // 0xa0
   bc_setup_reg_1D8_1F8 = 176, // 0xb0
   bc_setup_var_0_15 = 192, // 0xc0
   bc_setup_local_0_15 = 208, // 0xd0
   bc_read_local_0_15 = 224, // 0xe0
   bc_write_local_0_15 = 240, // 0xf0
-  bc_set_incdec = 121, // 0x79 variable operator bytecodes
+  bc_set_incdec_rfvar = 121, // 0x79 variable operator bytecodes
   bc_repeat_var_init_n = 122, // 0x7a
   bc_repeat_var_init_1 = 123, // 0x7b
   bc_repeat_var_init = 124, // 0x7c

@@ -5829,9 +5829,9 @@ export class SpinResolver {
               // structure :=: ?
               this.compile_struct_copy(eByteCode.bc_byteswap, variableReturn);
             } else if (this.currElement.type == eElementType.type_til) {
-              this.compile_struct_fill(eByteCode.bc_con_n + 1, variableReturn);
+              this.compile_struct_fill(eByteCode.bc_con_n1_14 + 1, variableReturn);
             } else if (this.currElement.type == eElementType.type_tiltil) {
-              this.compile_struct_fill(eByteCode.bc_con_n + 0, variableReturn);
+              this.compile_struct_fill(eByteCode.bc_con_n1_14 + 0, variableReturn);
             } else {
               // [error_eastott]
               throw new Error('Expected ":=", ":=:", "~", or "~~"');
@@ -7628,7 +7628,7 @@ export class SpinResolver {
     this.getLeftParen();
     this.compileExpression(); // compile target value
     this.getColon();
-    this.objImage.appendByte(eByteCode.bc_con_n + 1 + (lookType & 1)); // lookupz or lookup
+    this.objImage.appendByte(eByteCode.bc_con_n1_14 + 1 + (lookType & 1)); // lookupz or lookup
     do {
       let tempLookType = (lookType >> 1) & 0b01;
       const isRange: boolean = this.compileRange(); // compile (next) value/range
@@ -8383,7 +8383,7 @@ export class SpinResolver {
     const workingValue: number = Number(this.signExtendFrom32Bit(value));
     if (workingValue >= -1 && workingValue <= 14) {
       // -1 to 14
-      this.objImage.appendByte(eByteCode.bc_con_n | ((workingValue + 1) & 0x0f));
+      this.objImage.appendByte(eByteCode.bc_con_n1_14 | ((workingValue + 1) & 0x0f));
     } else if (workingValue >= 0 && workingValue <= 0xff) {
       // 0 to 0xff
       this.objImage.appendByte(eByteCode.bc_con_rfbyte);
@@ -9311,7 +9311,7 @@ private checkDec(): boolean {
       if (this.isLogging) this.logMessage(`  -- compVar() resume after var.type changed with variable.type [${eElementType[variable.type]}]`);
       if (incDecValue != 1) {
         this.objImage.setOffsetTo(this.objImage.offset - 1); // remove last bytecode
-        this.objImage.appendByte(eByteCode.bc_set_incdec);
+        this.objImage.appendByte(eByteCode.bc_set_incdec_rfvar);
         this.compileRfvar(BigInt(incDecValue));
         this.objImage.appendByte(variable.assignmentBytecode); // now put it back
       }
@@ -9595,7 +9595,7 @@ private checkDec(): boolean {
 
   private compileVariableClearSetInst(variable: iVariableReturn, mode: eCompOp) {
     // PNut: compile_var_clrset_inst:
-    const bytecode: eByteCode = mode == eCompOp.CO_Clear ? eByteCode.bc_con_n + 1 : eByteCode.bc_con_n;
+    const bytecode: eByteCode = mode == eCompOp.CO_Clear ? eByteCode.bc_con_n1_14 + 1 : eByteCode.bc_con_n1_14;
     this.objImage.appendByte(bytecode);
     variable.operation = eVariableOperation.VO_WRITE;
     this.compileVariable(variable); // this is var~ // var~~
@@ -9603,7 +9603,7 @@ private checkDec(): boolean {
 
   private compileVariableClearSetTerm(variable: iVariableReturn, mode: eCompOp) {
     // PNut: compile_var_clrset_term:
-    const bytecode: eByteCode = mode == eCompOp.CO_Clear ? eByteCode.bc_con_n + 1 : eByteCode.bc_con_n;
+    const bytecode: eByteCode = mode == eCompOp.CO_Clear ? eByteCode.bc_con_n1_14 + 1 : eByteCode.bc_con_n1_14;
     this.objImage.appendByte(bytecode);
     // uses post assignment to effect var~ // var~~
     this.compileVariableAssign(variable, eByteCode.bc_var_swap);
@@ -10279,9 +10279,9 @@ private checkDec(): boolean {
   private compile_struct_fill(operation: eOperationType, variable: iVariableReturn) {
     // PNut compile_struct_fill:
     // Compile struct~ or struct~~
-    // on entry, operation is bc_con_n for 0 or -1
+    // on entry, operation is bc_con_n1_14 for 0 or -1
     this.compileVariableAssign(variable, eByteCode.bc_get_addr);
-    // enter bc_con_n for 0 or -1
+    // enter bc_con_n1_14 for 0 or -1
     this.objImage.appendByte(operation);
     // compile struct size
     this.compileConstant(BigInt(variable.structSize));
