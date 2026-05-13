@@ -146,12 +146,16 @@ WHAT THIS IS
 ------------
 This bundle contains everything needed to regenerate the .lst.GOLD,
 .obj.GOLD, .bin.GOLD (and .flash.GOLD where applicable) reference files
-on Windows, using PNut_v${PNUT_VERSION}.exe.
+on Windows, using PNut_shell_v${PNUT_VERSION}.exe (the HEADLESS CLI).
 
 PREREQUISITES
 -------------
-- PNut v${PNUT_VERSION} installed at:
-    C:\\Program Files (x86)\\Parallax Inc\\PNut_v${PNUT_VERSION}\\PNut_v${PNUT_VERSION}.exe
+- PNut v${PNUT_VERSION} installed; the headless CLI must be available as:
+    C:\\Program Files (x86)\\Parallax Inc\\PNut_v${PNUT_VERSION}\\PNut_shell_v${PNUT_VERSION}.exe
+  (or as PNut_shell_v${PNUT_VERSION} on PATH)
+- NOTE: PNut_v${PNUT_VERSION}.exe is the GUI editor; it is interactive and does
+  NOT produce .lst/.obj/.bin output from the command line. We need the
+  PNut_shell_v${PNUT_VERSION}.exe variant.
 - PowerShell 5.1+ (default on all modern Windows)
 
 USAGE
