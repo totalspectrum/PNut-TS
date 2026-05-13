@@ -21,6 +21,98 @@ Work to appear in upcoming releases:
 
 ## [Unreleased]
 
+## [1.55.0] 2026-05-13
+
+PNut v55 support. Optimization-only release at the source level — every
+`.spin2` file that compiled under v54a compiles unchanged under v55 and
+produces functionally identical output. The work lives below the source
+surface: the compiler emits smaller bytecode for two common patterns
+(multi-step `++`/`--` on pointer types, and read/write of a bitfield),
+and the interpreter dispatch table was reorganized to make room.
+
+### ⚠️ Breaking — interpreter ABI
+
+v55 bytecodes are **not compatible** with v54a/v53/v52 interpreters.
+Binaries compiled under v1.55.0 require the v55 interpreter image that
+ships in this release. Mixed-version code on the same P2 (e.g. dynamically
+downloaded objects) is not supported across the v54a/v55 boundary. The
+variable-operator LUT base moved from `$279` to `$215`, the `setq2`
+arming constant from `#$0E1` to `#$081`, and seven new bytecodes were
+added at previously-unused LUT positions.
+
+### Added
+
+- `{Spin2_v55}` accepted as a version directive (admits the same source
+  surface as `{Spin2_v54}` — v55 introduces no level-gated symbols).
+- Seven new bytecodes:
+  - `bc_read_bfield_pop` (`$7B`), `bc_write_bfield_pop` (`$7C`),
+    `bc_read_bfield_rfvar` (`$7E`), `bc_write_bfield_rfvar` (`$7F`)
+  - `bc_set_incdec_2_33` 32-entry block (`$80..$9F`)
+  - `bc_read_bfield_0_31` 32-entry block (`$C0..$DF`)
+  - `bc_write_bfield_0_31` 32-entry block (`$E0..$FF`)
+- Renames: `bc_con_n` → `bc_con_n1_14`, `bc_set_incdec` →
+  `bc_set_incdec_rfvar`.
+- New Windows-side GOLD regeneration workflow under `scripts/gold/`:
+  - `bundle.sh` / `apply.sh` container-side
+  - `rebuild-gold-lib.ps1` shared engine + per-suite `rebuild-gold.ps1`
+    drivers
+  - npm scripts: `gen-regold-tarball`, `apply-regold-tarball`
+
+### Changed
+
+- **Pointer inc/dec emission** (`compileVariable` pre/post inc-dec path):
+  step values in `[2, 33]` now emit a single-byte
+  `bc_set_incdec_2_33 + (step - 2)` instead of `bc_set_incdec` + rfvar.
+  Step 1 unchanged. Step ≥ 34 falls through to the rfvar form
+  (`bc_set_incdec_rfvar` + rfvar), preserved for forward compatibility.
+- **Bitfield read/write emission** (`compileVariableBitfield`): now
+  operation-aware. Reads emit `bc_read_bfield_{0_31,rfvar,pop}` and
+  writes emit `bc_write_bfield_{0_31,rfvar,pop}` directly, with no
+  trailing `bc_read`/`bc_write` byte. Saves 1 byte per bitfield access.
+  Compound assigns (`+=`, `~~`, etc.) still emit
+  `bc_setup_bfield_*` + assignmentBytecode, identical to v54a.
+- **Variable-operator LUT layout**: every entry from
+  `bc_set_incdec_rfvar` through `bc_setup_bfield_rfvar` shifted down by
+  ~100 to pack the table from `$79..$DF` into `$15..$7F`. The four new
+  32-entry blocks above occupy `$80..$FF`. Main-LUT bytecodes
+  (`bc_con_n1_14`, `bc_setup_reg_1D8_1F8`, etc.) are unchanged at
+  `$A0..$F0`.
+- **Interpreter image** (`src/ext/Spin2_interpreter.obj`): rebuilt for
+  v55 (header now `Spin2 Interpreter - v55 - 2026.05.07`). Now 6280
+  bytes (was 6212); the `_debugnop_` slot moved from `0xF34` to `0xF78`
+  to accommodate the expanded dispatch table.
+- **Error message** (`error_sdctn` / `error_sdnctn`): text aligned with
+  PNut v55's `error_sdnctbwl` — now reads "Structure does not contain
+  this BYTE/WORD/LONG/STRUCT name" (was generic "Structure does not
+  contain this name"). Reflects the v54 addition of struct-typed struct
+  members.
+
+### Fixed
+
+- **Error-code audit**: 8 duplicate-message sites that lacked
+  distinguishing codes have been assigned unique `m<GG><I>` codes (new
+  groups 64–69, plus `m402`, `m534`, `m535` filling in existing groups).
+  `npm run audit-errors` now reports `AUDIT PASSED`.
+
+### Tooling — gold-regen workflow
+
+- `scripts/gold/bundle.sh` packages all Windows-regen-eligible
+  test sources + per-suite drivers + manifest into a tarball ready for
+  transfer to a Windows box with PNut_v55 installed.
+- `scripts/gold/rebuild-gold-lib.ps1` shared engine invokes
+  `PNut_shell.exe` (the headless CLI; the GUI `PNut_v55.exe` doesn't
+  produce `.lst`/`.obj`/`.bin` from the command line) with retry on
+  `IOException` to survive Dropbox/AV file-lock races.
+- `scripts/gold/apply.sh` ingests the regen output back into
+  `TEST/` with a per-suite diff summary and confirmation prompt.
+
+### Verified
+
+- 275/275 regression tests pass against the regenerated v55 GOLDs.
+- 8 audit issues resolved → `AUDIT PASSED`.
+- 13 orphaned `*-pre/*__pre` GOLD files removed (no test consumes them;
+  the test framework explicitly filters `*-pre.spin2` sources).
+
 ## [1.54.7] 2026-05-09
 
 ### Fixed
