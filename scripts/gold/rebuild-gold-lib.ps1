@@ -149,21 +149,44 @@ NOTE: We need the headless variant (PNut_shell.exe inside the PNut_v${PNutVersio
             return
         }
 
-        # Brief sleep — Windows PNut sometimes holds output handles briefly.
-        # 300ms matches the long-standing legacy convention.
+        # Brief sleep — Windows PNut sometimes holds output handles briefly,
+        # and Dropbox/OneDrive/AV scanners can grab fresh files for a moment.
+        # 300ms matches the long-standing legacy convention; retry covers the
+        # case where the initial sleep wasn't enough.
         Start-Sleep -Milliseconds 300
 
-        # Rename produced outputs to .GOLD
+        # Rename produced outputs to .GOLD (with retry for file-lock races).
         $renamedExts = @()
+        $renameErrors = @()
         foreach ($ext in $Produces) {
             $src = "$baseName.$ext"
-            if (Test-Path $src) {
-                Rename-Item $src "$src.GOLD" -Force
-                $renamedExts += $ext
+            if (-not (Test-Path $src)) { continue }
+
+            $renamed = $false
+            $attempts = 0
+            $maxAttempts = 6  # total wait on failure: 200+400+800+1600+3200 = 6.2s
+            $delay = 200
+            while (-not $renamed -and $attempts -lt $maxAttempts) {
+                try {
+                    Rename-Item $src "$src.GOLD" -Force -ErrorAction Stop
+                    $renamed = $true
+                } catch [System.IO.IOException] {
+                    $attempts++
+                    if ($attempts -ge $maxAttempts) {
+                        $renameErrors += "${ext}: $($_.Exception.Message)"
+                    } else {
+                        Start-Sleep -Milliseconds $delay
+                        $delay *= 2
+                    }
+                }
             }
+            if ($renamed) { $renamedExts += $ext }
         }
 
-        if ($renamedExts.Count -gt 0) {
+        if ($renameErrors.Count -gt 0) {
+            Write-Output "  $fileName ($flag) -> PARTIAL: renamed [$($renamedExts -join ',')], FAILED [$($renameErrors -join '; ')]"
+            $stats.failed++
+        } elseif ($renamedExts.Count -gt 0) {
             Write-Output "  $fileName ($flag) -> .$($renamedExts -join '.GOLD .').GOLD"
             $stats.ok++
         } else {
