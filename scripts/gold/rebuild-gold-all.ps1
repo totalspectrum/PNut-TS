@@ -12,9 +12,11 @@
 .PARAMETER PNutVersion
     PNut compiler version to use. Default 55.
     Resolves to the HEADLESS CLI:
-    C:\Program Files (x86)\Parallax Inc\PNut_v<NN>\PNut_shell_v<NN>.exe
-    (fallback: PNut_shell_v<NN> on PATH). The GUI editor PNut_v<NN>.exe is
-    *not* used — it's interactive and produces no command-line output.
+    C:\Program Files (x86)\Parallax Inc\PNut_v<NN>\PNut_shell.exe
+    (fallback: bare PNut_shell on PATH). Version is selected by which
+    install dir hosts PNut_shell.exe — the binary itself has no version
+    suffix. The GUI editor PNut_v<NN>.exe is *not* used — it's interactive
+    and produces no command-line output.
 
 .PARAMETER PNutInstallRoot
     Install-root override (rare).
@@ -31,7 +33,7 @@
 
 .EXAMPLE
     .\rebuild-gold-all.ps1
-    # Regenerates every Windows-regen GOLD using PNut_shell_v55.
+    # Regenerates every Windows-regen GOLD using PNut_shell.exe from the v55 install.
 
 .EXAMPLE
     .\rebuild-gold-all.ps1 -PNutVersion 52
