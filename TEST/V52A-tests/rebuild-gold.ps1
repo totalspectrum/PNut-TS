@@ -31,9 +31,10 @@ try {
         -PNutBinary $PNutBinary `
         -DefaultFlag "-c" `
         -PerFilePatternFlag @{
+            # PowerShell -like is case-insensitive, so one entry covers
+            # 'debug', 'Debug', 'DEBUG', etc. (PS hashtable keys are also
+            # case-insensitive — multiple casings would parse-error.)
             "*debug*" = "-cd"
-            "*DEBUG*" = "-cd"
-            "*Debug*" = "-cd"
         }
 }
 finally {
