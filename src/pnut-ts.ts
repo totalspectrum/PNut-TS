@@ -28,7 +28,7 @@ export class PNutInTypeScript {
   private readonly program = new Command();
   //static isTesting: boolean = false;
   private options: OptionValues = this.program.opts();
-  private version: string = '1.54.7';
+  private version: string = '1.55.0';
   private argsArray: string[] = [];
   private context: Context;
   private spinDocument: SpinDocument | undefined = undefined;
