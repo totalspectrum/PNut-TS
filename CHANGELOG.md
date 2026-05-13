@@ -87,31 +87,9 @@ added at previously-unused LUT positions.
   contain this name"). Reflects the v54 addition of struct-typed struct
   members.
 
-### Fixed
-
-- **Error-code audit**: 8 duplicate-message sites that lacked
-  distinguishing codes have been assigned unique `m<GG><I>` codes (new
-  groups 64–69, plus `m402`, `m534`, `m535` filling in existing groups).
-  `npm run audit-errors` now reports `AUDIT PASSED`.
-
-### Tooling — gold-regen workflow
-
-- `scripts/gold/bundle.sh` packages all Windows-regen-eligible
-  test sources + per-suite drivers + manifest into a tarball ready for
-  transfer to a Windows box with PNut_v55 installed.
-- `scripts/gold/rebuild-gold-lib.ps1` shared engine invokes
-  `PNut_shell.exe` (the headless CLI; the GUI `PNut_v55.exe` doesn't
-  produce `.lst`/`.obj`/`.bin` from the command line) with retry on
-  `IOException` to survive Dropbox/AV file-lock races.
-- `scripts/gold/apply.sh` ingests the regen output back into
-  `TEST/` with a per-suite diff summary and confirmation prompt.
-
 ### Verified
 
 - 275/275 regression tests pass against the regenerated v55 GOLDs.
-- 8 audit issues resolved → `AUDIT PASSED`.
-- 13 orphaned `*-pre/*__pre` GOLD files removed (no test consumes them;
-  the test framework explicitly filters `*-pre.spin2` sources).
 
 ## [1.54.7] 2026-05-09
 
