@@ -278,7 +278,7 @@ export class Compiler {
           } else {
             physicalFileIndex = this.objectFileCount;
             if (this.objectFileOffset + cachedBinary.length > this.obj_limit) {
-              throw new Error(`OBJ data exceeds ${this.obj_limit / 1024}k limit`);
+              throw new Error(`OBJ data exceeds ${this.obj_limit / 1024}k limit (m690)`);
             }
             this.childImages.setOffset(this.objectFileOffset);
             this.childImages.ensureFits(this.objectFileOffset, cachedBinary.length);
@@ -547,7 +547,7 @@ export class Compiler {
             // save obj file into memory if a copy doesn't already exist
             // now copy obj data to output
             if (this.objectFileOffset + objectLength > this.obj_limit) {
-              throw new Error(`OBJ data exceeds ${this.obj_limit / 1024}k limit`);
+              throw new Error(`OBJ data exceeds ${this.obj_limit / 1024}k limit (m691)`);
             }
             // Save obj file into memory
             //  move P2.OBJ (this.objImage) into ObjFileBuff (this.childImages)

@@ -3392,7 +3392,7 @@ export class SpinResolver {
     this.getElement();
     if (this.currElement.type != eElementType.type_con_struct) {
       // [error_easn]
-      throw new Error('Expected an existing STRUCT name');
+      throw new Error('Expected an existing STRUCT name (m640)');
     }
     const structureID: number = this.currElement.numberValue;
     let record: ObjectStructureRecord = this.objectStructureSet.getStructureRecord(structureID);
@@ -3416,7 +3416,7 @@ export class SpinResolver {
       const [foundSymbol, symbolName] = this.getSymbol();
       if (!foundSymbol) {
         // [error_easm]
-        throw new Error('Expected a structure member name');
+        throw new Error('Expected a structure member name (m650)');
       }
 
       // @@checkmember: search through members for matching name
@@ -3446,8 +3446,8 @@ export class SpinResolver {
         // check continuation byte
         const continuation: number = record.nextByte();
         if (continuation === 0) {
-          // [error_sdctn]
-          throw new Error('Structure does not contain this name');
+          // [error_sdctn]  v55: text aligned with PNut's error_sdnctbwl
+          throw new Error('Structure does not contain this BYTE/WORD/LONG/STRUCT name (m660)');
         }
         // else continue to next member
       }
@@ -3464,21 +3464,21 @@ export class SpinResolver {
 
     if (size > 0xffff) {
       // [error_iscexb]
-      throw new Error('Indexed structures cannot exceed $FFFF bytes in size');
+      throw new Error('Indexed structures cannot exceed $FFFF bytes in size (m402)');
     }
     if (index < 0 || index > 0xffff) {
       // [error_simbf]
-      throw new Error('Structure index must be from 0 to $FFFF');
+      throw new Error('Structure index must be from 0 to $FFFF (m670)');
     }
     const byteOffset: number = index * size;
     if (byteOffset > this.obj_size_limit) {
       // [error_sehr]
-      throw new Error('Structure exceeds hub range of $FFFFF');
+      throw new Error('Structure exceeds hub range of $FFFFF (m534)');
     }
     offset += byteOffset;
     if (offset > this.obj_size_limit) {
       // [error_sehr]
-      throw new Error('Structure exceeds hub range of $FFFFF');
+      throw new Error('Structure exceeds hub range of $FFFFF (m535)');
     }
     this.getRightBracket();
     return offset;
@@ -5308,7 +5308,7 @@ export class SpinResolver {
       this.currElement = this.getElementObj();
       if (this.currElement.type != eElementType.type_con_struct) {
         // [error_eaesn]
-        throw new Error('Expected an existing STRUCT name');
+        throw new Error('Expected an existing STRUCT name (m641)');
       }
       const structureId: number = this.currElement.numberValue;
       //this.objectStructureSet.beginRecord();
@@ -5401,7 +5401,7 @@ export class SpinResolver {
             const upper: number = Number(upperResult.value);
             if (upper < 0 || upper >= boundaryLimit) {
               // [error_bnebwlb]
-              throw new Error('Bit number exceeds BYTE/WORD/LONG boundary');
+              throw new Error('Bit number exceeds BYTE/WORD/LONG boundary (m680)');
             }
             let lower: number = upper;
             if (this.checkDotDot()) {
@@ -5413,7 +5413,7 @@ export class SpinResolver {
               }
               if (lower < 0) {
                 // [error_bnebwlb]
-                throw new Error('Bit number exceeds BYTE/WORD/LONG boundary');
+                throw new Error('Bit number exceeds BYTE/WORD/LONG boundary (m681)');
               }
             }
             this.getRightBracket();
@@ -10540,7 +10540,7 @@ private checkDec(): boolean {
       const [isSymbol, symbolString] = this.getSymbol();
       if (isSymbol == false) {
         // [error_easmn]
-        throw new Error('Expected a structure member name');
+        throw new Error('Expected a structure member name (m651)');
       }
       if (this.isLogging) this.logMessage(`  -- CSR() Hunting for name=[${symbolString}]`);
 
@@ -10598,8 +10598,8 @@ private checkDec(): boolean {
         const endMarkerInterp: string = rcdSetEndMarker == 0 ? 'EndOfRcds' : 'MoreRcds';
         if (this.isLogging) this.logMessage(`  -- CSR() recdEndMarker=(${rcdSetEndMarker}) - ${endMarkerInterp}`);
         if (rcdSetEndMarker == 0) {
-          // [error_sdnctn]
-          throw new Error('Structure does not contain this name');
+          // [error_sdnctn]  v55: text aligned with PNut's error_sdnctbwl
+          throw new Error('Structure does not contain this BYTE/WORD/LONG/STRUCT name (m661)');
         }
         // continue at @@checkmember
       }
@@ -10643,8 +10643,8 @@ private checkDec(): boolean {
               }
             }
             if (!matched) {
-              // [error_sdnctn] — reuse "Structure does not contain this name" for unknown bitfield
-              throw new Error('Structure does not contain this name');
+              // [error_sdnctn] — reuse for unknown bitfield. v55: text aligned with PNut's error_sdnctbwl
+              throw new Error('Structure does not contain this BYTE/WORD/LONG/STRUCT name (m662)');
             }
             // 0x80000000 sentinel ensures nonzero for any valid descriptor, including descriptor == 0 (bit 0, span 1)
             resultStructure.compiledBitfield = 0x80000000 | resolvedDescriptor;
@@ -10761,7 +10761,7 @@ private checkDec(): boolean {
         const instanceCount: number = Number(valueReturn.value);
         if (instanceCount < 0 || instanceCount > 0xffff) {
           // [error_simbf]
-          throw new Error('Structure index must be from 0 to $FFFF');
+          throw new Error('Structure index must be from 0 to $FFFF (m671)');
         }
         const scaledMemberSize: number = memberSize * instanceCount;
         if (scaledMemberSize > this.obj_limit) {
