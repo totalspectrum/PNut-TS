@@ -9310,10 +9310,17 @@ private checkDec(): boolean {
       this.compileVariable(variable);
       if (this.isLogging) this.logMessage(`  -- compVar() resume after var.type changed with variable.type [${eElementType[variable.type]}]`);
       if (incDecValue != 1) {
-        this.objImage.setOffsetTo(this.objImage.offset - 1); // remove last bytecode
-        this.objImage.appendByte(eByteCode.bc_set_incdec_rfvar);
-        this.compileRfvar(BigInt(incDecValue));
-        this.objImage.appendByte(variable.assignmentBytecode); // now put it back
+        // v55: inline single-byte form for step 2..33; rfvar form for 34+.
+        // Pointer arithmetic only produces step 1/2/4, so the rfvar branch is
+        // dead in practice but kept for forward compatibility.
+        this.objImage.setOffsetTo(this.objImage.offset - 1); // back up over assign byte
+        if (incDecValue <= 33) {
+          this.objImage.appendByte(eByteCode.bc_set_incdec_2_33 + (incDecValue - 2));
+        } else {
+          this.objImage.appendByte(eByteCode.bc_set_incdec_rfvar);
+          this.compileRfvar(BigInt(incDecValue));
+        }
+        this.objImage.appendByte(variable.assignmentBytecode); // re-emit assign byte
       }
       workIsComplete = true; // DONE
     }
@@ -9658,6 +9665,16 @@ private checkDec(): boolean {
   }
 
   private compileVariableReadWriteAssign(variable: iVariableReturn) {
+    // v55: for bitfield read/write, the specialized bc_{read,write}_bfield_*
+    // bytecode emitted in compileVariableBitfield already completes the operation —
+    // no trailing bc_read/bc_write byte is needed. Compound assigns still emit
+    // bc_setup_bfield_* + assignmentBytecode, identical to v54a.
+    if (
+      variable.bitfieldFlag === true &&
+      (variable.operation === eVariableOperation.VO_READ || variable.operation === eVariableOperation.VO_WRITE)
+    ) {
+      return;
+    }
     switch (variable.operation) {
       case eVariableOperation.VO_READ:
         this.objImage.appendByte(eByteCode.bc_read);
@@ -9675,63 +9692,87 @@ private checkDec(): boolean {
 
   private compileVariableBitfield(variable: iVariableReturn) {
     // PNut @@enterbit:
-    if (variable.bitfieldFlag === true) {
-      if (variable.bitfieldStructFlag === true) {
-        // v54: struct-resolved bitfield. Source is positioned at '.', then bitfield name.
-        //  Consume both, then emit directly from the pre-resolved descriptor.
-        this.getDot();
-        this.getElement(); // consume bitfield name (already validated against the struct record)
-        const descriptor: number = variable.compiledBitfield & 0xffff;
-        if (descriptor <= 0x1f) {
-          // single bit 0..31 (span == 1)
-          this.objImage.appendByte(eByteCode.bc_setup_bfield_0_31 + descriptor);
-        } else {
-          // multi-bit or bit >= 32 (encoded via rfvar)
-          this.objImage.appendByte(eByteCode.bc_setup_bfield_rfvar);
-          this.compileRfvar(BigInt(descriptor));
-        }
-        return;
-      }
+    if (variable.bitfieldFlag !== true) return;
+
+    // v55: choose bytecode family by operation.
+    //   VO_READ   → bc_read_bfield_{0_31,rfvar,pop}   (no trailing bc_read)
+    //   VO_WRITE  → bc_write_bfield_{0_31,rfvar,pop}  (no trailing bc_write)
+    //   VO_ASSIGN → bc_setup_bfield_{0_31,rfvar,pop}  (caller still emits assign byte)
+    const op = variable.operation;
+    const popBytecode: eByteCode =
+      op === eVariableOperation.VO_READ
+        ? eByteCode.bc_read_bfield_pop
+        : op === eVariableOperation.VO_WRITE
+          ? eByteCode.bc_write_bfield_pop
+          : eByteCode.bc_setup_bfield_pop;
+    const rfvarBytecode: eByteCode =
+      op === eVariableOperation.VO_READ
+        ? eByteCode.bc_read_bfield_rfvar
+        : op === eVariableOperation.VO_WRITE
+          ? eByteCode.bc_write_bfield_rfvar
+          : eByteCode.bc_setup_bfield_rfvar;
+    const singleBitBase: eByteCode =
+      op === eVariableOperation.VO_READ
+        ? eByteCode.bc_read_bfield_0_31
+        : op === eVariableOperation.VO_WRITE
+          ? eByteCode.bc_write_bfield_0_31
+          : eByteCode.bc_setup_bfield_0_31;
+
+    if (variable.bitfieldStructFlag === true) {
+      // v54: struct-resolved bitfield. Source is positioned at '.', then bitfield name.
+      //  Consume both, then emit directly from the pre-resolved descriptor.
       this.getDot();
-      this.getLeftBracket();
-      if (variable.bitfieldConstantFlag == false) {
-        this.skipExpression(); // already compiled, skip it
-        if (this.checkDotDot()) {
-          this.skipExpression();
-        }
-        // not constant bitfield, already compiled
-        this.objImage.appendByte(eByteCode.bc_setup_bfield_pop);
+      this.getElement(); // consume bitfield name (already validated against the struct record)
+      const descriptor: number = variable.compiledBitfield & 0xffff;
+      if (descriptor <= 0x1f) {
+        // single bit 0..31 (span == 1)
+        this.objImage.appendByte(singleBitBase + descriptor);
       } else {
-        // bitfieldConstantFlag is true
-        const firstValueReturn = this.skipExpressionCheckCon();
-        if (firstValueReturn.isResolved === false) {
-          // [error_eicon]
-          throw new Error('Expected integer constant (m290)');
-        }
-        const firstValue: number = Number(BigInt(firstValueReturn.value) & BigInt(0x3ff));
-        let encodedBitfield: number = firstValue; // default: count of additional bits | bit number
-        if (this.checkDotDot()) {
-          // we have a bit plus additional bit(s)
-          const secondValueReturn = this.skipExpressionCheckCon();
-          if (secondValueReturn.isResolved === false) {
-            // [error_eicon]
-            throw new Error('Expected integer constant (m291)');
-          }
-          const secondValue: number = Number(BigInt(secondValueReturn.value) & BigInt(0x3ff));
-          // encode: count of additional bits | bit number
-          encodedBitfield = (((firstValue - secondValue) & 0x1f) << 5) | (secondValue & 0x1f);
-        }
-        if (encodedBitfield <= 0x1f) {
-          // have single bit
-          this.objImage.appendByte(eByteCode.bc_setup_bfield_0_31 + encodedBitfield);
-        } else {
-          // have bit plus additional bit(s)
-          this.objImage.appendByte(eByteCode.bc_setup_bfield_rfvar);
-          this.compileRfvar(BigInt(encodedBitfield));
-        }
+        // multi-bit or bit >= 32 (encoded via rfvar)
+        this.objImage.appendByte(rfvarBytecode);
+        this.compileRfvar(BigInt(descriptor));
       }
-      this.getRightBracket();
+      return;
     }
+    this.getDot();
+    this.getLeftBracket();
+    if (variable.bitfieldConstantFlag == false) {
+      this.skipExpression(); // already compiled, skip it
+      if (this.checkDotDot()) {
+        this.skipExpression();
+      }
+      // not constant bitfield, descriptor is on the stack at runtime
+      this.objImage.appendByte(popBytecode);
+    } else {
+      // bitfieldConstantFlag is true
+      const firstValueReturn = this.skipExpressionCheckCon();
+      if (firstValueReturn.isResolved === false) {
+        // [error_eicon]
+        throw new Error('Expected integer constant (m290)');
+      }
+      const firstValue: number = Number(BigInt(firstValueReturn.value) & BigInt(0x3ff));
+      let encodedBitfield: number = firstValue; // default: count of additional bits | bit number
+      if (this.checkDotDot()) {
+        // we have a bit plus additional bit(s)
+        const secondValueReturn = this.skipExpressionCheckCon();
+        if (secondValueReturn.isResolved === false) {
+          // [error_eicon]
+          throw new Error('Expected integer constant (m291)');
+        }
+        const secondValue: number = Number(BigInt(secondValueReturn.value) & BigInt(0x3ff));
+        // encode: count of additional bits | bit number
+        encodedBitfield = (((firstValue - secondValue) & 0x1f) << 5) | (secondValue & 0x1f);
+      }
+      if (encodedBitfield <= 0x1f) {
+        // have single bit
+        this.objImage.appendByte(singleBitBase + encodedBitfield);
+      } else {
+        // have bit plus additional bit(s)
+        this.objImage.appendByte(rfvarBytecode);
+        this.compileRfvar(BigInt(encodedBitfield));
+      }
+    }
+    this.getRightBracket();
   }
 
   private compileRfvars(value: bigint) {
