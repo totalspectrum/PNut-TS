@@ -9669,10 +9669,7 @@ private checkDec(): boolean {
     // bytecode emitted in compileVariableBitfield already completes the operation —
     // no trailing bc_read/bc_write byte is needed. Compound assigns still emit
     // bc_setup_bfield_* + assignmentBytecode, identical to v54a.
-    if (
-      variable.bitfieldFlag === true &&
-      (variable.operation === eVariableOperation.VO_READ || variable.operation === eVariableOperation.VO_WRITE)
-    ) {
+    if (variable.bitfieldFlag === true && (variable.operation === eVariableOperation.VO_READ || variable.operation === eVariableOperation.VO_WRITE)) {
       return;
     }
     switch (variable.operation) {
