@@ -265,6 +265,154 @@ purity anyway).
 
 ---
 
+## 6. GOLD-regen workflow cleanup (deferred from v55 prep, 2026-05-11)
+
+**Context:** A unified GOLD-regen workflow was built in `scripts/gold/`
+(library + driver + bundle/apply scripts + 26 per-suite `rebuild-gold.ps1`
+files + npm scripts `gen-regold-tarball` / `apply-regold-tarball`). It
+supersedes the legacy per-suite scaffolding and the manual "tarball-by-hand
+to Windows" process. The following cleanup items were deferred so the
+workflow could be built and verified end-to-end without touching unrelated
+state.
+
+### 6.1 Delete legacy `<SUITE>-rebuild-v52/` scaffolding directories
+
+Twenty-two directories under `TEST/<suite>/<SUITE>-rebuild-v52/` (and
+`TEST/LARGE-tests/<sub>/LARGE-<sub>-rebuild-v52/`) contain near-identical
+hand-written rebuild-gold scripts, each hard-coded to `PNut_shell_v52`. They
+are gitignored (`.gitignore:293+`) but live in working trees and cause
+discovery noise. The new `TEST/<suite>/rebuild-gold.ps1` files (committed)
+replace them entirely.
+
+```bash
+find TEST -type d -name '*-rebuild-v*' -exec rm -rf {} +
+```
+
+Remove the corresponding `.gitignore` entries (line 293+, the `# v52 GOLD
+file rebuild folders (temporary - for Windows compilation)` block) at the
+same time so the gitignore doesn't carry dead entries.
+
+**Trigger:** after the first successful end-to-end v55 regen (sanity-check
+round-trip against v52 passes, v55 regen lands without surprises). The
+legacy scripts are a fallback if the new workflow has a latent bug; delete
+once the new workflow has produced at least one trustworthy GOLD set.
+
+### 6.2 EXCEPT-tests errout-format resolution
+
+`scripts/gold/investigate-errout.ps1` was written to capture Windows PNut's
+`Error.txt` format for the 7 EXCEPT test sources + the CON `symbol_length_test`
+orphan. Output (JSON, paste-back) settles whether EXCEPT-tests can join the
+Windows-regen scope or must remain pnut-ts-derived.
+
+Three possible outcomes drive different follow-ups:
+
+- **Windows produces `path:line:error:message`** (matches pnut-ts gcc-style):
+  add `TEST/EXCEPT-tests/rebuild-gold.ps1` (default `-c`, but capture
+  `Error.txt → .errout.GOLD` on compile failure). Library needs a small
+  extension to the success-path-only behavior. Regenerate all 61 EXCEPT
+  GOLDs (incidentally fixing the stale `/workspaces/Pnut-ts-dev/...` paths
+  baked into 5 of them).
+
+- **Windows produces a different parseable format**: write a normalizer in
+  the library that translates Windows `Error.txt` to canonical
+  `path:line:error:message` before saving as GOLD. Otherwise as above.
+
+- **Windows format is irreconcilable**: leave EXCEPT-tests excluded from
+  Windows regen. Document the pnut-ts-as-errout-source convention in the
+  test file headers. Delete the orphan `TEST/CON-tests/symbol_length_test.errout.GOLD`
+  (unreferenced, unproduced by any current code).
+
+**Trigger:** run `investigate-errout.ps1` on Windows whenever next at the
+Windows box. The empirical output dictates the path; no design work needed
+until then.
+
+### 6.3 Clean up `.elem*` intermediate file noise
+
+`find TEST -name '*.elem*'` shows 541 stale intermediate files:
+- 344 `.elem` (pnut-ts `--regression element` output, kept after test runs)
+- 196 `.elemORIG` (manual baselines from earlier dev work)
+- 1 `.elemGOOD` (one-off)
+
+All gitignored. None used by current tests. They pollute IDE file explorers
+and `find`/`ls` output but cause no functional issue.
+
+```bash
+find TEST -name '*.elem' -o -name '*.elemORIG' -o -name '*.elemGOOD' -delete
+```
+
+Worth turning into `npm run clean-elem` if it becomes a recurring chore.
+Probably won't — once cleared, the elementizer-output convention has moved
+on.
+
+**Trigger:** when the working tree noise becomes irritating, or as a one-time
+hygiene pass after the v55 regen lands.
+
+### 6.4 LARGE-tests/TOF gitignored GOLDs investigation
+
+`.gitignore:232-237` explicitly excludes six TOF GOLDs:
+```
+TEST/LARGE-tests/TOF/isp_180degrFOV_TOFsensorSmall.{bin,lst,obj}.GOLD
+TEST/LARGE-tests/TOF/isp_hdmi_debug.{bin,lst,obj}.GOLD
+```
+
+Reason for the exclusion is unclear from `git log` and `git blame` on the
+.gitignore alone. Possibilities: file size, known-flaky on slow machines
+(the existing test runner already has a TOF timeout note in CLAUDE.md), or
+intentional pnut-ts-only baselines that PNut can't reproduce.
+
+After the v55 regen, the `rebuild-gold.ps1` driver will produce these GOLDs
+on Windows (since the source files exist in the suite). The diff against
+... nothing-committed will be visible in `apply.sh`'s output. Worth
+checking at that point whether the exclusion still makes sense.
+
+**Trigger:** first v55 `apply-regold-tarball` run. If new GOLDs for these
+six files are produced and the diff is clean, consider whether to commit
+them and drop the gitignore entries.
+
+### 6.5 V52A-tests rule drift — verify after first regen
+
+The legacy `V52A-rebuild-v52/rebuild-gold.ps1` compiled every V52A file
+with `-cd`. The `.test.ts` (per user's "this is the formal source of
+truth" directive) uses a case-insensitive substring rule: files containing
+"debug" get `-d`, others don't. The new `TEST/V52A-tests/rebuild-gold.ps1`
+implements the substring rule.
+
+Three of 17 V52A files contain "debug":
+- `v46_test_debug_mask.spin2`
+- `v50_test_conditional_debug.spin2`
+- `v52a_test_debug_end_session.spin2`
+
+The other 14 will compile with `-c` under the new rule. If existing GOLDs
+were generated with `-cd` (the legacy behavior), the v52 round-trip sanity
+check will surface 14 unexpected diffs. Either:
+
+- the `.test.ts` rule is correct and existing GOLDs were generated under
+  wrong rules (regenerate, fix the drift)
+- the `.test.ts` rule is wrong (some "non-debug-named" files actually use
+  debug() and need `-d` to compile correctly) → fix the rule
+
+**Trigger:** v52 round-trip sanity check output. The diff signature reveals
+which side has the bug.
+
+### 6.6 COV-tests `coverage_003_v44.spin2` — version-forced file
+
+The pnut-ts test passes `-44` to force compile-as-v44 for this one file.
+Windows PNut (single binary, e.g. `PNut_v55.exe`) cannot produce
+v44-bytecode output from a v55 install. The new `COV-tests/rebuild-gold.ps1`
+still includes the file but compiles it with the current version's bytecode.
+
+Options for handling:
+- Skip the file in Windows regen (leave its existing GOLD untouched — but
+  then the GOLD becomes stale relative to other files in the same suite)
+- Install `PNut_v44.exe` alongside the current version and call out to it
+  for just this one file (manifest-driven per-file version override)
+- Drop the `-44` test (cost: lose v44 backward-compat coverage)
+
+**Trigger:** v55 regen apply step. If the v44 GOLD diffs unexpectedly, this
+is the cause. Pick the handling option then.
+
+---
+
 ## Cross-cutting note: regression tests against "us-vs-us" GOLDs
 
 Three of the items above (`#1 op_qlog`, `#2 preproc GOLDs`, the deleted
